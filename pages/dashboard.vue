@@ -6,20 +6,20 @@
  * Requires authentication.
  */
 import { useCohortsStore } from '~/stores/cohorts'
-import { useAuthStore } from '~/stores/auth'
 
 const cohortsStore = useCohortsStore()
-const authStore = useAuthStore()
 
 // Fetch cohorts on mount
 onMounted(() => {
-  if (authStore.isSignedIn) {
-    cohortsStore.fetchCohorts()
-  }
+  cohortsStore.fetchCohorts()
 })
 
 const selectCohort = (cohortId: string) => {
   cohortsStore.selectCohort(cohortId)
+}
+
+const setAffiliationFilter = (filter: 'academic' | 'external') => {
+  cohortsStore.setAffiliationFilter(filter)
 }
 
 const getStatusClass = (status: string): string => {
@@ -62,8 +62,27 @@ const progressSteps = [
     <div class="dash-grid">
       <!-- Sidebar: Cohort List -->
       <div class="dash-sidebar">
+        <!-- Affiliation Toggle -->
+        <div class="affiliation-toggle">
+          <button
+            class="toggle-btn"
+            :class="{ active: cohortsStore.affiliationFilter === 'academic' }"
+            @click="setAffiliationFilter('academic')"
+          >
+            Academic
+          </button>
+          <button
+            class="toggle-btn"
+            :class="{ active: cohortsStore.affiliationFilter === 'external' }"
+            @click="setAffiliationFilter('external')"
+          >
+            External
+          </button>
+        </div>
+
+        <!-- Cohort Cards -->
         <div
-          v-for="cohort in cohortsStore.cohorts"
+          v-for="cohort in cohortsStore.filteredCohorts"
           :key="cohort.id"
           class="dash-cohort-card"
           :class="{ selected: cohortsStore.selectedCohortId === cohort.id }"
@@ -78,6 +97,14 @@ const progressSteps = [
           <span class="cohort-status" :class="getStatusClass(cohort.status)">
             {{ getStatusLabel(cohort.status) }}
           </span>
+          <span v-if="cohort.affiliation === 'industry'" class="cohort-affiliation">
+            Industry
+          </span>
+        </div>
+
+        <!-- Empty state for no cohorts -->
+        <div v-if="cohortsStore.filteredCohorts.length === 0" class="empty-sidebar">
+          <p>No {{ cohortsStore.affiliationFilter }} cohorts found.</p>
         </div>
       </div>
 
@@ -306,6 +333,46 @@ const progressSteps = [
   gap: 1rem;
 }
 
+.affiliation-toggle {
+  display: flex;
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+
+  &:hover:not(.active) {
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  &.active {
+    background: var(--teal);
+    color: white;
+    box-shadow: 0 2px 4px rgba(13, 115, 119, 0.2);
+  }
+}
+
+.empty-sidebar {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 300;
+}
+
 .dash-cohort-card {
   background: var(--card);
   border-radius: var(--radius);
@@ -345,6 +412,20 @@ const progressSteps = [
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 0.4rem;
+  }
+
+  .cohort-affiliation {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 500;
+    padding: 0.12rem 0.4rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.4rem;
+    margin-left: 0.4rem;
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
   }
 }
 
