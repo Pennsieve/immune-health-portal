@@ -1,0 +1,69 @@
+/**
+ * CSS Variables and Design Tokens
+ *
+ * Based on the Immune Health Portal design system.
+ */
+
+:root {
+  // Colors
+  --ink: #0a0f1a;
+  --paper: #f4f1eb;
+  --cream: #faf8f4;
+  --accent: #1a5276;
+  --accent-light: #2980b9;
+  --warm: #c0392b;
+  --warm-light: #e74c3c;
+  --green: #1a7a4c;
+  --green-light: #27ae60;
+  --gold: #b7950b;
+  --gold-light: #f1c40f;
+  --teal: #0d7377;
+  --teal-light: #10908f;
+  --muted: #7f8c8d;
+  --line: #bdc3c7;
+  --card: #ffffff;
+
+  // Shadows
+  --card-shadow: 0 2px 20px rgba(10, 15, 26, 0.08);
+
+  // Spacing
+  --radius: 12px;
+  --nav-h: 64px;
+  --timeline-width: 3px;
+}
+
+// Theme color classes for pipeline steps
+.theme-blue {
+  --theme-color: var(--accent);
+  --theme-bg: rgba(26, 82, 118, 0.08);
+}
+
+.theme-green {
+  --theme-color: var(--green);
+  --theme-bg: rgba(26, 122, 76, 0.08);
+}
+
+.theme-gold {
+  --theme-color: var(--gold);
+  --theme-bg: rgba(183, 149, 11, 0.08);
+}
+
+.theme-red {
+  --theme-color: var(--warm);
+  --theme-bg: rgba(192, 57, 43, 0.08);
+}
+
+.theme-teal {
+  --theme-color: #117a65;
+  --theme-bg: rgba(17, 122, 101, 0.08);
+}
+
+.theme-purple {
+  --theme-color: #6c3483;
+  --theme-bg: rgba(108, 52, 131, 0.08);
+}
+
+.theme-navy {
+  --theme-color: #1b2631;
+  --theme-bg: rgba(27, 38, 49, 0.08);
+}

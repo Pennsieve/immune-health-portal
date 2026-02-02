@@ -1,0 +1,38 @@
+{
+  "name": "immune-health-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@contentful/rich-text-html-renderer": "^16.6.9",
+    "@pinia/nuxt": "^0.5.5",
+    "aws-amplify": "^6.6.7",
+    "contentful": "^10.15.1",
+    "nuxt": "^3.14.0",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^1.6.1",
+    "@nuxt/eslint": "^0.7.2",
+    "@types/node": "^22.9.0",
+    "eslint": "^9.14.0",
+    "sass": "^1.81.0",
+    "typescript": "^5.6.3",
+    "vue-tsc": "^2.1.10"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
