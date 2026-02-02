@@ -5,9 +5,19 @@
  * User's cohort dashboard showing study progress, sample status, and Pennsieve links.
  * Requires authentication.
  */
+import { storeToRefs } from 'pinia'
 import { useCohortsStore } from '~/stores/cohorts'
 
 const cohortsStore = useCohortsStore()
+
+// Use storeToRefs for reactive state and getters
+const {
+  affiliationFilter,
+  filteredCohorts,
+  selectedCohort,
+  selectedCohortId,
+  selectedCohortSamples,
+} = storeToRefs(cohortsStore)
 
 // Fetch cohorts on mount
 onMounted(() => {
@@ -66,14 +76,14 @@ const progressSteps = [
         <div class="affiliation-toggle">
           <button
             class="toggle-btn"
-            :class="{ active: cohortsStore.affiliationFilter === 'academic' }"
+            :class="{ active: affiliationFilter === 'academic' }"
             @click="setAffiliationFilter('academic')"
           >
             Academic
           </button>
           <button
             class="toggle-btn"
-            :class="{ active: cohortsStore.affiliationFilter === 'external' }"
+            :class="{ active: affiliationFilter === 'external' }"
             @click="setAffiliationFilter('external')"
           >
             External
@@ -82,10 +92,10 @@ const progressSteps = [
 
         <!-- Cohort Cards -->
         <div
-          v-for="cohort in cohortsStore.filteredCohorts"
+          v-for="cohort in filteredCohorts"
           :key="cohort.id"
           class="dash-cohort-card"
-          :class="{ selected: cohortsStore.selectedCohortId === cohort.id }"
+          :class="{ selected: selectedCohortId === cohort.id }"
           @click="selectCohort(cohort.id)"
         >
           <div class="cohort-name">
@@ -103,19 +113,19 @@ const progressSteps = [
         </div>
 
         <!-- Empty state for no cohorts -->
-        <div v-if="cohortsStore.filteredCohorts.length === 0" class="empty-sidebar">
-          <p>No {{ cohortsStore.affiliationFilter }} cohorts found.</p>
+        <div v-if="filteredCohorts.length === 0" class="empty-sidebar">
+          <p>No {{ affiliationFilter }} cohorts found.</p>
         </div>
       </div>
 
       <!-- Main Content -->
       <div class="dash-main">
-        <template v-if="cohortsStore.selectedCohort">
+        <template v-if="selectedCohort">
           <!-- Progress Panel -->
           <div class="dash-panel">
             <h3>Study Progress</h3>
             <div class="panel-subtitle">
-              {{ cohortsStore.selectedCohort.name }} – {{ cohortsStore.selectedCohort.objectives }}
+              {{ selectedCohort.name }} – {{ selectedCohort.objectives }}
             </div>
 
             <div class="progress-timeline">
@@ -137,14 +147,14 @@ const progressSteps = [
           <div class="dash-panel">
             <h3>Processing Tracker</h3>
             <div class="panel-subtitle">
-              {{ cohortsStore.selectedCohort.totalSamples }} total samples across {{ cohortsStore.selectedCohort.subjectCount }} subjects · {{ cohortsStore.selectedCohort.timepointCount }} timepoints each
+              {{ selectedCohort.totalSamples }} total samples across {{ selectedCohort.subjectCount }} subjects · {{ selectedCohort.timepointCount }} timepoints each
             </div>
 
             <div class="tracker-grid">
               <div class="tracker-card">
                 <span class="tracker-label">Received</span>
                 <span class="tracker-value" style="color: var(--green)">32</span>
-                <span class="tracker-context">of {{ cohortsStore.selectedCohort.totalSamples }} samples</span>
+                <span class="tracker-context">of {{ selectedCohort.totalSamples }} samples</span>
                 <div class="qc-bar">
                   <div class="qc-bar-fill" style="width: 80%; background: var(--green-light)" />
                 </div>
@@ -162,7 +172,7 @@ const progressSteps = [
               <div class="tracker-card">
                 <span class="tracker-label">CyTOF Acquired</span>
                 <span class="tracker-value" style="color: var(--gold)">18</span>
-                <span class="tracker-context">of {{ cohortsStore.selectedCohort.totalSamples }} planned</span>
+                <span class="tracker-context">of {{ selectedCohort.totalSamples }} planned</span>
                 <div class="qc-bar">
                   <div class="qc-bar-fill" style="width: 45%; background: var(--gold-light)" />
                 </div>
@@ -201,9 +211,9 @@ const progressSteps = [
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="sample in cohortsStore.selectedCohortSamples" :key="sample.id">
+                  <tr v-for="sample in selectedCohortSamples" :key="sample.id">
                     <td class="mono">
-                      {{ cohortsStore.selectedCohort.acronym }}-{{ sample.subjectId }}-{{ sample.timepoint === 'Baseline' ? 'T0' : 'T4' }}
+                      {{ selectedCohort.acronym }}-{{ sample.subjectId }}-{{ sample.timepoint === 'Baseline' ? 'T0' : 'T4' }}
                     </td>
                     <td>Subject {{ sample.subjectId }}</td>
                     <td>{{ sample.timepoint }}</td>
@@ -248,7 +258,7 @@ const progressSteps = [
           <div class="dash-panel">
             <h3>Billing & Budget</h3>
             <div class="panel-subtitle">
-              Account: {{ cohortsStore.selectedCohort.budgetCode || 'Not specified' }} · Billed via iLabs
+              Account: {{ selectedCohort.budgetCode || 'Not specified' }} · Billed via iLabs
             </div>
 
             <div class="billing-summary">
