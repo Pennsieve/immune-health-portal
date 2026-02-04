@@ -2,6 +2,31 @@
 
 Penn's Institute for Immunology & Immune Health (I3H) - Standardized Immune Profiling Portal.
 
+## Quick Start
+
+```bash
+# Clone and install
+git clone <repository-url>
+cd immune-health-portal
+npm install
+
+# Configure environment (DEV credentials pre-configured)
+cp .env.example .env
+
+# Start dev server
+npm run dev
+```
+
+Open http://localhost:3000 and sign in with your Pennsieve credentials!
+
+## Features
+
+- **Service Catalog**: Browse I3H core services with Penn internal/academic external pricing
+- **Project Intake**: Submit new project requests with detailed requirements
+- **My Cohorts**: Manage and track research cohorts with sample data
+- **Pennsieve Authentication**: Secure login with AWS Cognito integration
+- **Dynamic Pricing**: Toggle between internal and external rates
+
 ## Tech Stack
 
 - **Framework**: Nuxt 3 (Vue 3)
@@ -15,33 +40,52 @@ Penn's Institute for Immunology & Immune Health (I3H) - Standardized Immune Prof
 - Node.js >= 18.0.0
 - npm >= 9.0.0
 
-## Setup
+## Local Setup
 
-1. **Install dependencies**
+### 1. Install Dependencies
 
 ```bash
 npm install
 ```
 
-2. **Configure environment variables**
+**Using nvm (recommended for Node version management):**
 
-Copy `.env.example` to `.env` and fill in the required values:
+```bash
+nvm use 18
+npm install
+```
+
+### 2. Configure Environment Variables
+
+Copy `.env.example` to `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-### Required Environment Variables
+**Good news!** The `.env.example` file includes pre-configured **Pennsieve DEV credentials**, so you can start developing immediately without additional configuration.
 
-#### Pennsieve Authentication (AWS Cognito)
+### Pre-Configured Values (DEV Environment)
 
-These are required for Pennsieve login functionality:
+The following are already set in `.env.example`:
 
-- `USER_POOL_ID` - AWS Cognito User Pool ID
-- `USER_POOL_WEB_CLIENT_ID` - Cognito app client ID
-- `OAUTH_DOMAIN` - Cognito OAuth domain
-- `OAUTH_REDIRECT_SIGNIN` - OAuth redirect URL after login
-- `OAUTH_REDIRECT_SIGNOUT` - OAuth redirect URL after logout
+```bash
+# Pennsieve DEV Cognito credentials
+USER_POOL_ID=us-east-1_FVLhJ7CQA
+USER_POOL_WEB_CLIENT_ID=703lm5d8odccu21pagcfjkeaea
+OAUTH_DOMAIN=pennsieve-dev-users2.auth.us-east-1.amazoncognito.com
+
+# API endpoints
+PENNSIEVE_API_HOST=https://api.pennsieve.net
+PENNSIEVE_API2_HOST=https://api2.pennsieve.net
+```
+
+**You don't need to modify anything** unless you want to:
+- Use production Pennsieve credentials
+- Configure Contentful CMS
+- Enable ORCID OAuth login
+
+### Optional Environment Variables
 
 #### Contentful CMS (Optional)
 
@@ -49,14 +93,28 @@ For dynamic content management:
 
 - `CONTENTFUL_SPACE_ID` - Your Contentful space ID
 - `CONTENTFUL_ACCESS_TOKEN` - Content Delivery API token
-- `CONTENTFUL_PREVIEW_TOKEN` - Content Preview API token (optional)
+- `CONTENTFUL_PREVIEW_TOKEN` - Content Preview API token
+
+#### ORCID OAuth (Optional)
+
+For federated login:
+
+- `ORCID_CLIENT_ID` - ORCID application client ID
+- `ORCID_API_HOST` - ORCID API endpoint (sandbox or production)
 
 ## Development
 
-```bash
-# Start development server
-npm run dev
+### Start the Dev Server
 
+```bash
+npm run dev
+```
+
+The app will be available at **http://localhost:3000**
+
+### Other Commands
+
+```bash
 # Build for production
 npm run build
 
@@ -68,6 +126,107 @@ npm run typecheck
 
 # Lint
 npm run lint
+
+# Fix linting issues
+npm run lint:fix
+```
+
+## Testing Authentication
+
+### Login with Pennsieve Credentials
+
+1. Navigate to http://localhost:3000
+2. Click **"Sign In"** in the header
+3. Enter your Pennsieve credentials
+
+**Need credentials?**
+- Create a Pennsieve account at [app.pennsieve.io](https://app.pennsieve.io)
+- Or request **DEV environment** test credentials from your Pennsieve admin
+
+### Supported Authentication Methods
+
+- **Email/Password**: Standard login with Pennsieve credentials
+- **Two-Factor Authentication (2FA)**: TOTP-based MFA if enabled on your account
+- **ORCID Login**: Federated login via ORCID (when `ORCID_CLIENT_ID` is configured)
+
+### Protected Routes
+
+The following routes require authentication:
+
+- `/dashboard` - My Cohorts page
+- `/intake` - Project intake form
+
+Unauthenticated users are automatically redirected to the home page.
+
+### Verifying Authentication
+
+After successful login:
+- ✓ User menu appears in the header with your initials
+- ✓ You can access `/dashboard` and `/intake` pages
+- ✓ Auth token is stored in cookies
+- ✓ Profile data is loaded from Pennsieve API
+
+## Troubleshooting
+
+### Port Already in Use
+
+If port 3000 is busy, Nuxt will automatically try 3001, 3002, etc.
+
+Or specify a custom port:
+```bash
+PORT=3001 npm run dev
+```
+
+### Node Version Issues
+
+Ensure you're using Node 18 or higher:
+
+```bash
+node --version  # Should show v18.x.x or higher
+
+# Using nvm:
+nvm install 18
+nvm use 18
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Authentication Errors
+
+**"User pool client does not exist"**
+- Clear browser cache and cookies
+- Hard refresh: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
+- Try an incognito/private window
+- Verify your `.env` file matches `.env.example`
+
+**"USER_SRP_AUTH is not enabled"**
+- The `authFlowType` is now correctly configured
+- If issues persist, clear browser auth state (see below)
+
+### Clear Browser Auth State
+
+To completely reset authentication:
+
+1. Open DevTools (`F12` or `Cmd+Option+I`)
+2. Go to **Application** → **Storage**
+3. Click **Clear site data**
+4. Check all boxes and click **Clear site data**
+5. Reload the page
+
+Or manually delete Cognito cookies:
+1. DevTools → **Application** → **Cookies** → `http://localhost:3000`
+2. Delete all cookies starting with `CognitoIdentityServiceProvider`
+
+### Dev Server Won't Start
+
+```bash
+# Stop any existing processes
+pkill -f "nuxt dev"
+
+# Clean install
+rm -rf node_modules .nuxt
+npm install
+npm run dev
 ```
 
 ## Project Structure
@@ -156,8 +315,14 @@ Set `DEPLOY_ENV=production` for production deployments. This enables:
 4. Run type check: `npm run typecheck`
 5. Submit PR
 
+## Related Resources
+
+- [Pennsieve Discover App 2](https://github.com/Pennsieve/pennsieve-discover-app2) - Reference implementation for Pennsieve authentication patterns
+- [AWS Amplify v6 Documentation](https://docs.amplify.aws/gen1/javascript/)
+- [Nuxt 3 Documentation](https://nuxt.com/docs)
+
 ## Support
 
-- **Partnerships**: lguercio@pennmedicine.upenn.edu
-- **Billing**: khas@pennmedicine.upenn.edu
-- **Technical**: See team contacts on the home page
+- **Partnerships & Services**: lguercio@pennmedicine.upenn.edu
+- **Billing Questions**: khas@pennmedicine.upenn.edu
+- **Technical Support**: See team contacts on the home page
