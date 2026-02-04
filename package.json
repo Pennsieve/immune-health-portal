@@ -18,7 +18,7 @@
     "@pinia/nuxt": "^0.5.5",
     "aws-amplify": "^6.6.7",
     "contentful": "^10.15.1",
-    "nuxt": "^3.14.0",
+    "nuxt": "^3.19.0",
     "pinia": "^2.2.6",
     "vue": "^3.5.13",
     "vue-router": "^4.4.5"
