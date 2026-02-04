@@ -12,7 +12,20 @@ const setRateView = (view: 'internal' | 'external') => {
   servicesStore.setRateView(view)
 }
 
-const formatRate = (service: { internalRate: number; externalRate: number }): string => {
+const formatRate = (service: any): string => {
+  // Handle services with rate ranges
+  const rateRanges: Record<string, { internal: string; external: string }> = {
+    'blood-draw': { internal: '$65–$175', external: '$100–$263' },
+    'blood-processing': { internal: '$100–$700', external: '$150–$1,050' },
+  }
+
+  if (rateRanges[service.id]) {
+    return servicesStore.rateView === 'internal'
+      ? rateRanges[service.id].internal
+      : rateRanges[service.id].external
+  }
+
+  // Default formatting for single-value rates
   const rate = servicesStore.rateView === 'internal' ? service.internalRate : service.externalRate
   if (rate === 0) return 'Contact'
   return `$${rate.toLocaleString()}`

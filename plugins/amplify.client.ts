@@ -6,9 +6,9 @@
  *
  * Based on the Pennsieve Discover app authentication patterns.
  */
-import { Amplify, Hub } from 'aws-amplify'
+import { Amplify } from 'aws-amplify'
 import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito'
-import { CookieStorage } from 'aws-amplify/utils'
+import { CookieStorage, Hub } from 'aws-amplify/utils'
 
 export default defineNuxtPlugin(() => {
   const runtimeConfig = useRuntimeConfig()

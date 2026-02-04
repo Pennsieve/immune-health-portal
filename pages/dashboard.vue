@@ -5,19 +5,27 @@
  * User's cohort dashboard showing study progress, sample status, and Pennsieve links.
  * Requires authentication.
  */
-import { storeToRefs } from 'pinia'
 import { useCohortsStore } from '~/stores/cohorts'
 
 const cohortsStore = useCohortsStore()
 
-// Use storeToRefs for reactive state and getters
-const {
-  affiliationFilter,
-  filteredCohorts,
-  selectedCohort,
-  selectedCohortId,
-  selectedCohortSamples,
-} = storeToRefs(cohortsStore)
+// Use computed properties for reactivity
+const affiliationFilter = computed(() => cohortsStore.affiliationFilter)
+
+// Filter cohorts directly in component for better reactivity
+const filteredCohorts = computed(() => {
+  const cohorts = cohortsStore.cohorts
+  const filter = cohortsStore.affiliationFilter
+
+  if (filter === 'academic') {
+    return cohorts.filter(c => c.affiliation === 'internal')
+  }
+  return cohorts.filter(c => c.affiliation === 'external' || c.affiliation === 'industry')
+})
+
+const selectedCohort = computed(() => cohortsStore.selectedCohort)
+const selectedCohortId = computed(() => cohortsStore.selectedCohortId)
+const selectedCohortSamples = computed(() => cohortsStore.selectedCohortSamples)
 
 // Fetch cohorts on mount
 onMounted(() => {
@@ -279,6 +287,58 @@ const progressSteps = [
             <div class="billing-bar">
               <div class="billing-bar-fill" style="width: 60%" />
             </div>
+
+            <table class="sample-table" style="margin-top: 1.2rem">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Rate</th>
+                  <th>Planned</th>
+                  <th>Completed</th>
+                  <th>Committed</th>
+                  <th>Invoiced</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Consultation</td>
+                  <td class="mono">$250</td>
+                  <td class="mono">1</td>
+                  <td class="mono">1</td>
+                  <td class="mono">$250</td>
+                  <td class="mono">$250</td>
+                </tr>
+                <tr>
+                  <td>Blood processing (PBMCs)</td>
+                  <td class="mono">$300</td>
+                  <td class="mono">40</td>
+                  <td class="mono">32</td>
+                  <td class="mono">$12,000</td>
+                  <td class="mono">$9,600</td>
+                </tr>
+                <tr>
+                  <td>CyTOF assay (MDIPA)</td>
+                  <td class="mono">$325</td>
+                  <td class="mono">40</td>
+                  <td class="mono">18</td>
+                  <td class="mono">$13,000</td>
+                  <td class="mono">$5,850</td>
+                </tr>
+                <tr>
+                  <td>Tier 1 analysis</td>
+                  <td class="mono">$50</td>
+                  <td class="mono">40</td>
+                  <td class="mono">14</td>
+                  <td class="mono">$2,000</td>
+                  <td class="mono">$700</td>
+                </tr>
+                <tr style="background: rgba(0, 0, 0, 0.015);">
+                  <td colspan="4" style="text-align: right; font-weight: 600;">Totals</td>
+                  <td class="mono" style="font-weight: 700; color: var(--accent)">$27,250</td>
+                  <td class="mono" style="font-weight: 700; color: var(--warm)">$16,400</td>
+                </tr>
+              </tbody>
+            </table>
 
             <p class="billing-note">
               Last invoice: Jan 2026 · Billing contact: khas@pennmedicine.upenn.edu

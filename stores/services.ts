@@ -103,9 +103,9 @@ function getDefaultServices(): Service[] {
     {
       id: 'blood-draw',
       name: 'Blood Draw',
-      description: 'Phlebotomy by clinical research team - on campus, in BRB, or remote',
-      internalRate: 80,
-      externalRate: 120,
+      description: 'Phlebotomy by clinical research team — on campus, in BRB, or remote',
+      internalRate: 120, // Average of range for calculations
+      externalRate: 180, // Average of range for calculations
       unit: 'per draw',
       isActive: true,
       category: 'collection',
@@ -124,8 +124,8 @@ function getDefaultServices(): Service[] {
       id: 'blood-processing',
       name: 'Blood Processing',
       description: 'Processing whole blood into serum, plasma, DNA, RNA, and/or viably cryopreserved PBMCs. Price scales by volume.',
-      internalRate: 300,
-      externalRate: 450,
+      internalRate: 400, // Average of range for calculations
+      externalRate: 600, // Average of range for calculations
       unit: 'per sample',
       isActive: true,
       category: 'processing',
