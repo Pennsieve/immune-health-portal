@@ -154,9 +154,8 @@ npm run lint:fix
 The following routes require authentication:
 
 - `/dashboard` - My Cohorts page
-- `/intake` - Project intake form
 
-Unauthenticated users are automatically redirected to the home page.
+The project intake form (`/intake`) is publicly accessible and does not require authentication.
 
 ### Verifying Authentication
 

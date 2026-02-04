@@ -14,7 +14,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Define private routes that require authentication
   const privateRoutes = [
     '/dashboard',
-    '/intake',
   ]
 
   // Check if current route is private

@@ -19,12 +19,7 @@ const isActiveLink = (path: string): boolean => {
 }
 
 const handleStartProject = () => {
-  if (authStore.isSignedIn) {
-    navigateTo('/intake')
-  }
-  else {
-    openLoginModal('Please sign in to start a project', '/intake')
-  }
+  navigateTo('/intake')
 }
 
 const handleDashboardClick = () => {
