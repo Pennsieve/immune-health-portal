@@ -44,9 +44,13 @@ const handleLogin = async () => {
   errorMessage.value = ''
 
   try {
+    const runtimeConfig = useRuntimeConfig()
     const { nextStep } = await signIn({
       username: email.value,
       password: password.value,
+      options: {
+        authFlowType: runtimeConfig.public.authenticationFlowType as 'USER_PASSWORD_AUTH' | 'USER_SRP_AUTH',
+      },
     })
 
     if (nextStep.signInStep === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
