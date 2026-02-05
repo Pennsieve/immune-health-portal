@@ -5,10 +5,16 @@
  * 1. Check and refresh auth state
  * 2. Protect private routes (dashboard, cohorts)
  * 3. Redirect unauthenticated users
+ *
+ * TEMPORARILY DISABLED FOR DEVELOPMENT
  */
-import { useAuthStore } from '~/stores/auth'
+// import { useAuthStore } from '~/stores/auth'
 
-export default defineNuxtRouteMiddleware(async (to) => {
+export default defineNuxtRouteMiddleware(async (_to) => {
+  // Auth temporarily disabled
+  return
+
+  /*
   const authStore = useAuthStore()
 
   // Define private routes that require authentication
@@ -36,4 +42,5 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (isPrivateRoute && !authStore.isSignedIn) {
     return navigateTo('/', { replace: true })
   }
+  */
 })
