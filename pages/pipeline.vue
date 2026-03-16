@@ -3,8 +3,12 @@
  * Pipeline Page
  *
  * Detailed view of the I3H processing pipeline with expandable steps.
+ * Content is fetched from Contentful with hardcoded fallbacks.
  */
-import type { PipelineStep } from '~/types'
+import type { PipelineStep, PipelinePageContent, PipelineStepContent } from '~/types'
+import { useContentful } from '~/composables/useContentful'
+
+const { fetchSingleton, fetchEntries } = useContentful()
 
 const openSteps = ref<string[]>([])
 
@@ -22,8 +26,8 @@ const isStepOpen = (stepId: string): boolean => {
   return openSteps.value.includes(stepId)
 }
 
-// Pipeline steps data - could be fetched from Contentful
-const pipelineSteps: PipelineStep[] = [
+// Default pipeline steps (fallback when Contentful is unavailable)
+const defaultPipelineSteps: PipelineStep[] = [
   {
     id: 'step-1',
     number: '01',
@@ -181,8 +185,56 @@ const pipelineSteps: PipelineStep[] = [
   },
 ]
 
-// Intersection observer for step animations
-onMounted(() => {
+// Default page content
+const defaultPageContent = {
+  headerOverline: 'The I3H Pipeline',
+  headerHeading: 'Every Step Documented, Every Metric Tracked',
+  headerDescription: 'Click any stage to expand its QC parameters, processing details, and quality benchmarks.',
+  summaryOverline: 'Why This Matters',
+  summaryHeading: 'One Pipeline. One Panel. Thousands of Comparable Profiles.',
+  summaryMetrics: [
+    { value: '4,000+', label: 'Visits profiled with identical protocol' },
+    { value: '50', label: 'Immune populations per fingerprint' },
+    { value: '< 48h', label: 'Blood draw to analyzed fingerprint' },
+    { value: '0%', label: 'Spectral overlap (mass cytometry)' },
+    { value: '≥ 85%', label: 'Viability threshold for pipeline entry' },
+    { value: 'FAIR', label: 'Data managed on Pennsieve platform' },
+  ],
+}
+
+// Reactive content state
+const page = ref(defaultPageContent)
+const pipelineSteps = ref<PipelineStep[]>(defaultPipelineSteps)
+
+// Fetch from Contentful on mount
+onMounted(async () => {
+  const [cmsPage, cmsSteps] = await Promise.all([
+    fetchSingleton<PipelinePageContent>('pipelinePage'),
+    fetchEntries<PipelineStepContent>('pipelineStep'),
+  ])
+
+  if (cmsPage) {
+    page.value = { ...defaultPageContent, ...cmsPage }
+  }
+
+  if (cmsSteps.length > 0) {
+    pipelineSteps.value = cmsSteps.map(s => ({
+      id: s.id,
+      number: s.number,
+      title: s.title,
+      description: s.description,
+      timeTag: s.timeTag,
+      theme: s.theme,
+      icon: s.icon,
+      qcMetrics: s.qcMetrics,
+      details: s.details,
+      checklistItems: s.checklistItems,
+      tags: s.tags,
+    }))
+  }
+
+  // Intersection observer for step animations
+  await nextTick()
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -203,9 +255,9 @@ onMounted(() => {
 <template>
   <div class="pipeline-page">
     <section class="section-header" style="padding-top: 6rem;">
-      <span class="overline">The I3H Pipeline</span>
-      <h2>Every Step Documented, Every Metric Tracked</h2>
-      <p>Click any stage to expand its QC parameters, processing details, and quality benchmarks.</p>
+      <span class="overline">{{ page.headerOverline }}</span>
+      <h2>{{ page.headerHeading }}</h2>
+      <p>{{ page.headerDescription }}</p>
     </section>
 
     <div class="timeline-container">
@@ -277,33 +329,13 @@ onMounted(() => {
     <!-- Summary Strip -->
     <div class="summary-strip">
       <div class="summary-inner">
-        <span class="overline">Why This Matters</span>
-        <h2>One Pipeline. One Panel. Thousands of Comparable Profiles.</h2>
+        <span class="overline">{{ page.summaryOverline }}</span>
+        <h2>{{ page.summaryHeading }}</h2>
 
         <div class="end-metrics">
-          <div class="end-metric">
-            <span class="num">4,000+</span>
-            <span class="label">Visits profiled with identical protocol</span>
-          </div>
-          <div class="end-metric">
-            <span class="num">50</span>
-            <span class="label">Immune populations per fingerprint</span>
-          </div>
-          <div class="end-metric">
-            <span class="num">&lt; 48h</span>
-            <span class="label">Blood draw to analyzed fingerprint</span>
-          </div>
-          <div class="end-metric">
-            <span class="num">0%</span>
-            <span class="label">Spectral overlap (mass cytometry)</span>
-          </div>
-          <div class="end-metric">
-            <span class="num">≥ 85%</span>
-            <span class="label">Viability threshold for pipeline entry</span>
-          </div>
-          <div class="end-metric">
-            <span class="num">FAIR</span>
-            <span class="label">Data managed on Pennsieve platform</span>
+          <div v-for="metric in page.summaryMetrics" :key="metric.label" class="end-metric">
+            <span class="num">{{ metric.value }}</span>
+            <span class="label">{{ metric.label }}</span>
           </div>
         </div>
       </div>

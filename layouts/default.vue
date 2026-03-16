@@ -1,10 +1,29 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { useContentful } from '~/composables/useContentful'
+import type { SiteSettingsContent } from '~/types'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const { isLoginModalOpen, openLoginModal, closeLoginModal } = useLoginModal()
+const { fetchSingleton } = useContentful()
+
+const defaultSiteSettings = {
+  organizationName: 'I3H',
+  organizationAddress: 'Penn\'s Institute for Immunology & Immune Health · 3600 Civic Center Boulevard, Philadelphia, PA 19104',
+  footerBillingEmail: 'khas@pennmedicine.upenn.edu',
+  footerPartnershipEmail: 'lguercio@pennmedicine.upenn.edu',
+}
+
+const site = ref(defaultSiteSettings)
+
+onMounted(async () => {
+  const cmsSite = await fetchSingleton<SiteSettingsContent>('siteSettings')
+  if (cmsSite) {
+    site.value = { ...defaultSiteSettings, ...cmsSite }
+  }
+})
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -83,8 +102,8 @@ const handleDashboardClick = () => {
 
     <!-- Footer -->
     <footer class="footer">
-      <strong>I3H</strong> · Penn's Institute for Immunology & Immune Health · 3600 Civic Center Boulevard, Philadelphia, PA 19104<br>
-      Billing: khas@pennmedicine.upenn.edu · Partnerships: lguercio@pennmedicine.upenn.edu
+      <strong>{{ site.organizationName }}</strong> · {{ site.organizationAddress }}<br>
+      Billing: {{ site.footerBillingEmail }} · Partnerships: {{ site.footerPartnershipEmail }}
     </footer>
 
     <!-- Login Modal -->

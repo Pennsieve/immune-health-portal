@@ -63,22 +63,41 @@ export const useServicesStore = defineStore('services', {
       this.error = error
     },
 
-    // TODO: Implement Contentful fetch when CMS is configured
     async fetchServices() {
       this.setLoading(true)
       this.setError(null)
 
       try {
-        // Placeholder for Contentful fetch
-        // const { $contentful } = useNuxtApp()
-        // const response = await $contentful.getEntries({ content_type: 'service' })
-        // this.setServices(mapContentfulServices(response.items))
+        const { $contentful } = useNuxtApp() as { $contentful: any }
 
-        // For now, use default services
+        if ($contentful) {
+          const response = await $contentful.getEntries({
+            content_type: 'serviceItem',
+            order: 'fields.order',
+          })
+
+          if (response.items.length > 0) {
+            const mapped: Service[] = response.items.map((item: any) => ({
+              id: item.sys.id,
+              name: item.fields.name,
+              description: item.fields.description,
+              internalRate: item.fields.internalRate,
+              externalRate: item.fields.externalRate,
+              unit: item.fields.unit,
+              isActive: item.fields.isActive ?? true,
+              category: item.fields.category,
+            }))
+            this.setServices(mapped)
+            return
+          }
+        }
+
+        // Fallback to defaults
         this.setServices(getDefaultServices())
       }
       catch (error) {
-        this.setError(error instanceof Error ? error.message : 'Failed to fetch services')
+        console.warn('[Contentful] Failed to fetch services, using defaults:', error)
+        this.setServices(getDefaultServices())
       }
       finally {
         this.setLoading(false)

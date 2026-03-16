@@ -3,16 +3,20 @@
  * Home Page
  *
  * Landing page with hero section, how it works overview, team showcase,
- * and partnership callout.
+ * and partnership callout. Content is fetched from Contentful with
+ * hardcoded fallbacks.
  */
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { useContentful } from '~/composables/useContentful'
+import type { HomePageContent, TeamMemberContent } from '~/types'
 
 const authStore = useAuthStore()
 const { openLoginModal } = useLoginModal()
+const { fetchSingleton, fetchEntries } = useContentful()
 
-// Team data - could be fetched from Contentful
-const teamMembers = [
+// Default team data (fallback when Contentful is unavailable)
+const defaultTeamMembers = [
   {
     initials: 'AG',
     name: 'Allie Greenplate, PhD',
@@ -63,6 +67,68 @@ const teamMembers = [
   },
 ]
 
+// Defaults for page content
+const defaults = {
+  heroBadge: 'Penn\'s Institute for Immunology & Immune Health',
+  heroHeadline: 'Standardized <em>Immune Profiling</em> from Blood Draw to Insight',
+  heroSubheadline: 'High-dimensional CyTOF and spectral flow cytometry with integrated data management on Pennsieve. One pipeline. Thousands of comparable profiles.',
+  primaryCtaLabel: 'Submit a New Study',
+  secondaryCtaLabel: 'See How It Works',
+  heroMetrics: [
+    { value: '4,000+', label: 'Patient Visits Profiled' },
+    { value: '50', label: 'Immune Populations' },
+    { value: '30+', label: 'MDIPA Markers' },
+    { value: '<48h', label: 'Draw → Analysis' },
+  ],
+  journeyOverline: 'Your Project Journey',
+  journeyHeading: 'From Inquiry to Immune Fingerprint',
+  journeyDescription: 'Four phases connect your research question to a fully analyzed, QC-validated immune profile on Pennsieve.',
+  journeySteps: [
+    { number: 1, title: 'Intake & Agreement', description: 'Submit your study details. We review scope, discuss objectives, and formalize a User Agreement.', color: 'var(--accent)' },
+    { number: 2, title: 'Sample Processing', description: 'Blood draw, PBMC isolation, and sample prep – standardized SOPs with chain-of-custody tracking.', color: 'var(--teal)' },
+    { number: 3, title: 'CyTOF & Analysis', description: 'MDIPA staining, CyTOF acquisition, EQ normalization, automated gating, and QC.', color: 'var(--green)' },
+    { number: 4, title: 'Dashboard & Delivery', description: 'Track progress in real time. FCS files, QC reports, and Tier 1 analysis on your Pennsieve dashboard.', color: 'var(--gold)' },
+  ],
+  partnershipHeading: 'Partnership Opportunities',
+  partnershipDescription: 'We work with academic institutions, biotech, and pharma partners to advance immune profiling research. If you\'re exploring a collaboration that leverages our standardized pipeline and 4,000+ patient dataset, we\'d welcome a conversation.',
+  partnershipEmail: 'lguercio@pennmedicine.upenn.edu',
+  partnershipCtaLabel: 'Contact Partnerships →',
+  teamOverline: 'The Science Team',
+  teamHeading: 'Expertise Behind the Pipeline',
+  teamDescription: 'Every sample is handled by specialists who\'ve collectively built and validated the profiling platform across thousands of patients.',
+  contactPills: [
+    { role: 'Partnerships', name: 'Leonardo Guercio', email: 'lguercio@pennmedicine.upenn.edu' },
+    { role: 'Billing', name: 'Kenneth Hassinger', email: 'khas@pennmedicine.upenn.edu' },
+  ],
+}
+
+// Reactive content state
+const page = ref(defaults)
+const teamMembers = ref(defaultTeamMembers)
+
+// Fetch from Contentful on mount
+onMounted(async () => {
+  const [cmsPage, cmsTeam] = await Promise.all([
+    fetchSingleton<HomePageContent>('homePage'),
+    fetchEntries<TeamMemberContent>('teamMember'),
+  ])
+
+  if (cmsPage) {
+    page.value = { ...defaults, ...cmsPage }
+  }
+
+  if (cmsTeam.length > 0) {
+    teamMembers.value = cmsTeam.map(m => ({
+      initials: m.initials,
+      name: m.name,
+      role: m.role,
+      color: m.color,
+      bio: m.bio,
+      email: m.email,
+    }))
+  }
+})
+
 const handleStartProject = () => {
   navigateTo('/intake')
 }
@@ -74,82 +140,48 @@ const handleStartProject = () => {
     <section class="home-hero">
       <div class="hero-badge">
         <span class="dot" />
-        Penn's Institute for Immunology & Immune Health
+        {{ page.heroBadge }}
       </div>
 
-      <h1>Standardized <em>Immune Profiling</em> from Blood Draw to Insight</h1>
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <h1 v-html="page.heroHeadline" />
 
       <p class="hero-sub">
-        High-dimensional CyTOF and spectral flow cytometry with integrated data management on Pennsieve. One pipeline. Thousands of comparable profiles.
+        {{ page.heroSubheadline }}
       </p>
 
       <div class="hero-actions">
         <button class="btn btn-primary hero-btn" @click="handleStartProject">
-          Submit a New Study
+          {{ page.primaryCtaLabel }}
         </button>
         <NuxtLink to="/pipeline" class="btn btn-secondary hero-btn-outline">
-          See How It Works
+          {{ page.secondaryCtaLabel }}
         </NuxtLink>
       </div>
 
       <div class="hero-metrics">
-        <div class="hero-metric">
-          <span class="num">4,000+</span>
-          <span class="label">Patient Visits Profiled</span>
-        </div>
-        <div class="hero-metric">
-          <span class="num">50</span>
-          <span class="label">Immune Populations</span>
-        </div>
-        <div class="hero-metric">
-          <span class="num">30+</span>
-          <span class="label">MDIPA Markers</span>
-        </div>
-        <div class="hero-metric">
-          <span class="num">&lt;48h</span>
-          <span class="label">Draw → Analysis</span>
+        <div v-for="metric in page.heroMetrics" :key="metric.label" class="hero-metric">
+          <span class="num">{{ metric.value }}</span>
+          <span class="label">{{ metric.label }}</span>
         </div>
       </div>
     </section>
 
     <!-- How It Works -->
     <section class="section-header">
-      <span class="overline">Your Project Journey</span>
-      <h2>From Inquiry to Immune Fingerprint</h2>
-      <p>Four phases connect your research question to a fully analyzed, QC-validated immune profile on Pennsieve.</p>
+      <span class="overline">{{ page.journeyOverline }}</span>
+      <h2>{{ page.journeyHeading }}</h2>
+      <p>{{ page.journeyDescription }}</p>
     </section>
 
     <div class="pipeline-flow">
-      <div class="pipe-step">
-        <div class="pipe-num" style="background: var(--accent)">
-          1
+      <div v-for="(step, idx) in page.journeySteps" :key="step.number" class="pipe-step">
+        <div class="pipe-num" :style="{ background: step.color }">
+          {{ step.number }}
         </div>
-        <h4>Intake & Agreement</h4>
-        <p>Submit your study details. We review scope, discuss objectives, and formalize a User Agreement.</p>
-        <span class="arrow">→</span>
-      </div>
-      <div class="pipe-step">
-        <div class="pipe-num" style="background: var(--teal)">
-          2
-        </div>
-        <h4>Sample Processing</h4>
-        <p>Blood draw, PBMC isolation, and sample prep – standardized SOPs with chain-of-custody tracking.</p>
-        <span class="arrow">→</span>
-      </div>
-      <div class="pipe-step">
-        <div class="pipe-num" style="background: var(--green)">
-          3
-        </div>
-        <h4>CyTOF & Analysis</h4>
-        <p>MDIPA staining, CyTOF acquisition, EQ normalization, automated gating, and QC.</p>
-        <span class="arrow">→</span>
-      </div>
-      <div class="pipe-step">
-        <div class="pipe-num" style="background: var(--gold)">
-          4
-        </div>
-        <h4>Dashboard & Delivery</h4>
-        <p>Track progress in real time. FCS files, QC reports, and Tier 1 analysis on your Pennsieve dashboard.</p>
+        <h4>{{ step.title }}</h4>
+        <p>{{ step.description }}</p>
+        <span v-if="idx < page.journeySteps.length - 1" class="arrow">→</span>
       </div>
     </div>
 
@@ -157,12 +189,12 @@ const handleStartProject = () => {
     <div class="partnership-callout">
       <div class="partnership-inner">
         <div class="pi-text">
-          <h3>Partnership Opportunities</h3>
-          <p>We work with academic institutions, biotech, and pharma partners to advance immune profiling research. If you're exploring a collaboration that leverages our standardized pipeline and 4,000+ patient dataset, we'd welcome a conversation.</p>
+          <h3>{{ page.partnershipHeading }}</h3>
+          <p>{{ page.partnershipDescription }}</p>
         </div>
         <div class="pi-action">
-          <a href="mailto:lguercio@pennmedicine.upenn.edu?subject=Immune Health Partnership Inquiry">
-            Contact Partnerships →
+          <a :href="`mailto:${page.partnershipEmail}?subject=Immune Health Partnership Inquiry`">
+            {{ page.partnershipCtaLabel }}
           </a>
         </div>
       </div>
@@ -170,9 +202,9 @@ const handleStartProject = () => {
 
     <!-- Team Section -->
     <section class="section-header">
-      <span class="overline">The Science Team</span>
-      <h2>Expertise Behind the Pipeline</h2>
-      <p>Every sample is handled by specialists who've collectively built and validated the profiling platform across thousands of patients.</p>
+      <span class="overline">{{ page.teamOverline }}</span>
+      <h2>{{ page.teamHeading }}</h2>
+      <p>{{ page.teamDescription }}</p>
     </section>
 
     <div class="team-grid">
@@ -199,15 +231,10 @@ const handleStartProject = () => {
 
     <div class="team-contacts">
       <div class="team-contacts-inner">
-        <div class="team-contact-pill">
-          <span class="pill-role">Partnerships</span>
+        <div v-for="pill in page.contactPills" :key="pill.role" class="team-contact-pill">
+          <span class="pill-role">{{ pill.role }}</span>
           <span class="pill-dot" />
-          <span class="pill-name">Leonardo Guercio · lguercio@pennmedicine.upenn.edu</span>
-        </div>
-        <div class="team-contact-pill">
-          <span class="pill-role">Billing</span>
-          <span class="pill-dot" />
-          <span class="pill-name">Kenneth Hassinger · khas@pennmedicine.upenn.edu</span>
+          <span class="pill-name">{{ pill.name }} · {{ pill.email }}</span>
         </div>
       </div>
     </div>

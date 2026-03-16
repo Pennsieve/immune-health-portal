@@ -163,22 +163,109 @@ export interface ContentfulEntry<T> {
   fields: T
 }
 
-export interface HeroContent {
-  badge: string
-  headline: string
-  subheadline: string
-  metrics: Array<{
-    value: string
-    label: string
-  }>
+// Home Page content model
+export interface HomePageContent {
+  heroBadge: string
+  heroHeadline: string
+  heroSubheadline: string
+  primaryCtaLabel: string
+  secondaryCtaLabel: string
+  heroMetrics: Array<{ value: string; label: string }>
+  journeyOverline: string
+  journeyHeading: string
+  journeyDescription: string
+  journeySteps: Array<{ number: number; title: string; description: string; color: string }>
+  partnershipHeading: string
+  partnershipDescription: string
+  partnershipEmail: string
+  partnershipCtaLabel: string
+  teamOverline: string
+  teamHeading: string
+  teamDescription: string
+  contactPills: Array<{ role: string; name: string; email: string }>
 }
 
+// Team Member content model
+export interface TeamMemberContent {
+  name: string
+  initials: string
+  role: string
+  bio: string
+  email: string
+  color: string
+  order: number
+}
+
+// Pipeline Step content model
+export interface PipelineStepContent {
+  id: string
+  number: string
+  title: string
+  description: string
+  timeTag: string
+  theme: string
+  icon: string
+  qcMetrics: Array<{ label: string; value: string; context?: string; barPercentage?: number }>
+  details: string
+  checklistItems: string[]
+  tags?: string[]
+  order: number
+}
+
+// Pipeline Page content model
+export interface PipelinePageContent {
+  headerOverline: string
+  headerHeading: string
+  headerDescription: string
+  summaryOverline: string
+  summaryHeading: string
+  summaryMetrics: Array<{ value: string; label: string }>
+}
+
+// Services Page content model
+export interface ServicesPageContent {
+  headerOverline: string
+  headerHeading: string
+  headerDescription: string
+  pricingNote: string
+  billingHeading: string
+  billingDescription: string
+}
+
+// Service Item content model (for CMS-managed services)
 export interface ServiceContent {
   name: string
   description: string
-  internalRate: string
-  externalRate: string
+  internalRate: number
+  externalRate: number
   unit: string
-  status: string
+  isActive: boolean
   category: string
+  order: number
+}
+
+// Intake Sidebar Card content model
+export interface IntakeSidebarCardContent {
+  title: string
+  body: string
+  variant?: 'default' | 'partnership'
+  order: number
+}
+
+// Intake Page content model
+export interface IntakePageContent {
+  pageTitle: string
+  pageDescription: string
+  affiliationInfoInternal: string
+  affiliationInfoExternal: string
+  affiliationInfoIndustry: string
+}
+
+// Site Settings content model (singleton)
+export interface SiteSettingsContent {
+  footerText: string
+  footerBillingEmail: string
+  footerPartnershipEmail: string
+  organizationName: string
+  organizationAddress: string
 }

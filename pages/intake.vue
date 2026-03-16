@@ -3,12 +3,15 @@
  * Intake Form Page
  *
  * Form for submitting new immune profiling projects.
- * Requires authentication.
+ * Requires authentication. Sidebar and page copy fetched from Contentful
+ * with hardcoded fallbacks.
  */
 import { useServicesStore } from '~/stores/services'
-import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption } from '~/types'
+import { useContentful } from '~/composables/useContentful'
+import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption, IntakePageContent, IntakeSidebarCardContent } from '~/types'
 
 const servicesStore = useServicesStore()
+const { fetchSingleton, fetchEntries } = useContentful()
 
 // Form data
 const form = reactive<IntakeFormData>({
@@ -159,13 +162,52 @@ const getServiceSubtotal = (serviceId: string): string => {
   if (rate === 0) return 'Contact'
   return `= $${(rate * qty).toLocaleString()}`
 }
+
+// CMS-managed page content with defaults
+const defaultIntakeContent = {
+  pageTitle: 'Start a New Immune Profiling Project',
+  pageDescription: 'Complete this form to initiate a study with Immune Health. Our team will review your submission and reach out to discuss scope, timelines, and a formal User Agreement.',
+  affiliationInfoInternal: 'Billed through iLabs using your 26-digit Penn budget account number. Monthly invoicing. No contract required.',
+  affiliationInfoExternal: 'External academic collaborations are processed via institutional contract. Monthly invoices issued after contract execution. Academic external rates apply.',
+  affiliationInfoIndustry: 'Industry and corporate partnerships are handled through our Strategy & Business team. Pricing is customized and requires a formal partnership agreement. Contact <strong>Leonardo Guercio</strong> at <strong>lguercio@pennmedicine.upenn.edu</strong> to begin discussions.',
+}
+
+const defaultSidebarCards = [
+  { title: 'What Happens Next?', body: 'After submission, the Immune Health team reviews your request and contacts you within <strong>5 business days</strong> to discuss scope, feasibility, and pricing. A formal User Agreement is drafted after our initial meeting.', variant: 'default' as const },
+  { title: 'Required Before Work Begins', body: '✓ Signed User Agreement<br>✓ Budget account or executed contract<br>✓ IRB approval (if applicable)<br>✓ Metadata collection plan<br>✓ Pennsieve access authorization', variant: 'default' as const },
+  { title: 'Typical Timelines', body: 'CyTOF batched in ≥10 samples. Raw data + QC within <strong>30 days</strong> after run. Final data transfer within <strong>4 weeks</strong> of acquisition.', variant: 'default' as const },
+  { title: 'Billing Contact', body: '<strong>Kenneth Hassinger</strong><br>Director of Finance, I3H<br>khas@pennmedicine.upenn.edu<br><br>Penn internal: iLabs monthly invoicing<br>External: Monthly invoices via contract', variant: 'default' as const },
+  { title: 'Partnership Opportunities', body: 'Exploring a deeper collaboration? We\'re open to strategic partnerships that leverage our standardized pipeline and cross-cohort dataset.<br><br><strong>Leonardo Guercio</strong><br>lguercio@pennmedicine.upenn.edu', variant: 'partnership' as const },
+]
+
+const intakePage = ref(defaultIntakeContent)
+const sidebarCards = ref(defaultSidebarCards)
+
+onMounted(async () => {
+  const [cmsPage, cmsCards] = await Promise.all([
+    fetchSingleton<IntakePageContent>('intakePage'),
+    fetchEntries<IntakeSidebarCardContent>('intakeSidebarCard'),
+  ])
+
+  if (cmsPage) {
+    intakePage.value = { ...defaultIntakeContent, ...cmsPage }
+  }
+
+  if (cmsCards.length > 0) {
+    sidebarCards.value = cmsCards.map(c => ({
+      title: c.title,
+      body: c.body,
+      variant: c.variant || 'default',
+    }))
+  }
+})
 </script>
 
 <template>
   <div class="intake-page">
     <div class="form-page">
-      <h1>Start a New Immune Profiling Project</h1>
-      <p>Complete this form to initiate a study with Immune Health. Our team will review your submission and reach out to discuss scope, timelines, and a formal User Agreement.</p>
+      <h1>{{ intakePage.pageTitle }}</h1>
+      <p>{{ intakePage.pageDescription }}</p>
 
       <div class="form-layout">
         <div class="form-card">
@@ -392,15 +434,12 @@ const getServiceSubtotal = (serviceId: string): string => {
               </button>
             </div>
 
-            <div v-if="form.affiliation === 'internal'" class="affil-info">
-              Billed through iLabs using your 26-digit Penn budget account number. Monthly invoicing. No contract required.
-            </div>
-            <div v-else-if="form.affiliation === 'external'" class="affil-info">
-              External academic collaborations are processed via institutional contract. Monthly invoices issued after contract execution. Academic external rates apply.
-            </div>
-            <div v-else class="affil-info">
-              Industry and corporate partnerships are handled through our Strategy & Business team. Pricing is customized and requires a formal partnership agreement. Contact <strong>Leonardo Guercio</strong> at <strong>lguercio@pennmedicine.upenn.edu</strong> to begin discussions.
-            </div>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div v-if="form.affiliation === 'internal'" class="affil-info" v-html="intakePage.affiliationInfoInternal" />
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div v-else-if="form.affiliation === 'external'" class="affil-info" v-html="intakePage.affiliationInfoExternal" />
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div v-else class="affil-info" v-html="intakePage.affiliationInfoIndustry" />
           </div>
 
           <!-- Internal funding fields -->
@@ -492,39 +531,15 @@ const getServiceSubtotal = (serviceId: string): string => {
 
         <!-- Sidebar -->
         <div class="sidebar-info">
-          <div class="sidebar-card">
-            <h4>What Happens Next?</h4>
-            <p>After submission, the Immune Health team reviews your request and contacts you within <strong>5 business days</strong> to discuss scope, feasibility, and pricing. A formal User Agreement is drafted after our initial meeting.</p>
-          </div>
-
-          <div class="sidebar-card">
-            <h4>Required Before Work Begins</h4>
-            <p>✓ Signed User Agreement<br>✓ Budget account or executed contract<br>✓ IRB approval (if applicable)<br>✓ Metadata collection plan<br>✓ Pennsieve access authorization</p>
-          </div>
-
-          <div class="sidebar-card">
-            <h4>Typical Timelines</h4>
-            <p>CyTOF batched in ≥10 samples. Raw data + QC within <strong>30 days</strong> after run. Final data transfer within <strong>4 weeks</strong> of acquisition.</p>
-          </div>
-
-          <div class="sidebar-card">
-            <h4>Billing Contact</h4>
-            <p>
-              <strong>Kenneth Hassinger</strong><br>
-              Director of Finance, I3H<br>
-              khas@pennmedicine.upenn.edu<br><br>
-              Penn internal: iLabs monthly invoicing<br>
-              External: Monthly invoices via contract
-            </p>
-          </div>
-
-          <div class="sidebar-card partnership">
-            <h4>Partnership Opportunities</h4>
-            <p>
-              Exploring a deeper collaboration? We're open to strategic partnerships that leverage our standardized pipeline and cross-cohort dataset.<br><br>
-              <strong>Leonardo Guercio</strong><br>
-              lguercio@pennmedicine.upenn.edu
-            </p>
+          <div
+            v-for="card in sidebarCards"
+            :key="card.title"
+            class="sidebar-card"
+            :class="{ partnership: card.variant === 'partnership' }"
+          >
+            <h4>{{ card.title }}</h4>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <p v-html="card.body" />
           </div>
         </div>
       </div>

@@ -3,10 +3,35 @@
  * Services & Pricing Page
  *
  * Displays service catalog with toggle between internal and external rates.
+ * Page-level content fetched from Contentful with hardcoded fallbacks.
  */
 import { useServicesStore } from '~/stores/services'
+import { useContentful } from '~/composables/useContentful'
+import type { ServicesPageContent } from '~/types'
 
 const servicesStore = useServicesStore()
+const { fetchSingleton } = useContentful()
+
+const defaultPageContent = {
+  headerOverline: 'Service Catalog',
+  headerHeading: 'Immune Health Core Services',
+  headerDescription: 'Consolidated pricing for Penn internal and academic external investigators. All services billed through iLabs. Rates re-evaluated each fiscal year.',
+  pricingNote: 'Corporate/industry rates available on request. Contact <strong>lguercio@pennmedicine.upenn.edu</strong> for partnership pricing.',
+  billingHeading: 'Payment & Billing',
+  billingDescription: 'Monthly invoices billed through iLabs. 26-digit Penn budget account number required before work begins. Billing questions: <strong>khas@pennmedicine.upenn.edu</strong>',
+}
+
+const page = ref(defaultPageContent)
+
+onMounted(async () => {
+  const cmsPage = await fetchSingleton<ServicesPageContent>('servicesPage')
+  if (cmsPage) {
+    page.value = { ...defaultPageContent, ...cmsPage }
+  }
+
+  // Also try fetching services from Contentful
+  await servicesStore.fetchServices()
+})
 
 const setRateView = (view: 'internal' | 'external') => {
   servicesStore.setRateView(view)
@@ -39,9 +64,9 @@ const getBadgeClass = (isActive: boolean): string => {
 <template>
   <div class="services-page">
     <section class="section-header" style="padding-top: 6rem;">
-      <span class="overline">Service Catalog</span>
-      <h2>Immune Health Core Services</h2>
-      <p>Consolidated pricing for Penn internal and academic external investigators. All services billed through iLabs. Rates re-evaluated each fiscal year.</p>
+      <span class="overline">{{ page.headerOverline }}</span>
+      <h2>{{ page.headerHeading }}</h2>
+      <p>{{ page.headerDescription }}</p>
     </section>
 
     <div class="services-section">
@@ -89,16 +114,16 @@ const getBadgeClass = (isActive: boolean): string => {
         </tbody>
       </table>
 
-      <p class="pricing-note">
-        Corporate/industry rates available on request. Contact <strong>lguercio@pennmedicine.upenn.edu</strong> for partnership pricing.
-      </p>
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <p class="pricing-note" v-html="page.pricingNote" />
     </div>
 
     <section class="section-header">
       <h2 style="font-size: 1.6rem;">
-        Payment & Billing
+        {{ page.billingHeading }}
       </h2>
-      <p>Monthly invoices billed through iLabs. 26-digit Penn budget account number required before work begins. Billing questions: <strong>khas@pennmedicine.upenn.edu</strong></p>
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <p v-html="page.billingDescription" />
     </section>
   </div>
 </template>
