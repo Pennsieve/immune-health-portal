@@ -7,7 +7,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { useGetToken } from '~/composables/useGetToken'
 import { useSendXhr } from '~/composables/useSendXhr'
-import type { User, Organization } from '~/types'
+import type { User, Organization } from '~/types/index'
 
 export async function useGetProfile(): Promise<{ user: User; workspaces: Organization[] } | null> {
   const runtimeConfig = useRuntimeConfig()
