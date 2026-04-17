@@ -8,6 +8,7 @@
 import { signIn, signInWithRedirect, confirmSignIn, resetPassword, confirmResetPassword } from 'aws-amplify/auth'
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
+import { useGetProfile } from '~/composables/useGetProfile'
 
 const emit = defineEmits<{
   close: []
@@ -164,7 +165,6 @@ const handleResetPassword = async () => {
 }
 
 const handleLoginSuccess = async () => {
-  const { useGetProfile } = await import('~/composables/useGetProfile')
   await useGetProfile()
 
   if (loginRedirectUrl.value) {

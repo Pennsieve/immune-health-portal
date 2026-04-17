@@ -8,7 +8,7 @@
  */
 import { useServicesStore } from '~/stores/services'
 import { useContentful } from '~/composables/useContentful'
-import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption, IntakePageContent, IntakeSidebarCardContent } from '~/types'
+import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption, IntakePageContent, IntakeSidebarCardContent } from '~/types/index'
 
 const servicesStore = useServicesStore()
 const { fetchSingleton, fetchEntries } = useContentful()

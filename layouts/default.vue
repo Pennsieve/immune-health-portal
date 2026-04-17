@@ -2,7 +2,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { useContentful } from '~/composables/useContentful'
-import type { SiteSettingsContent } from '~/types'
+import type { SiteSettingsContent } from '~/types/index'
 
 const authStore = useAuthStore()
 const route = useRoute()

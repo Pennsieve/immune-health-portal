@@ -7,7 +7,7 @@
  */
 import { useServicesStore } from '~/stores/services'
 import { useContentful } from '~/composables/useContentful'
-import type { ServicesPageContent } from '~/types'
+import type { ServicesPageContent } from '~/types/index'
 
 const servicesStore = useServicesStore()
 const { fetchSingleton } = useContentful()

@@ -9,7 +9,7 @@
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { useContentful } from '~/composables/useContentful'
-import type { HomePageContent, TeamMemberContent } from '~/types'
+import type { HomePageContent, TeamMemberContent } from '~/types/index'
 
 const authStore = useAuthStore()
 const { openLoginModal } = useLoginModal()
