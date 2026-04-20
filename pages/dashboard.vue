@@ -350,7 +350,7 @@ const progressSteps = [
           <div class="dash-panel empty-state">
             <h3>Select a Cohort</h3>
             <p>Choose a cohort from the sidebar to view its details, or start a new project.</p>
-            <NuxtLink to="/intake" class="btn btn-teal">
+            <NuxtLink to="/intake" class="btn btn-primary">
               Start New Project
             </NuxtLink>
           </div>
@@ -366,7 +366,7 @@ const progressSteps = [
 }
 
 .dash-hero {
-  padding: 4rem 2rem 2rem;
+  padding: 3rem 2rem 2rem;
   max-width: 1080px;
   margin: 0 auto;
 
@@ -406,7 +406,7 @@ const progressSteps = [
 .affiliation-toggle {
   display: flex;
   background: var(--paper);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 4px;
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
@@ -420,7 +420,7 @@ const progressSteps = [
   font-weight: 500;
   color: var(--muted);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s;
 
   &:hover:not(.active) {
@@ -429,7 +429,7 @@ const progressSteps = [
   }
 
   &.active {
-    background: var(--teal);
+    background: var(--penn-blue);
     color: white;
     box-shadow: 0 2px 4px rgba(13, 115, 119, 0.2);
   }
@@ -453,11 +453,11 @@ const progressSteps = [
   transition: all 0.2s;
 
   &:hover {
-    border-color: var(--teal);
+    border-color: var(--penn-blue);
   }
 
   &.selected {
-    border-color: var(--teal);
+    border-color: var(--penn-blue);
     background: rgba(13, 115, 119, 0.03);
   }
 
@@ -478,7 +478,7 @@ const progressSteps = [
     font-size: 0.6rem;
     font-weight: 600;
     padding: 0.15rem 0.5rem;
-    border-radius: 3px;
+    border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 0.4rem;
@@ -489,7 +489,7 @@ const progressSteps = [
     font-size: 0.58rem;
     font-weight: 500;
     padding: 0.12rem 0.4rem;
-    border-radius: 3px;
+    border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 0.4rem;
@@ -575,7 +575,7 @@ const progressSteps = [
   }
 
   &.done::before {
-    background: var(--green);
+    background: var(--penn-blue);
   }
 
   .prog-dot {
@@ -593,13 +593,13 @@ const progressSteps = [
   }
 
   &.done .prog-dot {
-    background: var(--green);
-    border-color: var(--green);
+    background: var(--penn-blue);
+    border-color: var(--penn-blue);
   }
 
   &.active .prog-dot {
-    background: var(--teal);
-    border-color: var(--teal);
+    background: var(--penn-blue);
+    border-color: var(--penn-blue);
     box-shadow: 0 0 0 4px rgba(13, 115, 119, 0.15);
   }
 
@@ -611,11 +611,11 @@ const progressSteps = [
   }
 
   &.done .prog-label {
-    color: var(--green);
+    color: var(--penn-blue);
   }
 
   &.active .prog-label {
-    color: var(--teal);
+    color: var(--penn-blue);
     font-weight: 600;
   }
 }
@@ -629,7 +629,7 @@ const progressSteps = [
 
 .tracker-card {
   background: var(--paper);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 1rem 1.2rem;
   border: 1px solid rgba(0, 0, 0, 0.04);
 
@@ -715,10 +715,10 @@ const progressSteps = [
   gap: 0.4rem;
   padding: 0.5rem 1rem;
   background: rgba(13, 115, 119, 0.08);
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--teal);
+  color: var(--penn-blue);
   transition: all 0.2s;
   cursor: pointer;
 
@@ -736,7 +736,7 @@ const progressSteps = [
 
 .billing-card {
   background: var(--paper);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 1rem 1.2rem;
   border: 1px solid rgba(0, 0, 0, 0.04);
   text-align: center;

@@ -151,10 +151,10 @@ const handleStartProject = () => {
       </p>
 
       <div class="hero-actions">
-        <button class="btn btn-primary hero-btn" @click="handleStartProject">
+        <button class="btn hero-btn" @click="handleStartProject">
           {{ page.primaryCtaLabel }}
         </button>
-        <NuxtLink to="/pipeline" class="btn btn-secondary hero-btn-outline">
+        <NuxtLink to="/pipeline" class="btn btn-primary hero-btn-outline">
           {{ page.secondaryCtaLabel }}
         </NuxtLink>
       </div>
@@ -192,7 +192,7 @@ const handleStartProject = () => {
           <h3>{{ page.partnershipHeading }}</h3>
           <p>{{ page.partnershipDescription }}</p>
         </div>
-        <div class="pi-action">
+        <div class="btn-primary pi-action">
           <a :href="`mailto:${page.partnershipEmail}?subject=Immune Health Partnership Inquiry`">
             {{ page.partnershipCtaLabel }}
           </a>
@@ -251,7 +251,7 @@ const handleStartProject = () => {
   text-align: center;
   padding: 4rem 2rem;
   position: relative;
-  background: linear-gradient(175deg, #0a0f1a 0%, #1a3a5c 45%, #1a5276 100%);
+  background: linear-gradient(175deg, #0a0f1a 0%, #011F5B 45%, #1a5276 100%);
   color: #fff;
   overflow: hidden;
   margin-top: calc(-1 * var(--nav-h));
@@ -339,8 +339,13 @@ const handleStartProject = () => {
   color: var(--accent);
 }
 
+.hero-btn:hover {
+  color: #FFF;
+  background-color: var(--penn-light-blue);
+}
+
 .hero-btn-outline {
-  border-color: rgba(255, 255, 255, 0.4);
+  border: 1.5px solid white;
   color: #fff;
 }
 
@@ -454,12 +459,12 @@ const handleStartProject = () => {
 
 .partnership-callout {
   max-width: 1080px;
-  margin: 0 auto 4rem;
+  margin: 0 auto;
   padding: 0 2rem;
 }
 
 .partnership-inner {
-  background: linear-gradient(135deg, #1a3a5c, #1a5276);
+  background: linear-gradient(135deg, #011F5B, #1a5276);
   border-radius: var(--radius);
   padding: 2.5rem 3rem;
   color: #fff;
@@ -492,22 +497,17 @@ const handleStartProject = () => {
 
   .pi-action {
     flex-shrink: 0;
-
+    border: 1px solid white;
     a {
       display: inline-block;
       padding: 0.7rem 1.6rem;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
       color: #fff;
       font-weight: 600;
       font-size: 0.85rem;
-      border: 1px solid rgba(255, 255, 255, 0.25);
       transition: all 0.2s;
       cursor: pointer;
 
-      &:hover {
-        background: rgba(255, 255, 255, 0.25);
-      }
     }
   }
 }
@@ -548,7 +548,7 @@ const handleStartProject = () => {
   .team-avatar {
     width: 42px;
     height: 42px;
-    border-radius: 10px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;

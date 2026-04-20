@@ -5,12 +5,19 @@
  */
 
 :root {
+    // Official Penn Colors
+  --penn-blue: #011f5b;
+  --penn-red: #990000;
+  --penn-red-secondary: #99000080;
+  --penn-light-blue: #808FAD;
+  --penn-gold: #f2c100;
+
   // Colors
-  --ink: #0a0f1a;
+  --ink: #011f5b;
   --paper: #f4f1eb;
   --cream: #faf8f4;
-  --accent: #1a5276;
-  --accent-light: #2980b9;
+  --accent: #011f5b;
+  --accent-light: #808FAD;
   --warm: #c0392b;
   --warm-light: #e74c3c;
   --green: #1a7a4c;
@@ -27,7 +34,7 @@
   --card-shadow: 0 2px 20px rgba(10, 15, 26, 0.08);
 
   // Spacing
-  --radius: 12px;
+  --radius: 4px;
   --nav-h: 64px;
   --timeline-width: 3px;
 }

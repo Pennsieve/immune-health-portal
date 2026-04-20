@@ -63,7 +63,7 @@ const getBadgeClass = (isActive: boolean): string => {
 
 <template>
   <div class="services-page">
-    <section class="section-header" style="padding-top: 6rem;">
+    <section class="section-header" style="padding-top: 3rem;">
       <span class="overline">{{ page.headerOverline }}</span>
       <h2>{{ page.headerHeading }}</h2>
       <p>{{ page.headerDescription }}</p>
@@ -147,7 +147,7 @@ const getBadgeClass = (isActive: boolean): string => {
 .rate-toggle {
   display: inline-flex;
   border: 1.5px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
 
   button {

@@ -151,8 +151,8 @@ const handleDashboardClick = () => {
 .i3h-mark {
   width: 28px;
   height: 28px;
-  background: var(--accent);
-  border-radius: 6px;
+  background: var(--penn-blue);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -164,28 +164,30 @@ const handleDashboardClick = () => {
 
 .nav-links {
   display: flex;
-  gap: 0.3rem;
+  gap: 1.5rem;
   align-items: center;
 }
 
 .nav-link {
-  padding: 0.45rem 1rem;
-  font-size: 0.82rem;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  border-radius: 6px;
   transition: all 0.2s;
   cursor: pointer;
   color: var(--muted);
   text-decoration: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
-    color: var(--ink);
+    color: var(--penn-blue);
+    background: transparent;
   }
 
   &.active {
-    background: var(--accent);
-    color: #fff;
+    color: var(--penn-blue);
+    background: transparent;
+    border-bottom-color: var(--penn-blue);
   }
 }
 
@@ -197,16 +199,17 @@ const handleDashboardClick = () => {
   padding: 0.45rem 1.2rem;
   font-size: 0.82rem;
   font-weight: 600;
-  border-radius: 6px;
-  background: var(--teal);
+  border-radius: 4px;
+  background: var(--penn-blue);
   color: #fff;
   cursor: pointer;
   transition: all 0.2s;
   border: none;
   font-family: inherit;
+  margin-left: 1rem;
 
   &:hover {
-    background: var(--teal-light);
+    background: var(--penn-light-blue);
   }
 }
 

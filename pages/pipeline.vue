@@ -254,7 +254,7 @@ onMounted(async () => {
 
 <template>
   <div class="pipeline-page">
-    <section class="section-header" style="padding-top: 6rem;">
+    <section class="section-header" style="padding-top: 3rem;">
       <span class="overline">{{ page.headerOverline }}</span>
       <h2>{{ page.headerHeading }}</h2>
       <p>{{ page.headerDescription }}</p>
@@ -364,7 +364,7 @@ onMounted(async () => {
       var(--gold-light),
       var(--warm-light)
     );
-    border-radius: 2px;
+    border-radius: 4px;
   }
 
   @media (max-width: 700px) {
@@ -420,7 +420,7 @@ onMounted(async () => {
 
 .step-card {
   background: var(--card);
-  border-radius: 12px;
+  border-radius: 4px;
   box-shadow: var(--card-shadow);
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -448,7 +448,7 @@ onMounted(async () => {
 .step-icon {
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -555,7 +555,7 @@ onMounted(async () => {
 
 .qc-card {
   background: var(--paper);
-  border-radius: 8px;
+  border-radius: 4px;
   padding: 1rem 1.2rem;
   border: 1px solid rgba(0, 0, 0, 0.04);
 
@@ -703,7 +703,7 @@ onMounted(async () => {
 
 .end-metric {
   padding: 1.5rem;
-  border-radius: 10px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
 
