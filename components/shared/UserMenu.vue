@@ -91,7 +91,7 @@ onMounted(() => {
   transition: all 0.2s;
 
   &:hover {
-    border-color: var(--accent);
+    border-color: var(--penn-blue);
   }
 }
 
@@ -99,7 +99,7 @@ onMounted(() => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--penn-blue);
   color: #fff;
   display: flex;
   align-items: center;

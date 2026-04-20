@@ -516,7 +516,7 @@ onMounted(async () => {
           </div>
 
           <div class="submit-section">
-            <button class="btn btn-teal" @click="submitForm">
+            <button class="btn btn-primary" @click="submitForm">
               Submit Inquiry
             </button>
             <span
@@ -553,7 +553,7 @@ onMounted(async () => {
 }
 
 .form-page {
-  padding: 5rem 2rem 4rem;
+  padding: 3rem 2rem 4rem;
   max-width: 1080px;
   margin: 0 auto;
 
@@ -610,7 +610,7 @@ onMounted(async () => {
   display: flex;
   gap: 0;
   border: 1.5px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
   margin-bottom: 1rem;
 
@@ -641,7 +641,7 @@ onMounted(async () => {
   line-height: 1.6;
   padding: 0.8rem 1rem;
   background: rgba(26, 82, 118, 0.04);
-  border-radius: 8px;
+  border-radius: 4px;
   margin-bottom: 1.5rem;
   border-left: 3px solid var(--accent);
 
@@ -718,7 +718,7 @@ onMounted(async () => {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: var(--teal);
+      background: var(--penn-blue);
       cursor: pointer;
       border: 2px solid #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
@@ -729,7 +729,7 @@ onMounted(async () => {
     width: 60px;
     padding: 0.3rem 0.5rem;
     border: 1.5px solid var(--line);
-    border-radius: 5px;
+    border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
     text-align: center;
@@ -863,7 +863,7 @@ onMounted(async () => {
   }
 
   &.partnership {
-    background: linear-gradient(135deg, #1a3a5c, #1a5276);
+    background: linear-gradient(135deg, #011F5B, #1a5276);
     color: #fff;
     border: none;
 
