@@ -93,7 +93,7 @@ For dynamic content management:
 
 - `CONTENTFUL_SPACE_ID` - Your Contentful space ID
 - `CONTENTFUL_ACCESS_TOKEN` - Content Delivery API token
-- `CONTENTFUL_PREVIEW_TOKEN` - Content Preview API token
+- `CONTENTFUL_HOST` - Content Delivery API url
 
 #### ORCID OAuth (Optional)
 

@@ -34,7 +34,6 @@ export default defineNuxtConfig({
     public: {
       // Pennsieve API Configuration
       pennsieveApiHost: process.env.PENNSIEVE_API_HOST || 'https://api.pennsieve.net',
-      pennsieveApi2Host: process.env.PENNSIEVE_API2_HOST || 'https://api2.pennsieve.net',
       pennsieveDiscoverApiHost: process.env.PENNSIEVE_DISCOVER_API_HOST || 'https://api.pennsieve.net/discover',
 
       // AWS Cognito Configuration
@@ -48,13 +47,14 @@ export default defineNuxtConfig({
       // Contentful CMS Configuration
       contentfulSpaceId: process.env.CONTENTFUL_SPACE_ID || '',
       contentfulAccessToken: process.env.CONTENTFUL_ACCESS_TOKEN || '',
-      contentfulPreviewToken: process.env.CONTENTFUL_PREVIEW_TOKEN || '',
       contentfulEnvironment: process.env.CONTENTFUL_ENVIRONMENT || 'master',
+      contentfulHost: process.env.CONTENTFUL_HOST || 'preview.contentful.com',
+
+
 
       // Application Configuration
       appDomain: process.env.APP_DOMAIN || 'localhost',
       deployEnv: process.env.DEPLOY_ENV || 'development',
-      siteUrl: process.env.SITE_URL || 'http://localhost:3000',
 
       // ORCID Configuration (for federated login)
       orcidClientId: process.env.ORCID_CLIENT_ID || '',

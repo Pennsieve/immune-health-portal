@@ -24,22 +24,12 @@ export default defineNuxtPlugin(() => {
     space: runtimeConfig.public.contentfulSpaceId,
     accessToken: runtimeConfig.public.contentfulAccessToken,
     environment: runtimeConfig.public.contentfulEnvironment,
+    host: runtimeConfig.public.contentfulHost
   })
-
-  // Create preview client if preview token is available
-  const previewClient = runtimeConfig.public.contentfulPreviewToken
-    ? createClient({
-        space: runtimeConfig.public.contentfulSpaceId,
-        accessToken: runtimeConfig.public.contentfulPreviewToken,
-        environment: runtimeConfig.public.contentfulEnvironment,
-        host: 'preview.contentful.com',
-      })
-    : null
 
   return {
     provide: {
-      contentful: client,
-      contentfulPreview: previewClient,
+      contentful: client
     },
   }
 })
