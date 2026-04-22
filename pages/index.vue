@@ -11,7 +11,7 @@ const authStore = useAuthStore()
 const { openLoginModal } = useLoginModal()
 const { fetchSingleton, fetchEntries } = useContentful()
 
-const { data: page } = await useAsyncData('page', () =>
+const { data: homePage } = await useAsyncData('homePage', () =>
     fetchSingleton<HomePageContent>('homePage'),
 )
 
@@ -26,28 +26,28 @@ const handleStartProject = () => {
     <section class="home-hero">
       <div class="hero-badge">
         <span class="dot" />
-        {{ page.heroBadge }}
+        {{ homePage.heroBadge }}
       </div>
 
       <h1>
-        <SharedRichTextRenderer :content="page.heroHeadline" />
+        <SharedRichTextRenderer :content="homePage.heroHeadline" />
       </h1>
 
       <p class="hero-sub">
-        {{ page.heroSubheadline }}
+        {{ homePage.heroSubheadline }}
       </p>
 
       <div class="hero-actions">
         <button class="btn hero-btn" @click="handleStartProject">
-          {{ page.primaryCtaLabel }}
+          {{ homePage.primaryCtaLabel }}
         </button>
         <NuxtLink to="/pipeline" class="btn btn-primary hero-btn-outline">
-          {{ page.secondaryCtaLabel }}
+          {{ homePage.secondaryCtaLabel }}
         </NuxtLink>
       </div>
 
       <div class="hero-metrics">
-        <div v-for="metric in page.heroMetrics" :key="metric.label" class="hero-metric">
+        <div v-for="metric in homePage.heroMetrics" :key="metric.label" class="hero-metric">
           <span class="num">{{ metric.value }}</span>
           <span class="label">{{ metric.label }}</span>
         </div>
@@ -56,19 +56,19 @@ const handleStartProject = () => {
 
     <!-- How It Works -->
     <section class="section-header">
-      <span class="overline">{{ page.journeyOverline }}</span>
-      <h2>{{ page.journeyHeading }}</h2>
-      <p>{{ page.journeyDescription }}</p>
+      <span class="overline">{{ homePage.journeyOverline }}</span>
+      <h2>{{ homePage.journeyHeading }}</h2>
+      <p>{{ homePage.journeyDescription }}</p>
     </section>
 
     <div class="pipeline-flow">
-      <div v-for="(step, idx) in page.journeySteps" :key="step.number" class="pipe-step">
+      <div v-for="(step, idx) in homePage.journeySteps" :key="step.number" class="pipe-step">
         <div class="pipe-num" :style="{ background: step.color }">
           {{ step.number }}
         </div>
         <h4>{{ step.title }}</h4>
         <p>{{ step.description }}</p>
-        <span v-if="idx < page.journeySteps.length - 1" class="arrow">→</span>
+        <span v-if="idx < homePage.journeySteps.length - 1" class="arrow">→</span>
       </div>
     </div>
 
@@ -76,12 +76,12 @@ const handleStartProject = () => {
     <div class="partnership-callout">
       <div class="partnership-inner">
         <div class="pi-text">
-          <h3>{{ page.partnershipHeading }}</h3>
-          <p>{{ page.partnershipDescription }}</p>
+          <h3>{{ homePage.partnershipHeading }}</h3>
+          <p>{{ homePage.partnershipDescription }}</p>
         </div>
         <div class="btn-primary pi-action">
-          <a :href="`mailto:${page.partnershipEmail}?subject=Immune Health Partnership Inquiry`">
-            {{ page.partnershipCtaLabel }}
+          <a :href="`mailto:${homePage.partnershipEmail}?subject=Immune Health Partnership Inquiry`">
+            {{ homePage.partnershipCtaLabel }}
           </a>
         </div>
       </div>
@@ -89,13 +89,13 @@ const handleStartProject = () => {
 
     <!-- Team Section -->
     <section class="section-header">
-      <span class="overline">{{ page.teamOverline }}</span>
-      <h2>{{ page.teamHeading }}</h2>
-      <p>{{ page.teamDescription }}</p>
+      <span class="overline">{{ homePage.teamOverline }}</span>
+      <h2>{{ homePage.teamHeading }}</h2>
+      <p>{{ homePage.teamDescription }}</p>
     </section>
 
     <div class="team-grid">
-      <div v-for="member in page.teamMembers" :key="member.email" class="team-card">
+      <div v-for="member in homePage.teamMembers" :key="member.email" class="team-card">
         <div class="team-top">
           <div class="team-avatar" :style="{ background: member.color }">
             {{ member.initials }}
@@ -118,7 +118,7 @@ const handleStartProject = () => {
 
     <div class="team-contacts">
       <div class="team-contacts-inner">
-        <div v-for="pill in page.contactPills" :key="pill.role" class="team-contact-pill">
+        <div v-for="pill in homePage.contactPills" :key="pill.role" class="team-contact-pill">
           <span class="pill-role">{{ pill.role }}</span>
           <span class="pill-dot" />
           <span class="pill-name">{{ pill.name }} · {{ pill.email }}</span>

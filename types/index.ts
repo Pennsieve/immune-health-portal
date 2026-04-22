@@ -1,3 +1,5 @@
+import type { Entry } from 'contentful'
+
 // User & Auth Types
 export interface User {
   id: string
@@ -124,21 +126,6 @@ export interface TeamMember {
   color: string
 }
 
-// Pipeline Step Types
-export interface PipelineStep {
-  id: string
-  number: string
-  title: string
-  description: string
-  timeTag: string
-  theme: string
-  icon: string
-  qcMetrics?: QCMetric[]
-  details?: string
-  checklistItems?: string[]
-  tags?: string[]
-}
-
 export interface QCMetric {
   label: string
   value: string
@@ -185,7 +172,7 @@ export interface HomePageContent {
 }
 
 // Pipeline Step content model
-export interface PipelineStepContent {
+export interface PipelineStepFields {
   id: string
   number: string
   title: string
@@ -197,23 +184,25 @@ export interface PipelineStepContent {
   details: string
   checklistItems: string[]
   tags?: string[]
-  order: number
 }
+
+export type PipelineStepEntry = Entry<PipelineStepFields>
 
 // Pipeline Page content model
 export interface PipelinePageContent {
   headerOverline: string
-  headerHeading: string
+  headerTitle: string
   headerDescription: string
   summaryOverline: string
   summaryHeading: string
   summaryMetrics: Array<{ value: string; label: string }>
+  pipelineSteps: PipelineStepEntry[]
 }
 
 // Services Page content model
 export interface ServicesPageContent {
   headerOverline: string
-  headerHeading: string
+  headerTitle: string
   headerDescription: string
   pricingNote: string
   billingHeading: string
@@ -242,11 +231,12 @@ export interface IntakeSidebarCardContent {
 
 // Intake Page content model
 export interface IntakePageContent {
-  pageTitle: string
-  pageDescription: string
+  title: string
+  description: string
   affiliationInfoInternal: string
   affiliationInfoExternal: string
   affiliationInfoIndustry: string
+  sidebarCards: Array<{ title: string; body: string; variant: string }>
 }
 
 // Site Settings content model (singleton)

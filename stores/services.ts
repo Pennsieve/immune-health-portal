@@ -15,7 +15,7 @@ interface ServicesState {
 
 export const useServicesStore = defineStore('services', {
   state: (): ServicesState => ({
-    services: getDefaultServices(),
+    services: [],
     rateView: 'internal',
     isLoading: false,
     error: null,
@@ -70,34 +70,29 @@ export const useServicesStore = defineStore('services', {
       try {
         const { $contentful } = useNuxtApp() as { $contentful: any }
 
-        if ($contentful) {
-          const response = await $contentful.getEntries({
-            content_type: 'serviceItem',
-            order: 'fields.order',
-          })
+        if (!$contentful) throw new Error('Contentful not available')
 
-          if (response.items.length > 0) {
-            const mapped: Service[] = response.items.map((item: any) => ({
-              id: item.sys.id,
-              name: item.fields.name,
-              description: item.fields.description,
-              internalRate: item.fields.internalRate,
-              externalRate: item.fields.externalRate,
-              unit: item.fields.unit,
-              isActive: item.fields.isActive ?? true,
-              category: item.fields.category,
-            }))
-            this.setServices(mapped)
-            return
-          }
-        }
+        const response = await $contentful.getEntries({
+          content_type: 'serviceItem',
+          order: 'fields.order',
+        })
 
-        // Fallback to defaults
-        this.setServices(getDefaultServices())
+        const mapped: Service[] = response.items.map((item: any) => ({
+          id: item.sys.id,
+          name: item.fields.name,
+          description: item.fields.description,
+          internalRate: item.fields.internalRate,
+          externalRate: item.fields.externalRate,
+          unit: item.fields.unit,
+          isActive: item.fields.isActive ?? true,
+          category: item.fields.category,
+        }))
+        this.setServices(mapped)
+        return mapped
       }
       catch (error) {
-        console.warn('[Contentful] Failed to fetch services, using defaults:', error)
-        this.setServices(getDefaultServices())
+        console.error('[Contentful] Failed to fetch services:', error)
+        this.setError('Failed to load services')
       }
       finally {
         this.setLoading(false)
@@ -105,119 +100,3 @@ export const useServicesStore = defineStore('services', {
     },
   },
 })
-
-// Default services based on the HTML mockup
-function getDefaultServices(): Service[] {
-  return [
-    {
-      id: 'consultation',
-      name: 'Project Consultation',
-      description: 'Initial consultation to discuss project scope, objectives, and feasibility with the Immune Health team',
-      internalRate: 250,
-      externalRate: 250,
-      unit: 'per consultation',
-      isActive: true,
-      category: 'other',
-    },
-    {
-      id: 'blood-draw',
-      name: 'Blood Draw',
-      description: 'Phlebotomy by clinical research team — on campus, in BRB, or remote',
-      internalRate: 120, // Average of range for calculations
-      externalRate: 180, // Average of range for calculations
-      unit: 'per draw',
-      isActive: true,
-      category: 'collection',
-    },
-    {
-      id: 'transport',
-      name: 'Biospecimen Transport',
-      description: 'Sample pickup and transport from HUP clinical lab to Immune Health receiving',
-      internalRate: 30,
-      externalRate: 45,
-      unit: 'per trip',
-      isActive: true,
-      category: 'collection',
-    },
-    {
-      id: 'blood-processing',
-      name: 'Blood Processing',
-      description: 'Processing whole blood into serum, plasma, DNA, RNA, and/or viably cryopreserved PBMCs. Price scales by volume.',
-      internalRate: 400, // Average of range for calculations
-      externalRate: 600, // Average of range for calculations
-      unit: 'per sample',
-      isActive: true,
-      category: 'processing',
-    },
-    {
-      id: 'tissue-processing',
-      name: 'Tissue Processing',
-      description: 'Processing tissue biopsies into single-cell suspensions with viable cryopreservation',
-      internalRate: 500,
-      externalRate: 750,
-      unit: 'per sample',
-      isActive: true,
-      category: 'processing',
-    },
-    {
-      id: 'cytof-mdipa',
-      name: 'CyTOF Immune Profiling (MDIPA)',
-      description: 'Staining and acquisition with the 30+ marker MaxPar Direct Immune Profiling Assay on CyTOF',
-      internalRate: 325,
-      externalRate: 450,
-      unit: 'per sample',
-      isActive: true,
-      category: 'cytof',
-    },
-    {
-      id: 'cytof-neutrophil',
-      name: 'CyTOF Neutrophil Expansion Panel',
-      description: '9 additional markers for neutrophil/myeloid characterization. Paired with MDIPA assay.',
-      internalRate: 250,
-      externalRate: 350,
-      unit: 'per sample',
-      isActive: true,
-      category: 'cytof',
-    },
-    {
-      id: 'tier1-analysis',
-      name: 'Tier 1 CyTOF Analysis',
-      description: 'Standardized gating for 42 populations, PDF comparison report, and UMAP integration in Pennsieve',
-      internalRate: 50,
-      externalRate: 0, // Contact for pricing
-      unit: 'per sample',
-      isActive: true,
-      category: 'analysis',
-    },
-    {
-      id: 'tier2-analysis',
-      name: 'Tier 2 CyTOF Analysis',
-      description: 'High-dimensional analysis and statistical testing performed by Immune Health staff. Must be paired with CyTOF (MDIPA).',
-      internalRate: 150,
-      externalRate: 0, // Contact for pricing
-      unit: 'per sample',
-      isActive: true,
-      category: 'analysis',
-    },
-    {
-      id: 'late-processing',
-      name: 'Late Sample Processing',
-      description: 'Surcharge for samples delivered after 3 PM requiring same-day processing. 48-hour advance notice required.',
-      internalRate: 50,
-      externalRate: 75,
-      unit: 'per session',
-      isActive: true,
-      category: 'other',
-    },
-    {
-      id: 'specialized-protocol',
-      name: 'Specialized Protocol',
-      description: 'Surcharge for non-standard processing requiring specialized equipment, reagents, or staff',
-      internalRate: 75,
-      externalRate: 100,
-      unit: 'per sample',
-      isActive: true,
-      category: 'other',
-    },
-  ]
-}

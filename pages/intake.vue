@@ -3,14 +3,12 @@
  * Intake Form Page
  *
  * Form for submitting new immune profiling projects.
- * Requires authentication. Sidebar and page copy fetched from Contentful
- * with hardcoded fallbacks.
+ * Sidebar and page copy fetched from Contentful
  */
-import { useServicesStore } from '~/stores/services'
 import { useContentful } from '~/composables/useContentful'
 import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption, IntakePageContent, IntakeSidebarCardContent } from '~/types/index'
 
-const servicesStore = useServicesStore()
+const servicesStore = await useServicesData()
 const { fetchSingleton, fetchEntries } = useContentful()
 
 // Form data
@@ -163,51 +161,17 @@ const getServiceSubtotal = (serviceId: string): string => {
   return `= $${(rate * qty).toLocaleString()}`
 }
 
-// CMS-managed page content with defaults
-const defaultIntakeContent = {
-  pageTitle: 'Start a New Immune Profiling Project',
-  pageDescription: 'Complete this form to initiate a study with Immune Health. Our team will review your submission and reach out to discuss scope, timelines, and a formal User Agreement.',
-  affiliationInfoInternal: 'Billed through iLabs using your 26-digit Penn budget account number. Monthly invoicing. No contract required.',
-  affiliationInfoExternal: 'External academic collaborations are processed via institutional contract. Monthly invoices issued after contract execution. Academic external rates apply.',
-  affiliationInfoIndustry: 'Industry and corporate partnerships are handled through our Strategy & Business team. Pricing is customized and requires a formal partnership agreement. Contact <strong>Leonardo Guercio</strong> at <strong>lguercio@pennmedicine.upenn.edu</strong> to begin discussions.',
-}
-
-const defaultSidebarCards = [
-  { title: 'What Happens Next?', body: 'After submission, the Immune Health team reviews your request and contacts you within <strong>5 business days</strong> to discuss scope, feasibility, and pricing. A formal User Agreement is drafted after our initial meeting.', variant: 'default' as const },
-  { title: 'Required Before Work Begins', body: '✓ Signed User Agreement<br>✓ Budget account or executed contract<br>✓ IRB approval (if applicable)<br>✓ Metadata collection plan<br>✓ Pennsieve access authorization', variant: 'default' as const },
-  { title: 'Typical Timelines', body: 'CyTOF batched in ≥10 samples. Raw data + QC within <strong>30 days</strong> after run. Final data transfer within <strong>4 weeks</strong> of acquisition.', variant: 'default' as const },
-  { title: 'Billing Contact', body: '<strong>Kenneth Hassinger</strong><br>Director of Finance, I3H<br>khas@pennmedicine.upenn.edu<br><br>Penn internal: iLabs monthly invoicing<br>External: Monthly invoices via contract', variant: 'default' as const },
-  { title: 'Partnership Opportunities', body: 'Exploring a deeper collaboration? We\'re open to strategic partnerships that leverage our standardized pipeline and cross-cohort dataset.<br><br><strong>Leonardo Guercio</strong><br>lguercio@pennmedicine.upenn.edu', variant: 'partnership' as const },
-]
-
-const intakePage = ref(defaultIntakeContent)
-const sidebarCards = ref(defaultSidebarCards)
-
-onMounted(async () => {
-  const [cmsPage, cmsCards] = await Promise.all([
+const { data: intakePage } = await useAsyncData('intakePage', () =>
     fetchSingleton<IntakePageContent>('intakePage'),
-    fetchEntries<IntakeSidebarCardContent>('intakeSidebarCard'),
-  ])
+)
 
-  if (cmsPage) {
-    intakePage.value = { ...defaultIntakeContent, ...cmsPage }
-  }
-
-  if (cmsCards.length > 0) {
-    sidebarCards.value = cmsCards.map(c => ({
-      title: c.title,
-      body: c.body,
-      variant: c.variant || 'default',
-    }))
-  }
-})
 </script>
 
 <template>
   <div class="intake-page">
     <div class="form-page">
-      <h1>{{ intakePage.pageTitle }}</h1>
-      <p>{{ intakePage.pageDescription }}</p>
+      <h1>{{ intakePage.title }}</h1>
+      <p>{{ intakePage.description }}</p>
 
       <div class="form-layout">
         <div class="form-card">
@@ -532,7 +496,7 @@ onMounted(async () => {
         <!-- Sidebar -->
         <div class="sidebar-info">
           <div
-            v-for="card in sidebarCards"
+            v-for="card in intakePage.sidebarCards"
             :key="card.title"
             class="sidebar-card"
             :class="{ partnership: card.variant === 'partnership' }"

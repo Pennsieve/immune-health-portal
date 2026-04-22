@@ -3,12 +3,12 @@
  * Pipeline Page
  *
  * Detailed view of the I3H processing pipeline with expandable steps.
- * Content is fetched from Contentful with hardcoded fallbacks.
+ * Content is fetched from Contentful.
  */
-import type { PipelineStep, PipelinePageContent, PipelineStepContent } from '~/types'
+import type { PipelinePageContent } from '~/types'
 import { useContentful } from '~/composables/useContentful'
 
-const { fetchSingleton, fetchEntries } = useContentful()
+const { fetchSingleton } = useContentful()
 
 const openSteps = ref<string[]>([])
 
@@ -26,213 +26,22 @@ const isStepOpen = (stepId: string): boolean => {
   return openSteps.value.includes(stepId)
 }
 
-// Default pipeline steps (fallback when Contentful is unavailable)
-const defaultPipelineSteps: PipelineStep[] = [
+const { data: pipelinePage } = await useAsyncData('pipelinePage', async () =>
   {
-    id: 'step-1',
-    number: '01',
-    title: 'Peripheral Blood Draw & PBMC Isolation',
-    description: 'Whole blood collected via standard phlebotomy, PBMCs isolated through density gradient centrifugation within the processing window.',
-    timeTag: 'T + 0 min · Collection',
-    theme: 'blue',
-    icon: '🩸',
-    qcMetrics: [
-      { label: 'Processing Window', value: '≤ 4 hrs', context: 'Draw to isolation start' },
-      { label: 'Typical Yield', value: '1–3 × 10⁶', context: 'PBMCs per mL whole blood' },
-      { label: 'Collection Tubes', value: 'CPT / EDTA', context: 'Standardized across cohorts' },
-    ],
-    details: 'Standardized collection protocols ensure consistency across all patient cohorts. Samples are processed at I3H\'s dedicated facility with tracked chain-of-custody from draw to cryopreservation. Temperature controlled at room temp during transit – no cold-chain artifacts that would alter cell surface marker expression.',
-    checklistItems: [
-      'Ficoll-Paque density gradient centrifugation',
-      'Automated cell counting via hemocytometer / Countess',
-      'Red blood cell lysis QC (visual + scatter verification)',
-      'Sample metadata captured at point of collection',
-    ],
-  },
-  {
-    id: 'step-2',
-    number: '02',
-    title: 'Sample Viability & Cell Quality Assessment',
-    description: 'Rigorous viability gating ensures only high-quality, representative samples enter the profiling pipeline.',
-    timeTag: 'T + 4 hrs · Viability QC',
-    theme: 'green',
-    icon: '🔬',
-    qcMetrics: [
-      { label: 'Viability Threshold', value: '≥ 85%', context: 'Minimum for pipeline entry', barPercentage: 85 },
-      { label: 'Typical Viability', value: '92–96%', context: 'Fresh PBMC average', barPercentage: 94 },
-      { label: 'Post-Thaw Viability', value: '88–93%', context: 'Cryopreserved samples', barPercentage: 90 },
-    ],
-    details: 'Viability is the single most critical QC checkpoint. Dead cells bind antibodies non-specifically, corrupting downstream data. I3H maintains viability well above the 85% minimum threshold through rapid processing, controlled thawing, and cisplatin-based dead cell exclusion during CyTOF staining.',
-    checklistItems: [
-      'Cisplatin (195Pt) live/dead discrimination on CyTOF',
-      'Trypan blue exclusion for pre-stain counting',
-      'Controlled thaw protocol for cryopreserved samples',
-      'Viability gate applied before all downstream analysis',
-      'Samples below threshold flagged and excluded with documentation',
-    ],
-  },
-  {
-    id: 'step-3',
-    number: '03',
-    title: 'Maxpar Direct Immune Profiling Assay (MDIPA)',
-    description: 'Standardized lyophilized antibody cocktail – 30+ metal-conjugated markers measuring surface and intracellular proteins at single-cell resolution.',
-    timeTag: 'T + 5 hrs · MDIPA Staining',
-    theme: 'gold',
-    icon: '🧪',
-    qcMetrics: [
-      { label: 'Panel Size', value: '30+', context: 'Metal-conjugated markers' },
-      { label: 'Populations Resolved', value: '50', context: 'Immune cell subsets' },
-      { label: 'Vendor', value: 'Standard BioTools', context: 'Sole source – lyophilized cocktail' },
-    ],
-    details: 'The MDIPA kit is the backbone of I3H\'s standardized profiling. As a pre-validated, lyophilized antibody cocktail, it eliminates lot-to-lot variability – critical for comparing results across thousands of patient visits spanning years.',
-    checklistItems: [
-      'No spectral overlap – mass cytometry uses metal isotope tags',
-      'Batch-matched reagents across all cohorts',
-      'Lineage, activation, and functional markers in single tube',
-      'Intercalator (iridium) DNA stain for singlet discrimination',
-      'EQ Four Element Calibration Beads for signal normalization',
-    ],
-    tags: ['CD3', 'CD4', 'CD8', 'CD19', 'CD56', 'CD14', 'CD16', 'CD45RA', 'CCR7', 'CD127', 'CD25', 'HLA-DR', 'CD38', 'CD27', 'IgD', '+ more'],
-  },
-  {
-    id: 'step-4',
-    number: '04',
-    title: 'Mass Cytometry Data Acquisition',
-    description: 'Cells are nebulized, ionized, and analyzed by time-of-flight mass spectrometry – 30+ parameters per cell at thousands of events per second.',
-    timeTag: 'T + 8 hrs · CyTOF Acquisition',
-    theme: 'red',
-    icon: '⚡',
-    qcMetrics: [
-      { label: 'Events Target', value: '≥ 200K', context: 'Live singlet events per sample' },
-      { label: 'Acquisition Rate', value: '300–500', context: 'Events / second' },
-      { label: 'Output Format', value: 'FCS 3.1', context: 'Flow Cytometry Standard' },
-    ],
-    details: 'CyTOF acquisition is destructive – each cell is vaporized into heavy-metal ions and analyzed by mass spectrometry. This eliminates spectral overlap entirely. EQ beads run continuously for real-time calibration.',
-    checklistItems: [
-      'EQ bead normalization across acquisition runs',
-      'Gaussian discrimination parameters for doublet removal',
-      'Instrument tuning verified before each batch',
-      'Signal stability monitored throughout acquisition',
-    ],
-  },
-  {
-    id: 'step-5',
-    number: '05',
-    title: 'Bead Normalization, Gating & QC',
-    description: 'Raw FCS files undergo bead normalization, debris removal, and standardized gating before entering the analysis pipeline.',
-    timeTag: 'T + 12 hrs · Data Processing',
-    theme: 'teal',
-    icon: '🧹',
-    qcMetrics: [
-      { label: 'FCS Files Processed', value: '4,000+', context: 'Annotated and QC\'d' },
-      { label: 'Gating Strategy', value: 'Automated', context: 'Validated against manual expert' },
-      { label: 'Correlation', value: 'High', context: 'Auto vs. immunologist gating' },
-    ],
-    details: 'I3H has developed a computational analysis approach that aligns with how immunologists think about the data. Validated against manual expert gating with strong correlation – scalable without sacrificing immunological rigor.',
-    checklistItems: [
-      'EQ bead removal and signal normalization',
-      'Live/dead gating (cisplatin-negative)',
-      'Singlet gating (DNA intercalator)',
-      'CD45+ immune cell gating',
-      'Automated population identification across 50 subsets',
-      'Batch effect monitoring across acquisition runs',
-    ],
-  },
-  {
-    id: 'step-6',
-    number: '06',
-    title: 'Pennsieve Platform – Structured Data Management',
-    description: 'Processed FCS files, annotations, and patient metadata organized in Pennsieve for discoverable, FAIR-compliant data management.',
-    timeTag: 'T + 24 hrs · Data Integration',
-    theme: 'purple',
-    icon: '🗄️',
-    qcMetrics: [
-      { label: 'Data Objects', value: '4,000+', context: 'Annotated FCS files' },
-      { label: 'Metadata Layers', value: 'Clinical + Lab', context: 'Linked to patient records' },
-      { label: 'Access Control', value: 'Role-Based', context: 'HIPAA-aligned permissions' },
-    ],
-    details: 'Pennsieve provides the data management backbone – each FCS file is linked to its clinical metadata, processing provenance, and QC annotations, creating a queryable, cohort-spanning dataset.',
-    checklistItems: [
-      'FAIR data principles (Findable, Accessible, Interoperable, Reusable)',
-      'Provenance tracking from blood draw through analysis',
-      'Cross-cohort data discovery and comparison',
-      'Integration with Penn EMR systems',
-      'API access for computational workflows',
-    ],
-  },
-  {
-    id: 'step-7',
-    number: '07',
-    title: 'Immune Fingerprinting & Informatics',
-    description: 'Comprehensive immune fingerprints – quantifying 50 populations to establish baselines, detect perturbations, and track longitudinal trajectories.',
-    timeTag: 'T + 48 hrs · Analytics',
-    theme: 'navy',
-    icon: '📊',
-    qcMetrics: [
-      { label: 'Analysis Output', value: 'Immune Fingerprint', context: '50-population quantification' },
-      { label: 'Cohort Comparison', value: 'Cross-Study', context: 'Standardized by MDIPA protocol' },
-      { label: 'Integration', value: 'Multi-Modal', context: 'CyTOF + EMR + Clinical' },
-    ],
-    details: 'The final layer transforms population frequencies into actionable immune health profiles. Standardized upstream means fingerprints are directly comparable across patients, time points, and disease contexts.',
-    checklistItems: [
-      'Population frequency quantification across 50 immune subsets',
-      'Activation state profiling (HLA-DR, CD38, Ki-67)',
-      'Longitudinal trajectory tracking per patient',
-      'Cohort-level distribution analysis',
-      'Integration with clinical outcomes data',
-      'Dashboard visualization for investigators',
-    ],
-  },
-]
+    const raw = await fetchSingleton<PipelinePageContent>('pipelinePage')
 
-// Default page content
-const defaultPageContent = {
-  headerOverline: 'The I3H Pipeline',
-  headerHeading: 'Every Step Documented, Every Metric Tracked',
-  headerDescription: 'Click any stage to expand its QC parameters, processing details, and quality benchmarks.',
-  summaryOverline: 'Why This Matters',
-  summaryHeading: 'One Pipeline. One Panel. Thousands of Comparable Profiles.',
-  summaryMetrics: [
-    { value: '4,000+', label: 'Visits profiled with identical protocol' },
-    { value: '50', label: 'Immune populations per fingerprint' },
-    { value: '< 48h', label: 'Blood draw to analyzed fingerprint' },
-    { value: '0%', label: 'Spectral overlap (mass cytometry)' },
-    { value: '≥ 85%', label: 'Viability threshold for pipeline entry' },
-    { value: 'FAIR', label: 'Data managed on Pennsieve platform' },
-  ],
-}
+    if (!raw) return null
 
-// Reactive content state
-const page = ref(defaultPageContent)
-const pipelineSteps = ref<PipelineStep[]>(defaultPipelineSteps)
+    return {
+      ...raw,
+      pipelineSteps: raw.pipelineSteps?.map((step: any) => ({
+        ...step.fields
+      })) ?? []
+    }
+  }
+)
 
-// Fetch from Contentful on mount
 onMounted(async () => {
-  const [cmsPage, cmsSteps] = await Promise.all([
-    fetchSingleton<PipelinePageContent>('pipelinePage'),
-    fetchEntries<PipelineStepContent>('pipelineStep'),
-  ])
-
-  if (cmsPage) {
-    page.value = { ...defaultPageContent, ...cmsPage }
-  }
-
-  if (cmsSteps.length > 0) {
-    pipelineSteps.value = cmsSteps.map(s => ({
-      id: s.id,
-      number: s.number,
-      title: s.title,
-      description: s.description,
-      timeTag: s.timeTag,
-      theme: s.theme,
-      icon: s.icon,
-      qcMetrics: s.qcMetrics,
-      details: s.details,
-      checklistItems: s.checklistItems,
-      tags: s.tags,
-    }))
-  }
-
   // Intersection observer for step animations
   await nextTick()
   const observer = new IntersectionObserver(
@@ -255,14 +64,14 @@ onMounted(async () => {
 <template>
   <div class="pipeline-page">
     <section class="section-header" style="padding-top: 3rem;">
-      <span class="overline">{{ page.headerOverline }}</span>
-      <h2>{{ page.headerHeading }}</h2>
-      <p>{{ page.headerDescription }}</p>
+      <span class="overline">{{ pipelinePage.headerOverline }}</span>
+      <h2>{{ pipelinePage.headerTitle }}</h2>
+      <p>{{ pipelinePage.headerDescription }}</p>
     </section>
 
     <div class="timeline-container">
       <div
-        v-for="step in pipelineSteps"
+        v-for="step in pipelinePage.pipelineSteps"
         :key="step.id"
         class="timeline-step"
         :class="`theme-${step.theme}`"
@@ -329,11 +138,11 @@ onMounted(async () => {
     <!-- Summary Strip -->
     <div class="summary-strip">
       <div class="summary-inner">
-        <span class="overline">{{ page.summaryOverline }}</span>
-        <h2>{{ page.summaryHeading }}</h2>
+        <span class="overline">{{ pipelinePage.summaryOverline }}</span>
+        <h2>{{ pipelinePage.summaryHeading }}</h2>
 
         <div class="end-metrics">
-          <div v-for="metric in page.summaryMetrics" :key="metric.label" class="end-metric">
+          <div v-for="metric in pipelinePage.summaryMetrics" :key="metric.label" class="end-metric">
             <span class="num">{{ metric.value }}</span>
             <span class="label">{{ metric.label }}</span>
           </div>
