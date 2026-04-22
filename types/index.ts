@@ -116,7 +116,6 @@ export interface IntakeFormData {
 
 // Team Member Types
 export interface TeamMember {
-  id: string
   name: string
   initials: string
   role: string
@@ -185,17 +184,6 @@ export interface HomePageContent {
   contactPills: Array<{ role: string; name: string; email: string }>
 }
 
-// Team Member content model
-export interface TeamMemberContent {
-  name: string
-  initials: string
-  role: string
-  bio: string
-  email: string
-  color: string
-  order: number
-}
-
 // Pipeline Step content model
 export interface PipelineStepContent {
   id: string
@@ -262,10 +250,9 @@ export interface IntakePageContent {
 }
 
 // Site Settings content model (singleton)
-export interface SiteSettingsContent {
-  footerText: string
-  footerBillingEmail: string
-  footerPartnershipEmail: string
+export interface FooterContent {
   organizationName: string
   organizationAddress: string
+  billingEmail: string
+  partnershipEmail: string
 }

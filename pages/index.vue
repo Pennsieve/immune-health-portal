@@ -1,133 +1,19 @@
 <script setup lang="ts">
 /**
  * Home Page
- *
- * Landing page with hero section, how it works overview, team showcase,
- * and partnership callout. Content is fetched from Contentful with
- * hardcoded fallbacks.
  */
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { useContentful } from '~/composables/useContentful'
-import type { HomePageContent, TeamMemberContent } from '~/types/index'
+import type { HomePageContent } from '~/types/index'
 
 const authStore = useAuthStore()
 const { openLoginModal } = useLoginModal()
 const { fetchSingleton, fetchEntries } = useContentful()
 
-// Default team data (fallback when Contentful is unavailable)
-const defaultTeamMembers = [
-  {
-    initials: 'AG',
-    name: 'Allie Greenplate, PhD',
-    role: 'Director, Strategic Alliance',
-    color: 'var(--accent)',
-    bio: 'Architect of the I3H profiling platform – built the standardized pipeline from early concept to 4,000+ visits. Now focuses on strategic partnerships across pharma, biotech and academia, shaping the scientific direction of cross-institutional collaborations.',
-    email: 'Allie.Greenplate@pennmedicine.upenn.edu',
-  },
-  {
-    initials: 'AB',
-    name: 'Amy Baxter, DPhil',
-    role: 'Scientific Director – Research & Assay Development',
-    color: 'var(--teal)',
-    bio: 'Drives assay development and research strategy for Immune Health – designing, testing and validating new assays, optimizing protocols and integrating the profiling pipeline into research studies.',
-    email: 'Amy.Baxter@pennmedicine.upenn.edu',
-  },
-  {
-    initials: 'SA',
-    name: 'Sharon Adamski, MS',
-    role: 'Biospecimen Processing',
-    color: 'var(--green)',
-    bio: 'Manages end-to-end sample processing – from blood draw through PBMC isolation and cryopreservation. Maintains QC standards and chain-of-custody integrity across all active cohorts.',
-    email: 'sadamski@pennmedicine.upenn.edu',
-  },
-  {
-    initials: 'MM',
-    name: 'Michelle McKeague, PhD',
-    role: 'Platforms & Operations',
-    color: 'var(--gold)',
-    bio: 'Manages platform operations and investigator onboarding – scaling research assays into high throughput platforms approaches and coordinating new studies from initial consultation through sample receipt.',
-    email: 'Michelle.Mckeague@pennmedicine.upenn.edu',
-  },
-  {
-    initials: 'JW',
-    name: 'Joost Wagenaar, PhD',
-    role: 'Data Management – Pennsieve',
-    color: '#6c3483',
-    bio: 'Architect of the Pennsieve data platform at Penn. Leads FAIR-compliant data infrastructure connecting FCS files, clinical metadata, and provenance tracking across all I3H cohorts.',
-    email: 'joostw@seas.upenn.edu',
-  },
-  {
-    initials: 'MI',
-    name: 'Matei Ionita',
-    role: 'Data Analytics',
-    color: '#1b2631',
-    bio: 'Develops the computational gating and "immune fingerprinting" algorithms – validated against expert immunologist gating – that turn raw data into individual immune profiles.',
-    email: 'matei.ionita@pennmedicine.upenn.edu',
-  },
-]
-
-// Defaults for page content
-const defaults = {
-  heroBadge: 'Penn\'s Institute for Immunology & Immune Health',
-  heroHeadline: 'Standardized <em>Immune Profiling</em> from Blood Draw to Insight',
-  heroSubheadline: 'High-dimensional CyTOF and spectral flow cytometry with integrated data management on Pennsieve. One pipeline. Thousands of comparable profiles.',
-  primaryCtaLabel: 'Submit a New Study',
-  secondaryCtaLabel: 'See How It Works',
-  heroMetrics: [
-    { value: '4,000+', label: 'Patient Visits Profiled' },
-    { value: '50', label: 'Immune Populations' },
-    { value: '30+', label: 'MDIPA Markers' },
-    { value: '<48h', label: 'Draw → Analysis' },
-  ],
-  journeyOverline: 'Your Project Journey',
-  journeyHeading: 'From Inquiry to Immune Fingerprint',
-  journeyDescription: 'Four phases connect your research question to a fully analyzed, QC-validated immune profile on Pennsieve.',
-  journeySteps: [
-    { number: 1, title: 'Intake & Agreement', description: 'Submit your study details. We review scope, discuss objectives, and formalize a User Agreement.', color: 'var(--accent)' },
-    { number: 2, title: 'Sample Processing', description: 'Blood draw, PBMC isolation, and sample prep – standardized SOPs with chain-of-custody tracking.', color: 'var(--teal)' },
-    { number: 3, title: 'CyTOF & Analysis', description: 'MDIPA staining, CyTOF acquisition, EQ normalization, automated gating, and QC.', color: 'var(--green)' },
-    { number: 4, title: 'Dashboard & Delivery', description: 'Track progress in real time. FCS files, QC reports, and Tier 1 analysis on your Pennsieve dashboard.', color: 'var(--gold)' },
-  ],
-  partnershipHeading: 'Partnership Opportunities',
-  partnershipDescription: 'We work with academic institutions, biotech, and pharma partners to advance immune profiling research. If you\'re exploring a collaboration that leverages our standardized pipeline and 4,000+ patient dataset, we\'d welcome a conversation.',
-  partnershipEmail: 'lguercio@pennmedicine.upenn.edu',
-  partnershipCtaLabel: 'Contact Partnerships →',
-  teamOverline: 'The Science Team',
-  teamHeading: 'Expertise Behind the Pipeline',
-  teamDescription: 'Every sample is handled by specialists who\'ve collectively built and validated the profiling platform across thousands of patients.',
-  contactPills: [
-    { role: 'Partnerships', name: 'Leonardo Guercio', email: 'lguercio@pennmedicine.upenn.edu' },
-    { role: 'Billing', name: 'Kenneth Hassinger', email: 'khas@pennmedicine.upenn.edu' },
-  ],
-}
-
-// Reactive content state
-const page = ref(defaults)
-const teamMembers = ref(defaultTeamMembers)
-
-// Fetch from Contentful on mount
-onMounted(async () => {
-  const [cmsPage, cmsTeam] = await Promise.all([
+const { data: page } = await useAsyncData('page', () =>
     fetchSingleton<HomePageContent>('homePage'),
-    fetchEntries<TeamMemberContent>('teamMember'),
-  ])
-
-  if (cmsPage) {
-    page.value = { ...defaults, ...cmsPage }
-  }
-
-  if (cmsTeam.length > 0) {
-    teamMembers.value = cmsTeam.map(m => ({
-      initials: m.initials,
-      name: m.name,
-      role: m.role,
-      color: m.color,
-      bio: m.bio,
-      email: m.email,
-    }))
-  }
-})
+)
 
 const handleStartProject = () => {
   navigateTo('/intake')
@@ -143,8 +29,9 @@ const handleStartProject = () => {
         {{ page.heroBadge }}
       </div>
 
-      <!-- eslint-disable-next-line vue/no-v-html -->
-      <h1 v-html="page.heroHeadline" />
+      <h1>
+        <SharedRichTextRenderer :content="page.heroHeadline" />
+      </h1>
 
       <p class="hero-sub">
         {{ page.heroSubheadline }}
@@ -208,7 +95,7 @@ const handleStartProject = () => {
     </section>
 
     <div class="team-grid">
-      <div v-for="member in teamMembers" :key="member.email" class="team-card">
+      <div v-for="member in page.teamMembers" :key="member.email" class="team-card">
         <div class="team-top">
           <div class="team-avatar" :style="{ background: member.color }">
             {{ member.initials }}

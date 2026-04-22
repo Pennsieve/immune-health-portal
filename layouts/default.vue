@@ -2,28 +2,16 @@
 import { useAuthStore } from '~/stores/auth'
 import { useLoginModal } from '~/composables/useLoginModal'
 import { useContentful } from '~/composables/useContentful'
-import type { SiteSettingsContent } from '~/types/index'
+import type { FooterContent } from '~/types/index'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const { isLoginModalOpen, openLoginModal, closeLoginModal } = useLoginModal()
 const { fetchSingleton } = useContentful()
 
-const defaultSiteSettings = {
-  organizationName: 'I3H',
-  organizationAddress: 'Penn\'s Institute for Immunology & Immune Health · 3600 Civic Center Boulevard, Philadelphia, PA 19104',
-  footerBillingEmail: 'khas@pennmedicine.upenn.edu',
-  footerPartnershipEmail: 'lguercio@pennmedicine.upenn.edu',
-}
-
-const site = ref(defaultSiteSettings)
-
-onMounted(async () => {
-  const cmsSite = await fetchSingleton<SiteSettingsContent>('siteSettings')
-  if (cmsSite) {
-    site.value = { ...defaultSiteSettings, ...cmsSite }
-  }
-})
+const { data: footerContent } = await useAsyncData('footerContent', () =>
+   fetchSingleton<FooterContent>('footerContent')
+)
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -102,8 +90,8 @@ const handleDashboardClick = () => {
 
     <!-- Footer -->
     <footer class="footer">
-      <strong>{{ site.organizationName }}</strong> · {{ site.organizationAddress }}<br>
-      Billing: {{ site.footerBillingEmail }} · Partnerships: {{ site.footerPartnershipEmail }}
+      <strong>{{ footerContent.organizationName }}</strong> · {{ footerContent.organizationAddress }}<br>
+      Billing: {{ footerContent.billingEmail }} · Partnerships: {{ footerContent.partnershipEmail }}
     </footer>
 
     <!-- Login Modal -->
