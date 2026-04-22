@@ -2,7 +2,7 @@
 import { documentToHtmlString } from '@contentful/rich-text-html-renderer'
 
 const props = defineProps({
-  content: String
+  content: Object
 })
 
 const html = computed(() => {
