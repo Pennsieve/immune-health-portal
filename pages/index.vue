@@ -232,7 +232,7 @@ const handleStartProject = () => {
 }
 
 .hero-btn-outline {
-  border: 1.5px solid white;
+  border: 1px solid white;
   color: #fff;
 }
 
