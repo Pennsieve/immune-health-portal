@@ -25,7 +25,7 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Penn\'s Institute for Immunology & Immune Health - Standardized Immune Profiling Portal' },
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         {
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap'
