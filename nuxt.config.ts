@@ -35,6 +35,12 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // Private keys (server-side only)
+    mailersendApiKey: process.env.MAILERSEND_API_TOKEN || '',
+    mailersendFromEmail: process.env.MAILERSEND_FROM_EMAIL || 'test-q3enl6k3n8042vwr.mlsender.net',
+    mailersendFromName: process.env.MAILERSEND_FROM_NAME || 'Immune Health Portal',
+    adminEmail: process.env.ADMIN_EMAIL || 'immune.health.admin@gmail.com',
+
     public: {
       // Pennsieve API Configuration
       pennsieveApiHost: process.env.PENNSIEVE_API_HOST || 'https://api.pennsieve.net',

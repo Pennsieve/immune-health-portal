@@ -6,10 +6,10 @@
  * Sidebar and page copy fetched from Contentful
  */
 import { useContentful } from '~/composables/useContentful'
-import type { IntakeFormData, ServiceRequest, AffiliationType, SampleType, PhlebotomyOption, IntakePageContent, IntakeSidebarCardContent } from '~/types/index'
+import type { IntakeFormData, AffiliationType, IntakePageContent } from '~/types/index'
 
 const servicesStore = await useServicesData()
-const { fetchSingleton, fetchEntries } = useContentful()
+const { fetchSingleton } = useContentful()
 
 // Form data
 const form = reactive<IntakeFormData>({
@@ -39,6 +39,7 @@ const form = reactive<IntakeFormData>({
 
 const submitMessage = ref('')
 const submitSuccess = ref(false)
+const isSubmitting = ref(false)
 
 // Computed values
 const totalSamples = computed(() => form.subjectCount * form.timepointCount)
@@ -54,7 +55,8 @@ const serviceQuantities = ref<Record<string, number>>({})
 const toggleService = (serviceId: string) => {
   if (selectedServices.value.has(serviceId)) {
     selectedServices.value.delete(serviceId)
-    delete serviceQuantities.value[serviceId]
+    const { [serviceId]: _, ...remaining } = serviceQuantities.value
+    serviceQuantities.value = remaining
   }
   else {
     selectedServices.value.add(serviceId)
@@ -90,7 +92,7 @@ const setAffiliation = (affiliation: AffiliationType) => {
 }
 
 // Form submission
-const submitForm = () => {
+const submitForm = async () => {
   // Validate required fields
   if (!form.projectName || !form.principalInvestigator || !form.piEmail ||
       !form.projectLead || !form.leadEmail || !form.objectives ||
@@ -100,51 +102,36 @@ const submitForm = () => {
     return
   }
 
-  // Build email body
-  const fields: Record<string, string> = {
-    'Project Name': form.projectName,
-    'Acronym': form.acronym || 'N/A',
-    'Principal Investigator': form.principalInvestigator,
-    'PI Email': form.piEmail,
-    'Project Lead': form.projectLead,
-    'Lead Email': form.leadEmail,
-    'IRB Number': form.irbNumber || 'N/A',
-    'Objectives': form.objectives,
-    'Subjects': String(form.subjectCount),
-    'Timepoints': String(form.timepointCount),
-    'Total Samples': String(totalSamples.value),
-    'Sample Type': form.sampleType,
-    'Phlebotomy': form.phlebotomyNeeds,
-    'Affiliation': form.affiliation,
-    'Budget Code': form.budgetCode || 'N/A',
-    'Metadata Plan': form.metadataPlan || 'N/A',
-    'Notes': form.notes || 'N/A',
+  isSubmitting.value = true
+  submitMessage.value = 'Sending inquiry...'
+
+  try {
+    const servicesText = form.services.map((req) => {
+      const service = servicesStore.services.find(s => s.id === req.serviceId)
+      return `${service?.name || req.serviceId} (qty: ${req.quantity})`
+    }).join(', ')
+
+    await $fetch('/api/submit-intake', {
+      method: 'POST',
+      body: {
+        form,
+        estimatedTotal: estimatedTotal.value,
+        totalSamples: totalSamples.value,
+        servicesText,
+      },
+    })
+
+    submitMessage.value = '✓ Inquiry submitted! Check your email for confirmation.'
+    submitSuccess.value = true
   }
-
-  // Add services
-  const servicesText = form.services.map((req) => {
-    const service = servicesStore.services.find(s => s.id === req.serviceId)
-    return `${service?.name || req.serviceId} (qty: ${req.quantity})`
-  }).join(', ')
-  fields.Services = servicesText
-
-  let body = 'NEW IMMUNE HEALTH PROJECT INQUIRY\n' + '='.repeat(40) + '\n\n'
-  for (const [key, value] of Object.entries(fields)) {
-    if (value) body += `${key}: ${value}\n`
+  catch (error) {
+    console.error('Submission error:', error)
+    submitMessage.value = '❌ Failed to submit. Please try again or contact us directly.'
+    submitSuccess.value = false
   }
-  body += `\nEstimated Cost: $${estimatedTotal.value.toLocaleString()}`
-  body += '\n\n' + '='.repeat(40) + `\nSubmitted: ${new Date().toLocaleString()}`
-
-  // Open email client
-  const subject = encodeURIComponent(`New IH Project Inquiry: ${form.projectName}`)
-  const encodedBody = encodeURIComponent(body)
-  window.open(
-    `mailto:khas@pennmedicine.upenn.edu?cc=Allie.Greenplate@pennmedicine.upenn.edu,Amy.Baxter@pennmedicine.upenn.edu&subject=${subject}&body=${encodedBody}`,
-    '_blank',
-  )
-
-  submitMessage.value = '✓ Email drafted – please send from your mail client.'
-  submitSuccess.value = true
+  finally {
+    isSubmitting.value = false
+  }
 }
 
 // Get rate display for a service
@@ -480,8 +467,8 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
           </div>
 
           <div class="submit-section">
-            <button class="btn btn-primary" @click="submitForm">
-              Submit Inquiry
+            <button class="btn btn-primary" :disabled="isSubmitting" @click="submitForm">
+              {{ isSubmitting ? 'Submitting...' : 'Submit Inquiry' }}
             </button>
             <span
               v-if="submitMessage"
