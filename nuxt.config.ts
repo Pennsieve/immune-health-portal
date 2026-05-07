@@ -7,6 +7,10 @@ export default defineNuxtConfig({
     '@nuxt/eslint',
   ],
 
+  build: {
+    transpile: ['contentful'],
+  },
+
   css: [
     '~/assets/css/main.scss',
     '~/assets/css/variables.scss',
