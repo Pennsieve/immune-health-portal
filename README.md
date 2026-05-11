@@ -102,6 +102,15 @@ For federated login:
 - `ORCID_CLIENT_ID` - ORCID application client ID
 - `ORCID_API_HOST` - ORCID API endpoint (sandbox or production)
 
+#### Email Service (MailerSend)
+
+For project intake form notifications:
+
+- `MAILERSEND_API_KEY` - Your [MailerSend](https://www.mailersend.com) API token
+- `MAILERSEND_FROM_EMAIL` - Verified sender email address
+- `MAILERSEND_FROM_NAME` - Display name for sent emails (defaults to "Immune Health Portal")
+- `ADMIN_EMAIL` - Email address to receive submission notifications (JSON format)
+
 ## Development
 
 ### Start the Dev Server
