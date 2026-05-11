@@ -4,9 +4,7 @@
  * Provides access to Contentful client for fetching CMS content
  * like hero sections, team bios, service descriptions, etc.
  */
-import contentful, { type ContentfulClientApi, type EntrySkeletonType } from 'contentful'
-
-const { createClient } = contentful
+import { createClient, type ContentfulClientApi, type EntrySkeletonType } from 'contentful'
 
 export default defineNuxtPlugin(() => {
   const runtimeConfig = useRuntimeConfig()
