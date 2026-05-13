@@ -1,11 +1,7 @@
 <script setup lang="ts">
-/**
- * Dashboard Page
- *
- * User's cohort dashboard showing study progress, sample status, and Pennsieve links.
- * Requires authentication.
- */
 import { useCohortsStore } from '~/stores/cohorts'
+
+await navigateTo('/', { redirectCode: 301 })
 
 const cohortsStore = useCohortsStore()
 

@@ -17,7 +17,6 @@ const navLinks = [
   { name: 'Home', path: '/' },
   { name: 'Pipeline', path: '/pipeline' },
   { name: 'Services & Pricing', path: '/services' },
-  { name: 'My Cohorts', path: '/dashboard' },
 ]
 
 const isActiveLink = (path: string): boolean => {
@@ -29,13 +28,6 @@ const handleStartProject = () => {
   navigateTo('/intake')
 }
 
-const handleDashboardClick = () => {
-  if (!authStore.isSignedIn) {
-    openLoginModal('Please sign in to view your cohorts', '/dashboard')
-    return false
-  }
-  return true
-}
 </script>
 
 <template>
@@ -50,24 +42,15 @@ const handleDashboardClick = () => {
       </NuxtLink>
 
       <div class="nav-links">
-        <template v-for="link in navLinks" :key="link.path">
-          <NuxtLink
-            v-if="link.path !== '/dashboard'"
-            :to="link.path"
-            class="nav-link"
-            :class="{ active: isActiveLink(link.path) }"
-          >
-            {{ link.name }}
-          </NuxtLink>
-          <span
-            v-else
-            class="nav-link"
-            :class="{ active: isActiveLink(link.path) }"
-            @click="handleDashboardClick() && navigateTo(link.path)"
-          >
-            {{ link.name }}
-          </span>
-        </template>
+        <NuxtLink
+          v-for="link in navLinks"
+          :key="link.path"
+          :to="link.path"
+          class="nav-link"
+          :class="{ active: isActiveLink(link.path) }"
+        >
+          {{ link.name }}
+        </NuxtLink>
       </div>
 
       <div class="nav-actions">
