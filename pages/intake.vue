@@ -111,6 +111,16 @@ const submitForm = async () => {
       return `${service?.name || req.serviceId} (qty: ${req.quantity})`
     }).join(', ')
 
+    const servicesDetail = form.services.map((req) => {
+      const service = servicesStore.services.find(s => s.id === req.serviceId)
+      const rate = servicesStore.getServiceRate(req.serviceId)
+      return {
+        name: service?.name || req.serviceId,
+        qty: req.quantity,
+        rate: rate === 0 ? 'Contact' : `$${rate}/ea`,
+      }
+    })
+
     await $fetch('/api/submit-intake', {
       method: 'POST',
       body: {
@@ -118,6 +128,7 @@ const submitForm = async () => {
         estimatedTotal: estimatedTotal.value,
         totalSamples: totalSamples.value,
         servicesText,
+        servicesDetail,
       },
     })
 
