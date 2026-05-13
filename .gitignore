@@ -34,3 +34,6 @@ logs
 
 # TypeScript
 *.tsbuildinfo
+
+# Claude
+.claude

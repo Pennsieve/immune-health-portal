@@ -5,11 +5,17 @@ export default defineNuxtConfig({
   modules: [
     '@pinia/nuxt',
     '@nuxt/eslint',
+    '@nuxtjs/supabase',
   ],
+
+  supabase: {
+    redirect: false,
+  },
 
   css: [
     '~/assets/css/main.scss',
     '~/assets/css/variables.scss',
+    '~/assets/css/admin.scss',
   ],
 
   app: {
@@ -24,7 +30,7 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap'
+          href: 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Source+Sans+3:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Dancing+Script:wght@600;700&display=swap'
         },
       ],
     },
@@ -32,6 +38,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys (server-side only)
+    signingSecret: process.env.SIGNING_SECRET || '',
     mailersendApiKey: process.env.MAILERSEND_API_TOKEN || '',
     mailersendFromEmail: process.env.MAILERSEND_FROM_EMAIL || 'noreply@test-q3enl6k3n8042vwr.mlsender.net',
     mailersendFromName: process.env.MAILERSEND_FROM_NAME || 'Immune Health Portal',

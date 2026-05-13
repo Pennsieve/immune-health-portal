@@ -1,4 +1,28 @@
 import { defineEventHandler, readBody, createError } from 'h3'
+import { serverSupabaseServiceRole } from '#supabase/server'
+
+const SAMPLE_TYPE_LABELS: Record<string, string> = {
+  'fresh-blood': 'Fresh whole blood',
+  'stored-pbmc': 'Stored PBMCs (cryopreserved)',
+  'tissue': 'Tissue',
+  'other': 'Other',
+}
+const PHLEBOTOMY_LABELS: Record<string, string> = {
+  'ih-campus': 'IH phlebotomist on campus',
+  'remote': 'Remote phlebotomy needed',
+  'self-collect': 'Study team will collect and transfer',
+  'stored': 'N/A – using stored samples',
+}
+const METADATA_LABELS: Record<string, string> = {
+  redcap: 'REDCap',
+  other: 'Other system',
+  tbd: 'To be discussed',
+}
+const AFFILIATION_LABELS: Record<string, string> = {
+  internal: 'Internal',
+  external: 'External',
+  industry: 'Industry',
+}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -12,7 +36,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { form, estimatedTotal, totalSamples, servicesText } = body
+  const { form, estimatedTotal, totalSamples, servicesText, servicesDetail } = body
 
   if (!form || !form.piEmail) {
     throw createError({
@@ -72,8 +96,55 @@ export default defineEventHandler(async (event) => {
     </div>
   `
 
+  // 1. Save to Supabase first — if this fails the whole request fails before emails are sent
+  const supabase = serverSupabaseServiceRole(event)
+  const submittedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const affiliationOrg = form.affiliation === 'internal'
+    ? 'University of Pennsylvania'
+    : (form.externalInstitution || '')
+
+  const initialNotes = form.notes
+    ? [{ author: form.principalInvestigator, date: submittedDate, text: form.notes }]
+    : []
+
+  const { error: dbError } = await supabase.from('inquiries').insert({
+    id: crypto.randomUUID(),
+    study_name: form.projectName,
+    abbreviation: form.acronym || null,
+    status: 'New',
+    submitted_date: submittedDate,
+    submitted_relative: 'just now',
+    objectives: form.objectives,
+    pi: { name: form.principalInvestigator, email: form.piEmail },
+    study_lead: form.projectLead ? { name: form.projectLead, email: form.leadEmail } : null,
+    affiliation: AFFILIATION_LABELS[form.affiliation] || 'External',
+    affiliation_org: affiliationOrg,
+    irb: form.irbNumber || null,
+    cohort_subjects: form.subjectCount,
+    cohort_timepoints: form.timepointCount,
+    services: servicesText,
+    services_detail: servicesDetail || [],
+    estimate: estimatedTotal || null,
+    sample_type: SAMPLE_TYPE_LABELS[form.sampleType] || form.sampleType || null,
+    phlebotomy: PHLEBOTOMY_LABELS[form.phlebotomyNeeds] || form.phlebotomyNeeds || null,
+    metadata: METADATA_LABELS[form.metadataPlan] || form.metadataPlan || null,
+    notes: initialNotes,
+    feasibility: [
+      { label: 'IRB protocol reviewed', checked: false },
+      { label: 'Sample type confirmed viable', checked: false },
+      { label: 'Cohort scope reviewed', checked: false },
+      { label: 'Service capacity confirmed', checked: false },
+      { label: 'Budget / account code verified', checked: false },
+    ],
+  })
+
+  if (dbError) {
+    console.error('Supabase insert error:', dbError)
+    throw createError({ statusCode: 500, statusMessage: 'Failed to save inquiry' })
+  }
+
+  // 2. Send emails
   try {
-    // Send to PI and Lead
     const recipients = [
       { email: form.piEmail, name: form.principalInvestigator },
     ]
@@ -92,8 +163,6 @@ export default defineEventHandler(async (event) => {
       },
     })
 
-    // 2. Send submission email to Admin in JSON
-    const adminEmail = config.adminEmail
     const submissionData = {
       form,
       totalSamples,
@@ -106,20 +175,17 @@ export default defineEventHandler(async (event) => {
       headers: commonHeaders,
       body: {
         from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-        to: [{ email: adminEmail, name: 'Immune Health Admin' }],
+        to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
         subject: `[SUBMISSION] ${form.projectName}`,
         text: JSON.stringify(submissionData, null, 2),
       },
     })
-
-    return { success: true }
   }
   catch (error: unknown) {
     const err = error as { data?: unknown; message?: string }
     console.error('Error sending email via MailerSend:', err.data || err.message)
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Failed to send emails',
-    })
+    throw createError({ statusCode: 500, statusMessage: 'Failed to send confirmation emails' })
   }
+
+  return { success: true }
 })
