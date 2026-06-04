@@ -102,6 +102,30 @@ const submitForm = async () => {
     return
   }
 
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(form.piEmail)) {
+    submitMessage.value = '⚠ Please enter a valid PI email address.'
+    submitSuccess.value = false
+    return
+  }
+  if (!emailRegex.test(form.leadEmail)) {
+    submitMessage.value = '⚠ Please enter a valid lead email address.'
+    submitSuccess.value = false
+    return
+  }
+  if (form.baEmail && !emailRegex.test(form.baEmail)) {
+    submitMessage.value = '⚠ Please enter a valid Business Administrator email address.'
+    submitSuccess.value = false
+    return
+  }
+  if (form.externalContact && !emailRegex.test(form.externalContact)) {
+    submitMessage.value = '⚠ Please enter a valid Contracting / Grants Office email address.'
+    submitSuccess.value = false
+    return
+  }
+
   isSubmitting.value = true
   submitMessage.value = 'Sending inquiry...'
 
@@ -135,9 +159,10 @@ const submitForm = async () => {
     submitMessage.value = '✓ Inquiry submitted! Check your email for confirmation.'
     submitSuccess.value = true
   }
-  catch (error) {
-    console.error('Submission error:', error)
-    submitMessage.value = '❌ Failed to submit. Please try again or contact us directly.'
+  catch (error: unknown) {
+    const err = error as { data?: { statusMessage?: string } }
+    const reason = err.data?.statusMessage || 'Failed to submit. Please try again or contact us directly.'
+    submitMessage.value = `❌ ${reason}`
     submitSuccess.value = false
   }
   finally {
@@ -236,11 +261,11 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
           <div class="form-row">
             <div class="form-group">
               <label>Estimated Unique Subjects <span class="req">*</span></label>
-              <input v-model.number="form.subjectCount" type="number" placeholder="20">
+              <input v-model.number="form.subjectCount" type="number" min="0" placeholder="20" @input="form.subjectCount = Math.max(0, form.subjectCount)">
             </div>
             <div class="form-group">
               <label>Time Points per Subject <span class="req">*</span></label>
-              <input v-model.number="form.timepointCount" type="number" placeholder="3">
+              <input v-model.number="form.timepointCount" type="number" min="0" placeholder="3" @input="form.timepointCount = Math.max(0, form.timepointCount)">
             </div>
           </div>
 
