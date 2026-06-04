@@ -30,13 +30,25 @@ export default defineEventHandler(async (event) => {
 
   if (!config.mailersendApiKey) {
     console.error('MAILERSEND_API_KEY is not configured')
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Email service configuration error',
-    })
+    throw createError({ statusCode: 500, statusMessage: 'Email service configuration error' })
   }
 
   const { form, estimatedTotal, totalSamples, servicesText, servicesDetail } = body
+
+  // Validate all email addresses before touching the DB
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(form.piEmail)) {
+    throw createError({ statusCode: 400, statusMessage: 'PI email address is invalid' })
+  }
+  if (form.leadEmail && !emailRegex.test(form.leadEmail)) {
+    throw createError({ statusCode: 400, statusMessage: 'Lead email address is invalid' })
+  }
+  if (form.baEmail && !emailRegex.test(form.baEmail)) {
+    throw createError({ statusCode: 400, statusMessage: 'Business Administrator email address is invalid' })
+  }
+  if (form.externalContact && !emailRegex.test(form.externalContact)) {
+    throw createError({ statusCode: 400, statusMessage: 'Contracting / Grants Office email address is invalid' })
+  }
 
   if (!form || !form.piEmail) {
     throw createError({
@@ -98,6 +110,7 @@ export default defineEventHandler(async (event) => {
 
   // 1. Save to Supabase first — if this fails the whole request fails before emails are sent
   const supabase = serverSupabaseServiceRole(event)
+  const inquiryId = crypto.randomUUID()
   const submittedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   const affiliationOrg = form.affiliation === 'internal'
     ? 'University of Pennsylvania'
@@ -108,7 +121,7 @@ export default defineEventHandler(async (event) => {
     : []
 
   const { error: dbError } = await supabase.from('inquiries').insert({
-    id: crypto.randomUUID(),
+    id: inquiryId,
     study_name: form.projectName,
     abbreviation: form.acronym || null,
     status: 'New',
@@ -140,7 +153,7 @@ export default defineEventHandler(async (event) => {
 
   if (dbError) {
     console.error('Supabase insert error:', dbError)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to save inquiry' })
+    throw createError({ statusCode: 500, statusMessage: `Failed to save inquiry: ${dbError.message}` })
   }
 
   // 2. Send emails
@@ -182,9 +195,20 @@ export default defineEventHandler(async (event) => {
     })
   }
   catch (error: unknown) {
-    const err = error as { data?: unknown; message?: string }
+    const err = error as { data?: { message?: string; errors?: Record<string, string[]> }; message?: string }
     console.error('Error sending email via MailerSend:', err.data || err.message)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to send confirmation emails' })
+
+    // Roll back the DB insert so there's no orphan record
+    await supabase.from('inquiries').delete().eq('id', inquiryId)
+
+    // Surface the first specific MailerSend validation error if available
+    const firstMailerError = err.data?.errors
+      ? Object.values(err.data.errors)[0]?.[0]
+      : null
+    throw createError({
+      statusCode: 500,
+      statusMessage: firstMailerError || err.data?.message || 'Failed to send confirmation emails',
+    })
   }
 
   return { success: true }

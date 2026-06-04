@@ -19,17 +19,11 @@ const agreementId = computed(() => {
   return parts[parts.length - 1]
 })
 
-// Fetch study + agreement details from Supabase using the service route
-// (sign page is public — no admin auth required)
-const { data: studyRow } = await useAsyncData(`sign-study-${studyId.value}`, async () => {
-  const supabase = useSupabaseClient()
-  const { data } = await supabase
-    .from('studies')
-    .select('name, abbreviation, irb, pi, affiliation_org, cohort, budget, agreements(*)')
-    .eq('id', studyId.value)
-    .single()
-  return data
-})
+// Fetch via server endpoint (uses service role — bypasses RLS for unauthenticated PIs)
+const { data: studyRow, error: studyError } = await useAsyncData(
+  `sign-study-${token.value}`,
+  () => $fetch(`/api/sign/${token.value}`),
+)
 
 const study = computed(() => studyRow.value)
 
@@ -110,7 +104,12 @@ async function submitSigned() {
       Admin preview — this is what the PI sees. Signing is disabled without a valid secure link.
     </div>
 
-    <div class="sign-wrap" v-if="study && agreement">
+    <div v-if="studyError" style="max-width:480px;margin:4rem auto;text-align:center;padding:2rem;">
+      <p style="font-size:1rem;font-weight:600;color:#c0392b;">Unable to load document</p>
+      <p style="font-size:0.85rem;color:#666;margin-top:0.5rem;">This link may be invalid or the study could not be found. Please contact your I3H representative.</p>
+    </div>
+
+    <div class="sign-wrap" v-else-if="study && agreement">
       <!-- Success confirmation (after submit) -->
       <div v-if="isSubmitted" class="sign-confirm-card">
         <div class="check-circle">✓</div>
