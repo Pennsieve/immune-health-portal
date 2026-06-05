@@ -7,13 +7,13 @@ const adminStore = useAdminStore()
 const activeFilter = ref('New')
 const searchQuery = ref('')
 
-const filters = [
-  { label: 'New', count: 4 },
-  { label: 'In Review', count: 2 },
-  { label: 'Approved', count: 8 },
-  { label: 'Declined', count: 1 },
-  { label: 'All', count: 15 },
-]
+const filters = computed(() => [
+  { label: 'New',       count: adminStore.inquiries.filter(i => i.status === 'New' || i.status === 'Stale').length },
+  { label: 'In Review', count: adminStore.inquiries.filter(i => i.status === 'In Review').length },
+  { label: 'Approved',  count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
+  { label: 'Declined',  count: adminStore.inquiries.filter(i => i.status === 'Declined').length },
+  { label: 'All',       count: adminStore.inquiries.length },
+])
 
 const affiliationLabel = (aff: string) => {
   if (aff === 'Internal') return 'b-internal'
@@ -22,18 +22,27 @@ const affiliationLabel = (aff: string) => {
 }
 
 const statusLabel = (status: string) => {
+  if (status === 'Approved') return 'b-complete'
+  if (status === 'Declined') return 'b-declined'
   if (status === 'Stale') return 'b-warn'
   return 'b-review'
 }
 
 const displayedInquiries = computed(() => {
   let list = adminStore.inquiries
+  if (activeFilter.value !== 'All') {
+    list = list.filter(i =>
+      activeFilter.value === 'New'
+        ? (i.status === 'New' || i.status === 'Stale')
+        : i.status === activeFilter.value,
+    )
+  }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(i =>
       i.studyName.toLowerCase().includes(q) ||
       i.pi.name.toLowerCase().includes(q) ||
-      i.irb.toLowerCase().includes(q)
+      i.irb.toLowerCase().includes(q),
     )
   }
   return list
@@ -46,9 +55,6 @@ const displayedInquiries = computed(() => {
       <div>
         <h1>Intake inquiries</h1>
         <div class="sub">New study requests submitted via the public intake form. Review feasibility, then approve to begin the agreement package.</div>
-      </div>
-      <div class="hd-actions">
-        <button class="btn btn-secondary btn-sm">Export CSV</button>
       </div>
     </div>
 
@@ -126,7 +132,7 @@ const displayedInquiries = computed(() => {
         </tbody>
       </table>
       <div class="pagination">
-        <span>Showing {{ displayedInquiries.length }} of {{ displayedInquiries.length }} new inquiries</span>
+        <span>Showing {{ displayedInquiries.length }} of {{ adminStore.inquiries.length }} inquiries</span>
         <div class="pag-controls">
           <button>‹</button>
           <button class="active">1</button>

@@ -43,6 +43,93 @@ async function sendSignLink(studyId: string, agreementId: string) {
   }
 }
 
+const editingSamples = ref(false)
+const samplesInput = ref(0)
+const isSavingSamples = ref(false)
+
+function startEditSamples() {
+  samplesInput.value = study.value?.cohort.processedSamples ?? 0
+  editingSamples.value = true
+}
+
+async function saveSamples() {
+  if (!study.value) return
+  const val = Math.max(0, Math.min(Number(samplesInput.value) || 0, study.value.cohort.totalSamples))
+  isSavingSamples.value = true
+  try {
+    await adminStore.updateProcessedSamples(study.value.id, val)
+    editingSamples.value = false
+  }
+  catch {
+    alert('Failed to save. Please try again.')
+  }
+  finally {
+    isSavingSamples.value = false
+  }
+}
+
+const noteText = ref('')
+const isPostingNote = ref(false)
+
+async function postNote() {
+  if (!study.value || !noteText.value.trim()) return
+  isPostingNote.value = true
+  try {
+    const { activityItem } = await $fetch('/api/admin/add-study-note', {
+      method: 'POST',
+      body: { studyId: study.value.id, text: noteText.value, author: adminStore.user.name },
+    }) as { activityItem: { dotClass: string; title: string; date: string; note: string; ts: number } }
+    study.value.activity.unshift(activityItem)
+    noteText.value = ''
+  }
+  catch {
+    alert('Failed to save note. Please try again.')
+  }
+  finally {
+    isPostingNote.value = false
+  }
+}
+
+const editOpen = ref(false)
+const editName = ref('')
+const isSaving = ref(false)
+
+const deleteOpen = ref(false)
+const isDeleting = ref(false)
+
+async function confirmDelete() {
+  if (!study.value) return
+  isDeleting.value = true
+  try {
+    await adminStore.deleteStudy(study.value.id)
+    navigateTo('/admin/studies')
+  }
+  catch {
+    alert('Failed to delete study. Please try again.')
+    isDeleting.value = false
+  }
+}
+
+function openEdit() {
+  editName.value = study.value?.name ?? ''
+  editOpen.value = true
+}
+
+async function saveEdit() {
+  if (!study.value || !editName.value.trim()) return
+  isSaving.value = true
+  try {
+    await adminStore.updateStudyName(study.value.id, editName.value.trim())
+    editOpen.value = false
+  }
+  catch {
+    alert('Failed to save. Please try again.')
+  }
+  finally {
+    isSaving.value = false
+  }
+}
+
 const stageClass = computed(() => {
   if (!study.value) return ''
   if (study.value.stage === 'Complete') return 'b-complete'
@@ -113,9 +200,9 @@ const affiliationClass = computed(() => {
             <span class="dot" />
             <span class="txt">Agreements pending · {{ study.agreements.filter(a => a.status === 'Pending').length }} outstanding</span>
           </div>
-          <button class="btn btn-secondary btn-sm">Resend agreement reminder</button>
         </template>
-        <button class="btn btn-ghost btn-sm">Edit study record</button>
+        <button class="btn btn-secondary btn-sm" @click="openEdit">Edit study record</button>
+        <button class="btn btn-danger btn-sm" @click="deleteOpen = true">Delete study record</button>
       </div>
     </div>
 
@@ -135,10 +222,10 @@ const affiliationClass = computed(() => {
           {{ study.agreements.find(a => a.status === 'Pending')?.name }}
           is still awaiting Dr. {{ study.pi.name.replace('Dr. ', '') }}'s signature.
           Study activation, sample drop-off, and processing are blocked until then.
+          To resend a signing link, open the Agreements tab and click <strong>Resend secure link</strong> on the relevant agreement.
         </p>
       </div>
       <div class="lock-actions">
-        <button class="btn btn-secondary btn-sm">Resend reminder</button>
         <button class="btn btn-primary btn-sm" @click="openAgreementsTab">Open agreements →</button>
       </div>
     </div>
@@ -209,34 +296,6 @@ const affiliationClass = computed(() => {
       </div>
 
       <div>
-        <div class="panel" style="margin-bottom:1.2rem;">
-          <div class="panel-head"><h3>Integrations</h3></div>
-          <div class="integ-grid">
-            <div v-if="study.integrations.redcap" class="integ-card linked">
-              <div class="integ-head">REDCap <span style="color:var(--green)">●</span></div>
-              <div class="integ-val">{{ study.integrations.redcap }}</div>
-              <button class="integ-act">Open project →</button>
-            </div>
-            <div v-if="study.integrations.labvantage" class="integ-card linked">
-              <div class="integ-head">LabVantage <span style="color:var(--green)">●</span></div>
-              <div class="integ-val">{{ study.integrations.labvantage }}</div>
-              <button class="integ-act">View samples →</button>
-            </div>
-            <div v-if="study.integrations.pennsieve" class="integ-card linked">
-              <div class="integ-head">Pennsieve <span style="color:var(--green)">●</span></div>
-              <div class="integ-val" style="font-size:0.72rem">{{ study.integrations.pennsieve }}</div>
-              <button class="integ-act">Open dataset →</button>
-            </div>
-            <div v-if="!study.integrations.labvantage" class="integ-card pending">
-              <div class="integ-head">LabVantage <span style="color:var(--gold)">●</span></div>
-              <div class="integ-val" style="color:var(--muted)">Not yet assigned</div>
-            </div>
-            <div v-if="!study.integrations.pennsieve" class="integ-card pending">
-              <div class="integ-head">Pennsieve <span style="color:var(--gold)">●</span></div>
-              <div class="integ-val" style="color:var(--muted)">Not yet provisioned</div>
-            </div>
-          </div>
-        </div>
 
         <div v-if="study.quickStats" class="panel">
           <div class="panel-head"><h3>Quick stats</h3></div>
@@ -291,7 +350,7 @@ const affiliationClass = computed(() => {
                 Verified: {{ agreement.signedBy }} ({{ agreement.signedEmail }})
               </div>
             </div>
-            <button class="btn btn-ghost btn-sm" @click="alert('Opens signed PDF in Pennsieve')">View document</button>
+            <NuxtLink :to="'/admin/sign/' + study.id + '-' + agreement.id" class="btn btn-ghost btn-sm">View document</NuxtLink>
           </template>
 
           <template v-else>
@@ -314,13 +373,6 @@ const affiliationClass = computed(() => {
           </template>
         </div>
 
-        <div class="panel-foot">
-          <span class="ctx">Signatures captured via secure email link · stored to Pennsieve</span>
-          <div style="display:flex; gap:0.5rem">
-            <button class="btn btn-secondary btn-sm">Download package</button>
-            <button class="btn btn-ghost btn-sm">Mark signed manually</button>
-          </div>
-        </div>
       </div>
 
       <!-- Document history -->
@@ -388,9 +440,41 @@ const affiliationClass = computed(() => {
           <h3>Cohort progress</h3>
           <span class="ctx">{{ study.cohort.processedSamples }} / {{ study.cohort.totalSamples }} samples processed</span>
         </div>
-        <div style="padding:1.4rem; text-align:center; color:var(--muted); font-size:0.88rem; font-weight:300">
-          Full per-sample table and processing events will appear here once samples begin arriving.<br>
-          <strong style="color:var(--ink)">Phase 1 placeholder</strong> — build out with LabVantage integration.
+        <div class="study-info-grid" style="padding:1.2rem 1.4rem;">
+          <div class="info-lbl">Subjects</div>
+          <div>{{ study.cohort.subjects }}</div>
+          <div class="info-lbl">Timepoints</div>
+          <div>{{ study.cohort.timepoints }}</div>
+          <div class="info-lbl">Total samples</div>
+          <div>{{ study.cohort.totalSamples }}</div>
+          <div class="info-lbl">Sample type</div>
+          <div>{{ study.cohort.sampleType }}</div>
+          <div class="info-lbl">Processed</div>
+          <div>
+            <div v-if="!editingSamples" style="display:flex; align-items:center; gap:0.8rem;">
+              <span class="mono" style="font-size:1rem; font-weight:500;">{{ study.cohort.processedSamples }}</span>
+              <div class="prog-bar" style="width:160px; flex-shrink:0;">
+                <div :style="{ width: (study.cohort.processedSamples / study.cohort.totalSamples * 100) + '%' }" />
+              </div>
+              <button class="btn btn-ghost btn-sm" @click="startEditSamples">Edit</button>
+            </div>
+            <div v-else style="display:flex; align-items:center; gap:0.6rem;">
+              <input
+                v-model.number="samplesInput"
+                type="number"
+                min="0"
+                :max="study.cohort.totalSamples"
+                style="width:90px;"
+                @keydown.enter="saveSamples"
+                @keydown.escape="editingSamples = false"
+              >
+              <span style="font-size:0.82rem; color:var(--muted)">of {{ study.cohort.totalSamples }}</span>
+              <button class="btn btn-primary btn-sm" :disabled="isSavingSamples" @click="saveSamples">
+                {{ isSavingSamples ? 'Saving…' : 'Save' }}
+              </button>
+              <button class="btn btn-ghost btn-sm" :disabled="isSavingSamples" @click="editingSamples = false">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -449,13 +533,6 @@ const affiliationClass = computed(() => {
           </tbody>
         </table>
 
-        <div class="panel-foot">
-          <span class="ctx">Billing contact: {{ study.budget.billingContact }}</span>
-          <div style="display:flex; gap:0.5rem">
-            <button class="btn btn-secondary btn-sm">Export invoice CSV</button>
-            <button class="btn btn-primary btn-sm">Mark invoice sent</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -466,7 +543,7 @@ const affiliationClass = computed(() => {
           <h3>Notes &amp; activity</h3>
           <span class="ctx">Combined audit log · internal staff only</span>
         </div>
-        <div class="activity-timeline">
+        <div class="activity-timeline" style="max-height:340px; overflow-y:auto;">
           <div v-for="(item, i) in study.activity" :key="i" class="t-item">
             <div class="t-dot" :class="item.dotClass" />
             <div class="t-body">
@@ -477,12 +554,66 @@ const affiliationClass = computed(() => {
           </div>
         </div>
         <div class="note-composer">
-          <textarea placeholder="Add an internal note (visible only to I3H staff)…" />
+          <textarea v-model="noteText" placeholder="Add an internal note (visible only to I3H staff)…" />
           <div class="composer-actions">
-            <button class="btn btn-secondary btn-sm">Cancel</button>
-            <button class="btn btn-primary btn-sm">Post note</button>
+            <button class="btn btn-secondary btn-sm" :disabled="isPostingNote" @click="noteText = ''">Cancel</button>
+            <button class="btn btn-primary btn-sm" :disabled="isPostingNote || !noteText.trim()" @click="postNote">
+              {{ isPostingNote ? 'Posting…' : 'Post note' }}
+            </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div v-if="deleteOpen" class="clerk-overlay" @click.self="deleteOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Delete study record</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0 0 0.4rem; font-size:0.88rem;">
+          Are you sure you want to permanently delete <strong>{{ study.name }}</strong>?
+        </p>
+        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+          This will remove the study and all associated agreements. This action cannot be undone.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isDeleting" @click="deleteOpen = false">Cancel</button>
+        <button class="btn btn-danger btn-sm" :disabled="isDeleting" @click="confirmDelete">
+          {{ isDeleting ? 'Deleting…' : 'Delete study' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit study modal -->
+  <div v-if="editOpen" class="clerk-overlay" @click.self="editOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Edit study</h3>
+      </div>
+      <div class="em-body">
+        <label class="em-label">Study name</label>
+        <input
+          v-model="editName"
+          type="text"
+          autofocus
+          @keydown.enter="saveEdit"
+          @keydown.escape="editOpen = false"
+        >
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" @click="editOpen = false">Cancel</button>
+        <button
+          class="btn btn-primary btn-sm"
+          :disabled="isSaving || !editName.trim()"
+          @click="saveEdit"
+        >
+          {{ isSaving ? 'Saving…' : 'Save' }}
+        </button>
       </div>
     </div>
   </div>

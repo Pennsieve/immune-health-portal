@@ -3,8 +3,23 @@ import { useAdminStore } from '~/stores/admin'
 
 const adminStore = useAdminStore()
 const route = useRoute()
+const supabase = useSupabaseClient()
 
 const userMenuOpen = ref(false)
+const sessionExpiresAt = ref<number | null>(null)
+let sessionTimer: ReturnType<typeof setInterval> | null = null
+
+const sessionExpiryLabel = computed(() => {
+  if (!sessionExpiresAt.value) return 'Active session'
+  const msLeft = sessionExpiresAt.value * 1000 - Date.now()
+  if (msLeft <= 0) return 'Session expired'
+  const minsLeft = Math.floor(msLeft / 60000)
+  if (minsLeft < 1) return 'Expires in less than a minute'
+  if (minsLeft < 60) return `Expires in ${minsLeft} min`
+  const h = Math.floor(minsLeft / 60)
+  const m = minsLeft % 60
+  return m > 0 ? `Expires in ${h}h ${m}m` : `Expires in ${h}h`
+})
 
 function toggleUserMenu(e: Event) {
   e.stopPropagation()
@@ -30,10 +45,21 @@ onMounted(async () => {
   if (!adminStore.isInitialized) {
     await adminStore.loadAll()
   }
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session?.expires_at) {
+    sessionExpiresAt.value = session.expires_at
+    sessionTimer = setInterval(() => {
+      // Force recompute every minute; also refresh the stored value from the live session
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        if (s?.expires_at) sessionExpiresAt.value = s.expires_at
+      })
+    }, 60000)
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeUserMenu)
+  if (sessionTimer) clearInterval(sessionTimer)
 })
 </script>
 
@@ -47,10 +73,6 @@ onUnmounted(() => {
       </NuxtLink>
       <div class="scope-pill">Admin Console</div>
       <div class="topbar-spacer" />
-      <div class="topbar-search">
-        <input type="search" placeholder="Search studies, PIs, IRBs, sample IDs…">
-      </div>
-      <NuxtLink to="/admin/communications" class="btn btn-ghost btn-sm">✉ Comms</NuxtLink>
       <div class="user-pill" @click.stop="toggleUserMenu">
         <div class="av">{{ adminStore.user.initials }}</div>
         <div>
@@ -64,15 +86,9 @@ onUnmounted(() => {
             <div class="um-email">{{ adminStore.user.email }}</div>
             <div class="um-session">
               <span class="dot" />
-              Active session · expires in 47 min
+              {{ sessionExpiryLabel }}
             </div>
           </div>
-          <button class="um-item" @click="closeUserMenu(); $emit('alert', 'Phase 2: account settings')">
-            <span class="ico">⚙</span> Account settings
-          </button>
-          <button class="um-item" @click="closeUserMenu(); $emit('alert', 'Phase 2: team management')">
-            <span class="ico">◐</span> Manage team access
-          </button>
           <button class="um-item danger" @click="handleSignOut">
             <span class="ico">⎋</span> Sign out
           </button>
@@ -95,22 +111,6 @@ onUnmounted(() => {
           <span class="sb-ico">≡</span> Studies
           <span class="sb-count">{{ adminStore.studies.length }}</span>
         </NuxtLink>
-
-        <div class="sb-section">Records</div>
-        <button class="sb-link" @click="alert('Phase 2: Investigators directory')">
-          <span class="sb-ico">◐</span> Investigators
-        </button>
-        <button class="sb-link" @click="alert('Phase 2: Rate card management')">
-          <span class="sb-ico">$</span> Rate Card
-        </button>
-
-        <div class="sb-section">System</div>
-        <NuxtLink to="/admin/communications" class="sb-link" :class="{ active: isActive('/admin/communications') }">
-          <span class="sb-ico">✉</span> Communications
-        </NuxtLink>
-        <button class="sb-link" @click="alert('Phase 2: Settings & team access')">
-          <span class="sb-ico">⚙</span> Settings
-        </button>
 
         <div class="sb-footer">
           <div style="font-weight:600; color:#7f8c8d; margin-bottom:0.2rem;">Phase 1 MVP</div>

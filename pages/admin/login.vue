@@ -66,12 +66,12 @@ async function handleSignIn() {
 
         <div class="form-field">
           <label class="lbl">Work email</label>
-          <input v-model="email" type="email" placeholder="name@pennmedicine.upenn.edu" autocomplete="email">
+          <input v-model="email" type="email" placeholder="name@pennmedicine.upenn.edu" autocomplete="email" @keydown.enter.prevent="handleSignIn">
         </div>
 
         <div class="form-field">
           <label class="lbl">Password</label>
-          <input v-model="password" type="password" placeholder="••••••••" autocomplete="current-password">
+          <input v-model="password" type="password" placeholder="••••••••" autocomplete="current-password" @keydown.enter.prevent="handleSignIn">
         </div>
 
         <div class="form-helper">

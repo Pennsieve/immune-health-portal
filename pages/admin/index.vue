@@ -4,76 +4,151 @@ import { useAdminStore } from '~/stores/admin'
 definePageMeta({ layout: 'admin' })
 
 const adminStore = useAdminStore()
+
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+})
+
+const firstName = computed(() => adminStore.user.name.split(' ')[0].replace(/^Dr\.\s*/i, ''))
+
+const today = computed(() =>
+  new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+)
+
+// KPIs
+const activeStudiesCount = computed(() => adminStore.studies.length)
+const pendingInquiriesCount = computed(() => adminStore.newInquiriesCount)
+const allAgreements = computed(() => adminStore.studies.flatMap(s => s.agreements))
+const awaitingSignatureCount = computed(() => allAgreements.value.filter(a => a.status === 'Pending').length)
+const awaitingSignatureStudiesCount = computed(() =>
+  adminStore.studies.filter(s => s.agreements.some(a => a.status === 'Pending')).length,
+)
+
+// Studies by stage
+const intakeReviewCount = computed(() =>
+  adminStore.inquiries.filter(i => i.status === 'New' || i.status === 'In Review').length,
+)
+const agreementsOutCount = computed(() =>
+  adminStore.studies.filter(s => s.stage === 'Agreement' || s.stage === 'Awaiting Signature').length,
+)
+const processingCount = computed(() => adminStore.studies.filter(s => s.stage === 'Processing').length)
+const completeCount = computed(() => adminStore.studies.filter(s => s.stage === 'Complete').length)
+
+// Alerts — studies with at least one pending agreement that has a sent date
+const pendingSignatureStudies = computed(() =>
+  adminStore.studies.filter(s => s.agreements.some(a => a.status === 'Pending' && a.sentDate)),
+)
+
+const activityPage = ref(0)
+const ACTIVITY_PAGE_SIZE = 4
+
+// Recent activity — inquiry submissions + study activity events, newest first
+const recentActivity = computed(() => {
+  const sessionEvents = adminStore.sessionEvents.map(e => ({
+    ...e,
+    studyName: '',
+    studyAbbr: '',
+    studyId: '',
+    isInquiry: false,
+  }))
+
+  const inquiryEvents = adminStore.inquiries.map(i => ({
+    title: 'New intake submitted',
+    date: i.submittedDate,
+    studyName: i.studyName,
+    studyAbbr: i.abbreviation || i.studyName,
+    studyId: i.id,
+    isInquiry: true,
+    status: i.status,
+  }))
+
+  const studyEvents = adminStore.studies.flatMap(s =>
+    s.activity.map(a => ({
+      ...a,
+      studyName: s.name,
+      studyAbbr: s.abbreviation,
+      studyId: s.id,
+      isInquiry: false,
+    })),
+  )
+
+  const combined = [...sessionEvents, ...inquiryEvents, ...studyEvents]
+  return combined.sort((a, b) => {
+    if (a.ts && b.ts) return b.ts - a.ts
+    if (a.ts) return -1
+    if (b.ts) return 1
+    return 0
+  })
+})
+
+const activityPageCount = computed(() => Math.ceil(recentActivity.value.length / ACTIVITY_PAGE_SIZE))
+const pagedActivity = computed(() => {
+  const start = activityPage.value * ACTIVITY_PAGE_SIZE
+  return recentActivity.value.slice(start, start + ACTIVITY_PAGE_SIZE)
+})
 </script>
 
 <template>
   <div>
     <div class="page-hd">
       <div>
-        <h1>Good afternoon, Lori.</h1>
-        <div class="sub">Wednesday, May 12, 2026 · {{ adminStore.studies.length }} active studies across the platform</div>
+        <h1>{{ greeting }}, {{ firstName }}.</h1>
+        <div class="sub">{{ today }} · {{ activeStudiesCount }} active studies across the platform</div>
       </div>
       <div class="hd-actions">
-        <button class="btn btn-secondary btn-sm">↻ Refresh</button>
+        <button class="btn btn-secondary btn-sm" @click="adminStore.loadAll()">↻ Refresh</button>
         <NuxtLink to="/admin/inquiries" class="btn btn-primary btn-sm">
-          Review {{ adminStore.newInquiriesCount }} inquiries →
+          Review {{ pendingInquiriesCount }} inquiries →
         </NuxtLink>
       </div>
-    </div>
-
-    <div class="assume-banner">
-      <strong>Design note — mockup data</strong>
-      All numbers are illustrative. The Dashboard reads from
-      <span class="mono">studies</span>, <span class="mono">agreements</span>,
-      <span class="mono">samples</span>, and <span class="mono">processing_events</span>.
-      KPIs update on intake submission and every processing event log.
     </div>
 
     <!-- KPI tiles -->
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-lbl">Active studies</div>
-        <div class="kpi-val">14</div>
-        <div class="kpi-ctx"><span class="delta-up">+2</span> this month</div>
+        <div class="kpi-val">{{ activeStudiesCount }}</div>
+        <div class="kpi-ctx">across all pipeline stages</div>
       </div>
-      <div class="kpi-card warn">
+      <div class="kpi-card" :class="{ warn: pendingInquiriesCount > 0 }">
         <div class="kpi-lbl">Pending review</div>
-        <div class="kpi-val">4</div>
-        <div class="kpi-ctx">Oldest: 6 days ·
-          <NuxtLink to="/admin/inquiries" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none; &:hover{text-decoration:underline}">Review queue</NuxtLink>
+        <div class="kpi-val">{{ pendingInquiriesCount }}</div>
+        <div class="kpi-ctx">
+          <NuxtLink to="/admin/inquiries" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Review queue</NuxtLink>
         </div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" :class="{ warn: awaitingSignatureCount > 0 }">
         <div class="kpi-lbl">Awaiting signature</div>
-        <div class="kpi-val">7</div>
-        <div class="kpi-ctx">across 3 studies · 1 overdue</div>
+        <div class="kpi-val">{{ awaitingSignatureCount }}</div>
+        <div class="kpi-ctx">across {{ awaitingSignatureStudiesCount }} {{ awaitingSignatureStudiesCount === 1 ? 'study' : 'studies' }}</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-lbl">Samples processed (YTD)</div>
-        <div class="kpi-val">412</div>
-        <div class="kpi-ctx"><span class="delta-up">+38</span> last 30 days</div>
+        <div class="kpi-lbl">Active processing</div>
+        <div class="kpi-val">{{ processingCount }}</div>
+        <div class="kpi-ctx">samples currently being run</div>
       </div>
     </div>
 
     <!-- Alerts -->
-    <div class="alerts-strip">
-      <div class="alert-row error">
-        <span class="adm-badge b-warn"><span class="dot" /> Overdue</span>
-        <span><strong>BHB ColCan</strong> — User Agreement sent 11 days ago, no signature.</span>
-        <span class="alert-meta">May 01</span>
-        <NuxtLink to="/admin/studies/bhb-colcan" class="alert-act">Open study →</NuxtLink>
+    <div v-if="pendingSignatureStudies.length > 0 || pendingInquiriesCount > 0" class="alerts-strip">
+      <div
+        v-for="study in pendingSignatureStudies"
+        :key="study.id"
+        class="alert-row error"
+      >
+        <span class="adm-badge b-warn"><span class="dot" /> Awaiting Signature</span>
+        <span><strong>{{ study.abbreviation }}</strong> — {{ study.agreements.filter(a => a.status === 'Pending').length }} agreement(s) pending PI signature.</span>
+        <span class="alert-meta">{{ study.agreements.find(a => a.status === 'Pending')?.sentDate || '' }}</span>
+        <NuxtLink :to="'/admin/studies/' + study.id" class="alert-act">Open study →</NuxtLink>
       </div>
-      <div class="alert-row">
+      <div v-if="pendingInquiriesCount > 0" class="alert-row">
         <span class="adm-badge b-review"><span class="dot" /> Needs Action</span>
-        <span>4 new intake submissions are awaiting feasibility review.</span>
+        <span>{{ pendingInquiriesCount }} intake {{ pendingInquiriesCount === 1 ? 'submission' : 'submissions' }} awaiting feasibility review.</span>
         <span class="alert-meta">today</span>
         <NuxtLink to="/admin/inquiries" class="alert-act">Open queue →</NuxtLink>
-      </div>
-      <div class="alert-row info">
-        <span class="adm-badge b-internal"><span class="dot" /> FYI</span>
-        <span>PRINCE-Val processing run scheduled tomorrow. 12 samples in batch.</span>
-        <span class="alert-meta">May 13</span>
-        <NuxtLink to="/admin/studies/prince-val" class="alert-act">View schedule →</NuxtLink>
       </div>
     </div>
 
@@ -83,73 +158,30 @@ const adminStore = useAdminStore()
       <div class="panel">
         <div class="panel-head">
           <h3>Recent activity</h3>
-          <span class="ctx">Last 7 days</span>
+          <span class="ctx">All studies</span>
         </div>
         <div class="panel-body">
-          <div class="panel-row">
-            <div>
-              <div class="row-pri">Agreement signed — Rate Schedule</div>
-              <div class="row-sec">SURGE-Christie · Dr. Christie countersigned</div>
-            </div>
-            <div class="row-right">
-              <span class="adm-badge b-complete"><span class="dot" /> Signed</span>
-              <span class="row-when">2h ago</span>
-            </div>
+          <div v-if="recentActivity.length === 0" style="padding:1.2rem; color:var(--muted); font-size:0.85rem;">
+            No activity yet.
           </div>
-          <div class="panel-row">
+          <div v-for="(item, i) in pagedActivity" :key="i" class="panel-row">
             <div>
-              <div class="row-pri">New intake submitted</div>
-              <div class="row-sec">APEX-Merck · Dr. Wilson · industry</div>
+              <div class="row-pri">{{ item.title }}</div>
+              <div class="row-sec">{{ item.studyAbbr }}<template v-if="item.author"> · {{ item.author }}</template></div>
             </div>
             <div class="row-right">
-              <span class="adm-badge b-review"><span class="dot" /> Review</span>
-              <span class="row-when">4h ago</span>
-            </div>
-          </div>
-          <div class="panel-row">
-            <div>
-              <div class="row-pri">14 processing events logged</div>
-              <div class="row-sec">TITAN-Harvard · CyTOF acquisition batch #B-2026-018</div>
-            </div>
-            <div class="row-right">
-              <span class="adm-badge b-processing"><span class="dot" /> Processing</span>
-              <span class="row-when">yesterday</span>
-            </div>
-          </div>
-          <div class="panel-row">
-            <div>
-              <div class="row-pri">Samples received</div>
-              <div class="row-sec">PRINCE-Val · 12 PBMC vials, drop-off 9:15 AM</div>
-            </div>
-            <div class="row-right">
-              <span class="adm-badge b-internal"><span class="dot" /> Drop-off</span>
-              <span class="row-when">2d ago</span>
-            </div>
-          </div>
-          <div class="panel-row">
-            <div>
-              <div class="row-pri">Pennsieve dataset linked</div>
-              <div class="row-sec">TITAN-Harvard · N:dataset:0a83…cc11</div>
-            </div>
-            <div class="row-right">
-              <span class="adm-badge b-complete"><span class="dot" /> Linked</span>
-              <span class="row-when">3d ago</span>
-            </div>
-          </div>
-          <div class="panel-row">
-            <div>
-              <div class="row-pri">Agreement countersigned</div>
-              <div class="row-sec">PRINCE-Val · LabVantage Form · PI notified</div>
-            </div>
-            <div class="row-right">
-              <span class="adm-badge b-complete"><span class="dot" /> Signed</span>
-              <span class="row-when">4d ago</span>
+              <span v-if="item.isInquiry" class="adm-badge b-review"><span class="dot" /> {{ item.status }}</span>
+              <span class="row-when">{{ item.date }}</span>
             </div>
           </div>
         </div>
-        <div class="panel-foot">
-          <span class="ctx">Showing 6 of 47 events</span>
-          <button class="link-btn">View activity log →</button>
+        <div v-if="activityPageCount > 1" class="pagination">
+          <span>Page {{ activityPage + 1 }} of {{ activityPageCount }}</span>
+          <div class="pag-controls">
+            <button :disabled="activityPage === 0" @click="activityPage--">‹</button>
+            <button class="active">{{ activityPage + 1 }}</button>
+            <button :disabled="activityPage >= activityPageCount - 1" @click="activityPage++">›</button>
+          </div>
         </div>
       </div>
 
@@ -161,62 +193,26 @@ const adminStore = useAdminStore()
             <div class="panel-row">
               <div><div class="row-pri">Intake review</div><div class="row-sec">awaiting feasibility</div></div>
               <div class="row-right">
-                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--gold)">4</span>
+                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--gold)">{{ intakeReviewCount }}</span>
               </div>
             </div>
             <div class="panel-row">
               <div><div class="row-pri">Agreements out</div><div class="row-sec">awaiting PI signature</div></div>
               <div class="row-right">
-                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--teal)">3</span>
+                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--teal)">{{ agreementsOutCount }}</span>
               </div>
             </div>
             <div class="panel-row">
               <div><div class="row-pri">Active processing</div><div class="row-sec">samples being run</div></div>
               <div class="row-right">
-                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--accent)">7</span>
+                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--accent)">{{ processingCount }}</span>
               </div>
             </div>
             <div class="panel-row">
               <div><div class="row-pri">Data delivery</div><div class="row-sec">on Pennsieve, complete</div></div>
               <div class="row-right">
-                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--green)">4</span>
+                <span class="mono" style="font-size:1.1rem; font-weight:500; color:var(--green)">{{ completeCount }}</span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
-            <h3>Processing throughput</h3>
-            <span class="ctx">Samples / week</span>
-          </div>
-          <div class="panel-body" style="padding:1rem 1.4rem 1.4rem">
-            <svg viewBox="0 0 320 110" style="width:100%; height:130px;">
-              <defs>
-                <linearGradient id="bgrad" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#011f5b" stop-opacity="0.85" />
-                  <stop offset="100%" stop-color="#011f5b" stop-opacity="0.4" />
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="30" x2="320" y2="30" stroke="#000" stroke-opacity="0.05" />
-              <line x1="0" y1="60" x2="320" y2="60" stroke="#000" stroke-opacity="0.05" />
-              <line x1="0" y1="90" x2="320" y2="90" stroke="#000" stroke-opacity="0.05" />
-              <rect x="10"  y="55" width="22" height="40" rx="2" fill="url(#bgrad)" />
-              <rect x="44"  y="38" width="22" height="57" rx="2" fill="url(#bgrad)" />
-              <rect x="78"  y="62" width="22" height="33" rx="2" fill="url(#bgrad)" />
-              <rect x="112" y="22" width="22" height="73" rx="2" fill="url(#bgrad)" />
-              <rect x="146" y="48" width="22" height="47" rx="2" fill="url(#bgrad)" />
-              <rect x="180" y="10" width="22" height="85" rx="2" fill="url(#bgrad)" />
-              <rect x="214" y="28" width="22" height="67" rx="2" fill="url(#bgrad)" />
-              <rect x="248" y="18" width="22" height="77" rx="2" fill="#0d7377" />
-              <rect x="282" y="40" width="22" height="55" rx="2" fill="#0d7377" fill-opacity="0.5" />
-              <line x1="0" y1="95" x2="320" y2="95" stroke="#000" stroke-opacity="0.15" />
-            </svg>
-            <div style="display:flex; justify-content:space-between; font-size:0.65rem; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-top:0.3rem;">
-              <span>W11</span><span>W12</span><span>W13</span><span>W14</span><span>W15</span><span>W16</span><span>W17</span><span>W18</span><span>this</span>
-            </div>
-            <div style="margin-top:0.7rem; font-size:0.78rem; color:var(--muted);">
-              Avg <strong style="color:var(--ink)">38/wk</strong> · Peak <strong style="color:var(--ink)">62</strong> (W16)
             </div>
           </div>
         </div>
