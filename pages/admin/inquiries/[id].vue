@@ -19,8 +19,49 @@ const affiliationClass = computed(() => {
   return 'b-industry'
 })
 
+const feasibilityComplete = computed(() =>
+  !!inquiry.value?.feasibility.length && inquiry.value.feasibility.every(i => i.checked),
+)
+
 const isApproving = ref(false)
 const isDeclining = ref(false)
+const declineOpen = ref(false)
+
+const noteText = ref('')
+const isPostingNote = ref(false)
+
+async function postNote() {
+  if (!inquiry.value || !noteText.value.trim()) return
+  isPostingNote.value = true
+  try {
+    const { note } = await $fetch('/api/admin/add-inquiry-note', {
+      method: 'POST',
+      body: { inquiryId: inquiry.value.id, text: noteText.value, author: adminStore.user.name },
+    }) as { note: { author: string; date: string; text: string } }
+    inquiry.value.notes.unshift(note)
+    noteText.value = ''
+  }
+  catch {
+    alert('Failed to save note. Please try again.')
+  }
+  finally {
+    isPostingNote.value = false
+  }
+}
+
+async function toggleFeasibility(item: { label: string; checked: boolean }) {
+  if (!inquiry.value) return
+  item.checked = !item.checked
+  try {
+    await $fetch('/api/admin/update-inquiry-feasibility', {
+      method: 'POST',
+      body: { inquiryId: inquiry.value.id, feasibility: inquiry.value.feasibility },
+    })
+  }
+  catch {
+    item.checked = !item.checked
+  }
+}
 
 async function approveAndSend() {
   if (!inquiry.value) return
@@ -41,9 +82,8 @@ async function approveAndSend() {
   }
 }
 
-async function decline() {
+async function confirmDecline() {
   if (!inquiry.value) return
-  if (!confirm(`Decline inquiry from ${inquiry.value.pi.name}? This cannot be undone.`)) return
   isDeclining.value = true
   try {
     await $fetch('/api/admin/decline-inquiry', {
@@ -55,8 +95,6 @@ async function decline() {
   }
   catch {
     alert('Failed to decline inquiry. Please try again.')
-  }
-  finally {
     isDeclining.value = false
   }
 }
@@ -79,7 +117,13 @@ async function decline() {
           <span class="adm-badge" :class="affiliationClass">
             <span class="dot" /> {{ inquiry.affiliation }}
           </span>
-          <span class="adm-badge b-review">
+          <span v-if="inquiry.status === 'Declined'" class="adm-badge b-declined">
+            <span class="dot" /> Declined
+          </span>
+          <span v-else-if="inquiry.status === 'Approved'" class="adm-badge b-complete">
+            <span class="dot" /> Approved
+          </span>
+          <span v-else class="adm-badge b-review">
             <span class="dot" /> Awaiting feasibility
           </span>
         </h2>
@@ -110,20 +154,18 @@ async function decline() {
           </div>
         </div>
       </div>
-      <div class="hero-actions">
+      <div v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'" class="hero-actions">
         <button
           class="btn btn-primary"
-          :disabled="isApproving || isDeclining || inquiry.status === 'Approved' || inquiry.status === 'Declined'"
+          :disabled="isApproving || isDeclining || inquiry.status === 'Approved' || !feasibilityComplete"
           @click="approveAndSend"
         >
           {{ isApproving ? 'Approving…' : 'Approve &amp; send agreement →' }}
         </button>
-        <button class="btn btn-secondary btn-sm" :disabled="isApproving || isDeclining">Request more info</button>
         <button
-          class="btn btn-ghost btn-sm"
-          style="color:var(--warm)"
-          :disabled="isApproving || isDeclining || inquiry.status === 'Approved' || inquiry.status === 'Declined'"
-          @click="decline"
+          class="btn btn-danger btn-sm"
+          :disabled="isApproving || isDeclining || inquiry.status === 'Approved'"
+          @click="declineOpen = true"
         >
           {{ isDeclining ? 'Declining…' : 'Decline' }}
         </button>
@@ -181,7 +223,7 @@ async function decline() {
               :key="item.label"
               style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0;"
             >
-              <input type="checkbox" :checked="item.checked">
+              <input type="checkbox" :checked="item.checked" @change="toggleFeasibility(item)">
               {{ item.label }}
             </label>
           </div>
@@ -189,7 +231,7 @@ async function decline() {
 
         <div class="panel">
           <div class="panel-head"><h3>Reviewer notes</h3></div>
-          <div v-if="inquiry.notes.length" class="activity-timeline">
+          <div v-if="inquiry.notes.length" class="activity-timeline" style="max-height:260px; overflow-y:auto;">
             <div v-for="note in inquiry.notes" :key="note.date" class="t-item">
               <div class="t-dot m" />
               <div class="t-body">
@@ -203,13 +245,38 @@ async function decline() {
             No notes yet.
           </div>
           <div class="note-composer">
-            <textarea placeholder="Add an internal note (visible only to I3H staff)…" />
+            <textarea v-model="noteText" placeholder="Add an internal note (visible only to I3H staff)…" />
             <div class="composer-actions">
-              <button class="btn btn-secondary btn-sm">Cancel</button>
-              <button class="btn btn-primary btn-sm">Post note</button>
+              <button class="btn btn-secondary btn-sm" :disabled="isPostingNote" @click="noteText = ''">Cancel</button>
+              <button class="btn btn-primary btn-sm" :disabled="isPostingNote || !noteText.trim()" @click="postNote">
+                {{ isPostingNote ? 'Posting…' : 'Post note' }}
+              </button>
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decline confirmation modal -->
+  <div v-if="declineOpen" class="clerk-overlay" @click.self="declineOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Decline inquiry</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0 0 0.4rem; font-size:0.88rem;">
+          Are you sure you want to decline the inquiry from <strong>{{ inquiry.pi.name }}</strong> for <strong>{{ inquiry.studyName }}</strong>?
+        </p>
+        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+          A notification email will be sent to the submitter. This action cannot be undone.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isDeclining" @click="declineOpen = false">Cancel</button>
+        <button class="btn btn-danger btn-sm" :disabled="isDeclining" @click="confirmDecline">
+          {{ isDeclining ? 'Declining…' : 'Decline inquiry' }}
+        </button>
       </div>
     </div>
   </div>

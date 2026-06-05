@@ -66,44 +66,44 @@ export default defineEventHandler(async (event) => {
 
   // 1. Send confirmation email to user (PI and Project Lead)
   const confirmationHtml = `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
-      <div style="background-color: #011F5B; padding: 20px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Project Inquiry Received</h1>
-      </div>
-      <div style="padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
-        <p>Dear ${form.principalInvestigator},</p>
-        <p>Thank you for submitting your inquiry for the project: <strong>${form.projectName}</strong>.</p>
-        <p>Our team at the Institute for Immunology & Immune Health (I3H) has received your request and will review it shortly. We will contact you at <strong>${form.leadEmail}</strong> if we have any questions or to discuss the next steps.</p>
+    <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#2d3640;line-height:1.75;font-size:0.92rem;font-weight:300;">
+      <div style="padding:1.6rem 1.6rem 2rem;">
 
-        <h3 style="color: #011F5B; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px;">Inquiry Summary</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold; width: 150px;">Project Name:</td>
-            <td style="padding: 8px 0;">${form.projectName}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold;">PI:</td>
-            <td style="padding: 8px 0;">${form.principalInvestigator}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold;">Total Samples:</td>
-            <td style="padding: 8px 0;">${totalSamples}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold;">Services:</td>
-            <td style="padding: 8px 0;">${servicesText}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; font-weight: bold;">Estimated Cost:</td>
-            <td style="padding: 8px 0;">$${estimatedTotal.toLocaleString()}</td>
-          </tr>
-        </table>
+        <div style="padding-bottom:1.2rem;border-bottom:1px solid #e8e4dc;margin-bottom:1.4rem;">
+          <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#011f5b;color:#fff;font-family:'Courier New',Courier,monospace;font-size:9px;font-weight:700;border-radius:3px;letter-spacing:0.03em;vertical-align:middle;">I3H</div>
+          <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;"><font color="#011f5b">Immune Health</font></span>
+        </div>
 
-        <p style="margin-top: 30px;">Best regards,<br>The Immune Health Team</p>
-      </div>
-      <div style="text-align: center; padding: 20px; font-size: 12px; color: #999;">
-        <p>This is an automated message. Please do not reply directly to this email.</p>
-        <p>&copy; ${new Date().getFullYear()} Penn Institute for Immunology & Immune Health</p>
+        <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Thanks, ${form.principalInvestigator} — we've received your inquiry.</font></h3>
+
+        <p style="margin:0 0 0.6rem;">Your study request for <strong>${form.projectName}</strong> has been submitted to the Institute for Immunology &amp; Immune Health. A member of our team will review feasibility and reach out within <strong>3 business days</strong> with next steps.</p>
+
+        <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+            <tr><td style="padding:3px 0;color:#7f8c8d;width:160px;">Study</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.projectName}${form.acronym ? ` (${form.acronym})` : ''}</td></tr>
+            <tr><td style="padding:3px 0;color:#7f8c8d;">Principal Investigator</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.principalInvestigator}</td></tr>
+            <tr><td style="padding:3px 0;color:#7f8c8d;">Cohort scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.subjectCount} subjects × ${form.timepointCount} timepoints = ${totalSamples} samples</td></tr>
+            <tr><td style="padding:3px 0;color:#7f8c8d;">Services requested</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${servicesText}</td></tr>
+            ${estimatedTotal ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Estimated total</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">$${estimatedTotal.toLocaleString()}</td></tr>` : ''}
+          </table>
+        </div>
+
+        <p style="margin:1rem 0 0.3rem;"><strong>What happens next:</strong></p>
+        <p style="margin:0 0 1rem;font-size:0.88rem;">
+          1. I3H staff review feasibility and capacity.<br>
+          2. If approved, you'll receive an agreement package (User Agreement, Rate Schedule, LabVantage form, Pennsieve agreement).<br>
+          3. Once countersigned, your study is activated and we begin scheduling.
+        </p>
+
+        <p style="font-size:0.85rem;color:#7f8c8d;margin-top:1.4rem;font-weight:300;">
+          Questions in the meantime? Reach out to the I3H team at
+          <a href="mailto:${config.adminEmail}" style="color:#011f5b;text-decoration:none;"><span style="color:#011f5b;text-decoration:underline;">${config.adminEmail}</span></a>.
+        </p>
+
+        <div style="font-size:0.7rem;color:#7f8c8d;margin-top:1.6rem;padding-top:1rem;border-top:1px solid #e8e4dc;">
+          Institute for Immunology &amp; Immune Health · Perelman School of Medicine, University of Pennsylvania · 421 Curie Boulevard, Philadelphia, PA 19104.
+          This message contains research operations information and is intended for the named recipient.
+        </div>
       </div>
     </div>
   `
@@ -171,17 +171,56 @@ export default defineEventHandler(async (event) => {
       body: {
         from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
         to: recipients,
-        subject: `Inquiry Received: ${form.projectName}`,
+        subject: `We've received your I3H study inquiry — ${form.projectName}`,
         html: confirmationHtml,
       },
     })
 
-    const submissionData = {
-      form,
-      totalSamples,
-      estimatedTotal,
-      submittedAt: new Date().toISOString(),
-    }
+    const submittedAt = new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+
+    const staffHtml = `
+      <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#2d3640;line-height:1.75;font-size:0.92rem;font-weight:300;">
+        <div style="padding:1.6rem 1.6rem 2rem;">
+
+          <div style="padding-bottom:1.2rem;border-bottom:1px solid #e8e4dc;margin-bottom:1.4rem;">
+            <div style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#011f5b;color:#fff;font-family:'Courier New',Courier,monospace;font-size:9px;font-weight:700;border-radius:3px;letter-spacing:0.03em;vertical-align:middle;">I3H</div>
+            <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;">Admin Console</span>
+          </div>
+
+          <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">New study inquiry submitted</h3>
+
+          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${form.projectName}</strong> was just submitted by <strong>${form.principalInvestigator}</strong> (${AFFILIATION_LABELS[form.affiliation] || form.affiliation}). Quick summary below — full intake is available in the console.</p>
+
+          <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+              <tr><td style="padding:3px 0;color:#7f8c8d;width:140px;">Submitted</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${submittedAt}</td></tr>
+              <tr><td style="padding:3px 0;color:#7f8c8d;">PI</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.principalInvestigator} · ${form.piEmail}</td></tr>
+              ${form.projectLead ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Study lead</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.projectLead} · ${form.leadEmail}</td></tr>` : ''}
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Affiliation</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${AFFILIATION_LABELS[form.affiliation] || form.affiliation}${form.externalInstitution ? ` · ${form.externalInstitution}` : ''}</td></tr>
+              ${form.irbNumber ? `<tr><td style="padding:3px 0;color:#7f8c8d;">IRB</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.irbNumber}</td></tr>` : ''}
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.subjectCount} × ${form.timepointCount} = ${totalSamples} samples · ${SAMPLE_TYPE_LABELS[form.sampleType] || form.sampleType || '—'}</td></tr>
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Services</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${servicesText}</td></tr>
+              ${estimatedTotal ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Est. revenue</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">$${estimatedTotal.toLocaleString()}</td></tr>` : ''}
+            </table>
+          </div>
+
+          ${form.objectives ? `
+          <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Objectives (PI's words):</strong></p>
+          <p style="font-size:0.85rem;font-style:italic;color:#555;margin-bottom:1rem">"${form.objectives}"</p>
+          ` : ''}
+
+          <a href="${config.public.appDomain ? `https://${config.public.appDomain}` : 'http://localhost:3000'}/admin/inquiries/${inquiryId}" style="display:inline-block;background:#011f5b;color:#fff;padding:0.7rem 1.3rem;border-radius:4px;text-decoration:none;font-weight:600;font-size:0.88rem;margin:0.6rem 0;">Open in Admin Console →</a>
+
+          <p style="font-size:0.8rem;color:#7f8c8d;margin-top:1.4rem;font-weight:300;">
+            This is an automated alert from the Immune Health platform. Inquiry status, notes, and the full intake form are available in the console.
+          </p>
+
+          <div style="font-size:0.7rem;color:#7f8c8d;margin-top:1.6rem;padding-top:1rem;border-top:1px solid #e8e4dc;">
+            Sent automatically by the I3H platform via MailerSend. To adjust who receives intake alerts, update the admin notification list in Settings.
+          </div>
+        </div>
+      </div>
+    `
 
     await $fetch(mailersendUrl, {
       method: 'POST',
@@ -189,8 +228,8 @@ export default defineEventHandler(async (event) => {
       body: {
         from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
         to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
-        subject: `[SUBMISSION] ${form.projectName}`,
-        text: JSON.stringify(submissionData, null, 2),
+        subject: `🆕 New inquiry — ${form.projectName} · ${form.principalInvestigator} · ${AFFILIATION_LABELS[form.affiliation] || form.affiliation}`,
+        html: staffHtml,
       },
     })
   }

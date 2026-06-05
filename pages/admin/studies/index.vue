@@ -9,6 +9,20 @@ const stageFilter = ref<StudyStage | 'All'>('All')
 const affiliationFilter = ref<Affiliation | 'All affiliations'>('All affiliations')
 const searchQuery = ref('')
 
+type SortOption = 'updated-desc' | 'updated-asc' | 'name-asc' | 'name-desc'
+const sortBy = ref<SortOption>('updated-desc')
+const sortCycle: SortOption[] = ['updated-desc', 'updated-asc', 'name-asc', 'name-desc']
+const sortLabels: Record<SortOption, string> = {
+  'updated-desc': 'Updated ↓',
+  'updated-asc':  'Updated ↑',
+  'name-asc':     'Name A→Z',
+  'name-desc':    'Name Z→A',
+}
+function cycleSort() {
+  const idx = sortCycle.indexOf(sortBy.value)
+  sortBy.value = sortCycle[(idx + 1) % sortCycle.length]
+}
+
 const stageFilters: Array<{ label: string; value: StudyStage | 'All'; count: number }> = [
   { label: 'All', value: 'All', count: adminStore.studies.length },
   { label: 'Agreement', value: 'Agreement', count: adminStore.studies.filter(s => s.stage === 'Agreement' || s.stage === 'Awaiting Signature').length },
@@ -51,6 +65,11 @@ const displayedStudies = computed(() => {
       s.irb.toLowerCase().includes(q)
     )
   }
+  list = [...list]
+  if (sortBy.value === 'updated-desc') list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  else if (sortBy.value === 'updated-asc') list.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+  else if (sortBy.value === 'name-asc') list.sort((a, b) => a.name.localeCompare(b.name))
+  else if (sortBy.value === 'name-desc') list.sort((a, b) => b.name.localeCompare(a.name))
   return list
 })
 
@@ -64,10 +83,6 @@ const signedCount = (study: typeof adminStore.studies[0]) =>
       <div>
         <h1>Studies</h1>
         <div class="sub">All active and historical studies. Click a row to open its lifecycle.</div>
-      </div>
-      <div class="hd-actions">
-        <button class="btn btn-secondary btn-sm">Export CSV</button>
-        <button class="btn btn-primary btn-sm">+ New study</button>
       </div>
     </div>
 
@@ -98,7 +113,7 @@ const signedCount = (study: typeof adminStore.studies[0]) =>
         <input v-model="searchQuery" type="search" placeholder="Search study, PI, IRB…">
       </div>
       <div class="toolbar-spacer" />
-      <button class="btn btn-ghost btn-sm">Sort: Updated ↓</button>
+      <button class="btn btn-ghost btn-sm" @click="cycleSort">Sort: {{ sortLabels[sortBy] }}</button>
     </div>
 
     <div class="table-wrap">

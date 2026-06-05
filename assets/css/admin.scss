@@ -36,6 +36,7 @@
 .b-complete   { background: rgba(26,122,76,0.10);   color: var(--green); }
 .b-warn       { background: rgba(192,57,43,0.10);   color: var(--warm); }
 .b-muted      { background: rgba(127,140,141,0.12); color: var(--muted); }
+.b-declined   { background: rgba(192,57,43,0.10);   color: var(--warm); }
 .b-industry   { background: rgba(108,52,131,0.10);  color: #6c3483; }
 .b-external   { background: rgba(41,128,185,0.10);  color: #1f6391; }
 .b-internal   { background: rgba(1,31,91,0.08);     color: var(--accent); }
@@ -63,6 +64,18 @@
     &:hover:not(:disabled) {
       background: rgba(1,31,91,0.05);
       color: var(--ink);
+    }
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--warm);
+    border: 1px solid rgba(192,57,43,0.3);
+
+    &:hover:not(:disabled) {
+      background: var(--warm);
+      color: #fff;
+      border-color: var(--warm);
     }
   }
 
@@ -151,22 +164,38 @@
   .topbar-spacer { flex: 1; }
 
   .topbar-search {
-    width: 320px;
+    width: 300px;
     position: relative;
 
     input {
-      padding-left: 2.1rem;
-      background: rgba(255,255,255,0.6);
+      height: 100%;
+      box-sizing: border-box;
+      padding: 0.48rem 1rem 0.48rem 2.4rem;
+      background: #fff;
+      border: 1.5px solid rgba(0,0,0,0.1);
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      font-family: inherit;
+      color: var(--ink);
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+
+      &::placeholder { color: var(--muted); }
+      &:focus {
+        outline: none;
+        border-color: var(--penn-blue);
+        box-shadow: 0 0 0 3px rgba(1,31,91,0.08);
+      }
     }
 
     &::before {
       content: '⌕';
       position: absolute;
-      left: 0.7rem;
+      left: 0.75rem;
       top: 50%;
       transform: translateY(-50%);
       color: var(--muted);
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       pointer-events: none;
     }
   }
@@ -545,6 +574,22 @@
   }
 }
 
+.pag-btn {
+  border: 1px solid rgba(0,0,0,0.1);
+  background: #fff;
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--ink);
+  &:hover:not(:disabled) { background: var(--cream); }
+  &:disabled { opacity: 0.35; cursor: default; }
+}
+
 /* List rows inside panels */
 .panel-row {
   display: flex;
@@ -697,17 +742,38 @@ table.data-table {
 
 .toolbar-search {
   position: relative;
-  width: 280px;
+  width: 265px;
+  align-self: stretch;
 
-  input { padding-left: 2.1rem; background: #fff; }
+  input {
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0 1rem 0 2.4rem;
+    background: #fff;
+    border: 1.5px solid rgba(0,0,0,0.1);
+    border-radius: var(--radius);
+    font-size: 0.78rem;
+    font-family: inherit;
+    color: var(--ink);
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &::placeholder { color: var(--muted); }
+    &:focus {
+      outline: none;
+      border-color: var(--penn-blue);
+      box-shadow: 0 0 0 3px rgba(1,31,91,0.08);
+    }
+  }
 
   &::before {
     content: '⌕';
     position: absolute;
-    left: 0.7rem;
+    left: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     color: var(--muted);
+    font-size: 1.05rem;
     pointer-events: none;
   }
 }
@@ -2029,6 +2095,44 @@ table.budget-table {
 
   h4 { font-size: 0.92rem; font-weight: 600; color: var(--green); }
   p  { font-size: 0.82rem; color: #2b3a4a; font-weight: 300; }
+}
+
+/* Edit modal */
+.edit-modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  width: 420px;
+  max-width: 100%;
+  animation: pop 0.15s ease;
+
+  .em-head {
+    padding: 1.2rem 1.4rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+  }
+
+  .em-body {
+    padding: 1.2rem 1.4rem;
+    .em-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    input { width: 100%; box-sizing: border-box; }
+  }
+
+  .em-foot {
+    padding: 0.8rem 1.4rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
 }
 
 /* Clerk modal */

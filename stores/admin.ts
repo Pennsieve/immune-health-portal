@@ -48,6 +48,7 @@ export interface ActivityItem {
   date: string
   author?: string
   note?: string
+  ts?: number
 }
 
 export interface Study {
@@ -85,6 +86,7 @@ export interface Study {
   metadata?: string
   activity: ActivityItem[]
   lifecycle: Array<{ label: string; date: string; status: 'done' | 'active' | 'pending' }>
+  updatedAt: string
   updatedRelative: string
   isLocked: boolean
   quickStats?: { samplesReceived: number; samplesTotal: number; cytofAcquired: number; cytofTotal: number; qcPassed: number; qcTotal: number; invoicedYtd: number }
@@ -118,6 +120,19 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
   }
 }
 
+function normalizeLifecycle(steps: Study['lifecycle']): Study['lifecycle'] {
+  return steps.map((step, i) => {
+    const laterStepIsDone = steps.slice(i + 1).some(s => s.status === 'done')
+    if (laterStepIsDone && step.status !== 'done') {
+      const placeholders = ['in progress', '—', '']
+      const nextDone = steps.slice(i + 1).find(s => s.status === 'done')
+      const date = placeholders.includes(step.date) ? (nextDone?.date ?? step.date) : step.date
+      return { ...step, status: 'done', date }
+    }
+    return step
+  })
+}
+
 function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study {
   return {
     id: row.id as string,
@@ -140,7 +155,8 @@ function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study 
     phlebotomy: row.phlebotomy as string | undefined,
     metadata: row.metadata_desc as string | undefined,
     activity: (row.activity as ActivityItem[]) || [],
-    lifecycle: (row.lifecycle as Study['lifecycle']) || [],
+    lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
+    updatedAt: row.updated_at as string,
     updatedRelative: row.updated_relative as string,
     quickStats: row.quick_stats as Study['quickStats'],
   }
@@ -170,6 +186,7 @@ export const useAdminStore = defineStore('admin', {
     },
     inquiries: [] as Inquiry[],
     studies: [] as Study[],
+    sessionEvents: [] as ActivityItem[],
     isLoading: false,
     isInitialized: false,
   }),
@@ -191,6 +208,14 @@ export const useAdminStore = defineStore('admin', {
       if (this.isLoading) return
       this.isLoading = true
       try {
+        const supabase = useSupabaseClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const meta = user.user_metadata || {}
+          const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Admin'
+          const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          this.user = { name: fullName, email: user.email || '', initials, role: 'Admin · Operations Lead' }
+        }
         await Promise.all([this.loadInquiries(), this.loadStudies()])
         this.isInitialized = true
       }
@@ -255,12 +280,22 @@ export const useAdminStore = defineStore('admin', {
 
         const allSigned = study.agreements.every(a => a.status === 'Signed')
         if (allSigned) {
+          const activationItem: ActivityItem = {
+            dotClass: 'g',
+            title: 'All agreements signed — study activated',
+            date: signedDate,
+            ts: Date.now(),
+          }
+          const updatedActivity = [activationItem, ...study.activity]
+
           await supabase
             .from('studies')
             .update({
               is_locked: false,
               stage: 'Processing',
+              activity: updatedActivity,
               lifecycle: study.lifecycle.map((step, i) => {
+                if (i === 3) return { ...step, date: signedDate, status: 'done' }
                 if (i === 4) return { ...step, date: 'today', status: 'done' }
                 if (i === 5) return { ...step, date: 'in progress', status: 'active' }
                 return step
@@ -270,10 +305,60 @@ export const useAdminStore = defineStore('admin', {
 
           study.isLocked = false
           study.stage = 'Processing'
+          study.activity = updatedActivity
+          study.lifecycle[3] = { ...study.lifecycle[3], date: signedDate, status: 'done' }
           study.lifecycle[4] = { label: 'Activated', date: 'today', status: 'done' }
           study.lifecycle[5] = { label: 'Processing', date: 'in progress', status: 'active' }
         }
       }
+    },
+
+    async updateProcessedSamples(studyId: string, processedSamples: number) {
+      const result = await $fetch<{ success: boolean; cohort: Study['cohort']; budget: Study['budget']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
+        method: 'POST',
+        body: { studyId, processedSamples },
+      })
+      const study = this.studies.find(s => s.id === studyId)
+      if (study) {
+        study.cohort = result.cohort
+        study.budget = result.budget
+        study.activity.unshift(result.activityItem)
+      }
+    },
+
+    async updateStudyName(studyId: string, name: string) {
+      const result = await $fetch<{ success: boolean; activityItem: ActivityItem }>('/api/admin/update-study', {
+        method: 'POST',
+        body: { studyId, name },
+      })
+      const study = this.studies.find(s => s.id === studyId)
+      if (study) {
+        study.name = name
+        study.activity.unshift(result.activityItem)
+      }
+    },
+
+    async deleteStudy(studyId: string) {
+      const study = this.studies.find(s => s.id === studyId)
+      const studyName = study?.name ?? studyId
+
+      await $fetch('/api/admin/delete-study', {
+        method: 'POST',
+        body: { studyId },
+      })
+
+      this.studies = this.studies.filter(s => s.id !== studyId)
+
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' · ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
+      this.sessionEvents.unshift({
+        dotClass: 'w',
+        title: `Study deleted — ${studyName}`,
+        date: dateStr,
+        ts: Date.now(),
+      })
     },
 
     async logout() {

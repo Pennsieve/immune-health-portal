@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
   if (allSigned) {
     const { data: study } = await supabase
       .from('studies')
-      .select('lifecycle')
+      .select('lifecycle, activity')
       .eq('id', studyId)
       .single()
 
@@ -81,9 +81,17 @@ export default defineEventHandler(async (event) => {
         return step
       })
 
+      const activationItem = {
+        dotClass: 'g',
+        title: 'All agreements signed — study activated',
+        date: signedDate,
+        ts: Date.now(),
+      }
+      const updatedActivity = [activationItem, ...((study.activity as unknown[]) || [])]
+
       await supabase
         .from('studies')
-        .update({ is_locked: false, stage: 'Processing', lifecycle })
+        .update({ is_locked: false, stage: 'Processing', lifecycle, activity: updatedActivity })
         .eq('id', studyId)
     }
   }
