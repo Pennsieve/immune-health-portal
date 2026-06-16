@@ -88,6 +88,11 @@ export default defineEventHandler(async (event) => {
           </table>
         </div>
 
+        ${form.notes ? `
+        <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Additional notes you provided:</strong></p>
+        <p style="font-size:0.85rem;font-style:italic;color:#555;margin-bottom:1rem">"${form.notes}"</p>
+        ` : ''}
+
         <p style="margin:1rem 0 0.3rem;"><strong>What happens next:</strong></p>
         <p style="margin:0 0 1rem;font-size:0.88rem;">
           1. I3H staff review feasibility and capacity.<br>
@@ -116,10 +121,6 @@ export default defineEventHandler(async (event) => {
     ? 'University of Pennsylvania'
     : (form.externalInstitution || '')
 
-  const initialNotes = form.notes
-    ? [{ author: form.principalInvestigator, date: submittedDate, text: form.notes }]
-    : []
-
   const { error: dbError } = await supabase.from('inquiries').insert({
     id: inquiryId,
     study_name: form.projectName,
@@ -141,7 +142,8 @@ export default defineEventHandler(async (event) => {
     sample_type: SAMPLE_TYPE_LABELS[form.sampleType] || form.sampleType || null,
     phlebotomy: PHLEBOTOMY_LABELS[form.phlebotomyNeeds] || form.phlebotomyNeeds || null,
     metadata: METADATA_LABELS[form.metadataPlan] || form.metadataPlan || null,
-    notes: initialNotes,
+    additional_notes: form.notes || null,
+    notes: [],
     feasibility: [
       { label: 'IRB protocol reviewed', checked: false },
       { label: 'Sample type confirmed viable', checked: false },
@@ -207,6 +209,11 @@ export default defineEventHandler(async (event) => {
           ${form.objectives ? `
           <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Objectives (PI's words):</strong></p>
           <p style="font-size:0.85rem;font-style:italic;color:#555;margin-bottom:1rem">"${form.objectives}"</p>
+          ` : ''}
+
+          ${form.notes ? `
+          <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Additional notes from PI:</strong></p>
+          <p style="font-size:0.85rem;font-style:italic;color:#555;margin-bottom:1rem">"${form.notes}"</p>
           ` : ''}
 
           <a href="${config.public.appDomain ? `https://${config.public.appDomain}` : 'http://localhost:3000'}/admin/inquiries/${inquiryId}" style="display:inline-block;background:#011f5b;color:#fff;padding:0.7rem 1.3rem;border-radius:4px;text-decoration:none;font-weight:600;font-size:0.88rem;margin:0.6rem 0;">Open in Admin Console →</a>

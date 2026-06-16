@@ -210,6 +210,11 @@ async function confirmDecline() {
           <div>
             {{ inquiry.affiliation }} — {{ inquiry.affiliationOrg }}
           </div>
+
+          <template v-if="inquiry.additionalNotes">
+            <div class="info-lbl">Additional notes</div>
+            <div>{{ inquiry.additionalNotes }}</div>
+          </template>
         </div>
       </div>
 

@@ -202,8 +202,7 @@ async function submitSigned() {
             <div class="sign-block">
               <div class="lbl-big">I3H countersignature</div>
               <div class="sign-counter-box">
-                <div class="name">Lori Guercio</div>
-                <div class="role">Operations Lead · Institute for Immunology &amp; Immune Health</div>
+                <div class="name">Institute for Immunology &amp; Immune Health</div>
                 <div class="note">I3H will countersign within 2 business days of PI submission.</div>
               </div>
             </div>
