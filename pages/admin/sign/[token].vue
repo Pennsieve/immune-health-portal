@@ -66,6 +66,7 @@ async function submitSigned() {
         signerName: signerName.value,
         signerEmail: signerEmail.value,
         token: signToken.value,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     })
     isSubmitted.value = true
@@ -128,7 +129,7 @@ async function submitSigned() {
       <div class="sign-doc">
         <div class="sign-doc-head">
           <h2>{{ (agreement as any).name }}</h2>
-          <div class="doc-meta">Ref: {{ study.abbreviation }}-{{ String((agreement as any).id).toUpperCase() }}-2026 · I3H/{{ study.irb }}</div>
+          <div class="doc-meta">Ref: {{ study.abbreviation }}-{{ String((agreement as any).id).toUpperCase() }}-{{ new Date().getFullYear() }} · I3H/{{ study.irb }}</div>
         </div>
 
         <div class="sign-doc-body">

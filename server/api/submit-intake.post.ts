@@ -33,7 +33,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Email service configuration error' })
   }
 
-  const { form, estimatedTotal, totalSamples, servicesText, servicesDetail } = body
+  const { form, estimatedTotal, totalSamples, servicesText, servicesDetail, timezone } = body
+  const tz = timezone || DEFAULT_TIMEZONE
 
   // Validate all email addresses before touching the DB
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -116,7 +117,7 @@ export default defineEventHandler(async (event) => {
   // 1. Save to Supabase first — if this fails the whole request fails before emails are sent
   const supabase = serverSupabaseServiceRole(event)
   const inquiryId = crypto.randomUUID()
-  const submittedDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const submittedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' })
   const affiliationOrg = form.affiliation === 'internal'
     ? 'University of Pennsylvania'
     : (form.externalInstitution || '')
@@ -178,7 +179,7 @@ export default defineEventHandler(async (event) => {
       },
     })
 
-    const submittedAt = new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    const submittedAt = new Date().toLocaleString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
     const staffHtml = `
       <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#2d3640;line-height:1.75;font-size:0.92rem;font-weight:300;">

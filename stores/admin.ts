@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { AGREEMENT_IDS } from '~/utils/agreements'
 
 export type InquiryStatus = 'New' | 'In Review' | 'Approved' | 'Declined' | 'Stale'
 export type StudyStage = 'Review' | 'Agreement' | 'Awaiting Signature' | 'Processing' | 'Complete'
@@ -9,7 +10,7 @@ export interface Inquiry {
   studyName: string
   abbreviation: string
   submittedDate: string
-  submittedRelative: string
+  createdAt: string
   isStale?: boolean
   objectives: string
   pi: { name: string; email: string }
@@ -88,7 +89,6 @@ export interface Study {
   activity: ActivityItem[]
   lifecycle: Array<{ label: string; date: string; status: 'done' | 'active' | 'pending' }>
   updatedAt: string
-  updatedRelative: string
   isLocked: boolean
   quickStats?: { samplesReceived: number; samplesTotal: number; cytofAcquired: number; cytofTotal: number; qcPassed: number; qcTotal: number; invoicedYtd: number }
 }
@@ -99,7 +99,7 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     studyName: row.study_name as string,
     abbreviation: row.abbreviation as string,
     submittedDate: row.submitted_date as string,
-    submittedRelative: row.submitted_relative as string,
+    createdAt: row.created_at as string,
     isStale: row.is_stale as boolean,
     objectives: row.objectives as string,
     pi: row.pi as { name: string; email: string },
@@ -159,7 +159,6 @@ function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study 
     activity: (row.activity as ActivityItem[]) || [],
     lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
     updatedAt: row.updated_at as string,
-    updatedRelative: row.updated_relative as string,
     quickStats: row.quick_stats as Study['quickStats'],
   }
 }
@@ -246,8 +245,7 @@ export const useAdminStore = defineStore('admin', {
 
       this.studies = (data || []).map((row) => {
         const agreementsRaw = (row.agreements as Array<Record<string, unknown>>) || []
-        const agreementOrder = ['ua', 'rs', 'lv', 'psa']
-        const agreements = agreementOrder
+        const agreements = AGREEMENT_IDS
           .map(id => agreementsRaw.find(a => a.id === id))
           .filter(Boolean)
           .map(a => mapAgreement(a as Record<string, unknown>))
@@ -296,10 +294,10 @@ export const useAdminStore = defineStore('admin', {
               is_locked: false,
               stage: 'Processing',
               activity: updatedActivity,
-              lifecycle: study.lifecycle.map((step, i) => {
-                if (i === 3) return { ...step, date: signedDate, status: 'done' }
-                if (i === 4) return { ...step, date: 'today', status: 'done' }
-                if (i === 5) return { ...step, date: 'in progress', status: 'active' }
+              lifecycle: study.lifecycle.map((step) => {
+                if (step.label === 'Agreements') return { ...step, date: signedDate, status: 'done' }
+                if (step.label === 'Activated') return { ...step, date: signedDate, status: 'done' }
+                if (step.label === 'Processing') return { ...step, date: 'in progress', status: 'active' }
                 return step
               }),
             })
@@ -308,9 +306,12 @@ export const useAdminStore = defineStore('admin', {
           study.isLocked = false
           study.stage = 'Processing'
           study.activity = updatedActivity
-          study.lifecycle[3] = { ...study.lifecycle[3], date: signedDate, status: 'done' }
-          study.lifecycle[4] = { label: 'Activated', date: 'today', status: 'done' }
-          study.lifecycle[5] = { label: 'Processing', date: 'in progress', status: 'active' }
+          study.lifecycle = study.lifecycle.map(step => {
+            if (step.label === 'Agreements') return { ...step, date: signedDate, status: 'done' }
+            if (step.label === 'Activated') return { ...step, date: signedDate, status: 'done' }
+            if (step.label === 'Processing') return { ...step, date: 'in progress', status: 'active' }
+            return step
+          })
         }
       }
     },
@@ -318,7 +319,7 @@ export const useAdminStore = defineStore('admin', {
     async updateProcessedSamples(studyId: string, processedSamples: number) {
       const result = await $fetch<{ success: boolean; cohort: Study['cohort']; budget: Study['budget']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
         method: 'POST',
-        body: { studyId, processedSamples },
+        body: { studyId, processedSamples, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
@@ -331,7 +332,7 @@ export const useAdminStore = defineStore('admin', {
     async updateStudyName(studyId: string, name: string) {
       const result = await $fetch<{ success: boolean; activityItem: ActivityItem }>('/api/admin/update-study', {
         method: 'POST',
-        body: { studyId, name },
+        body: { studyId, name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {

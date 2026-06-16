@@ -1,12 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createSignToken } from '~/server/utils/signing'
-
-const AGREEMENTS = [
-  { id: 'ua',  name: 'User Agreement',                description: 'Master scope of work between PI and I3H' },
-  { id: 'rs',  name: 'Rate Schedule',                 description: 'Itemized pricing and billing terms' },
-  { id: 'lv',  name: 'LabVantage Sample Intake Form', description: 'Sample ID assignment authorization' },
-  { id: 'psa', name: 'Pennsieve Data Sharing Agreement', description: 'Data hosting + access controls on Pennsieve workspace' },
-]
+import { AGREEMENTS } from '~/utils/agreements'
 
 function parseRate(rateStr: string): number {
   const match = rateStr.match(/\$?([\d,]+)/)
@@ -15,7 +9,7 @@ function parseRate(rateStr: string): number {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const { inquiryId } = await readBody(event)
+  const { inquiryId, timezone } = await readBody(event)
 
   if (!inquiryId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId' })
@@ -36,7 +30,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'Inquiry already processed' })
   }
 
-  const approvedDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const tz = timezone || DEFAULT_TIMEZONE
+  const approvedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
 
   // Generate a unique study ID from the abbreviation
   const abbr = ((inquiry.abbreviation as string) || (inquiry.study_name as string))
