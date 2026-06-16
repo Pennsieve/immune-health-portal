@@ -1,23 +1,17 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createSignToken } from '~/server/utils/signing'
-
-const VALID_AGREEMENT_IDS = ['ua', 'rs', 'lv', 'psa']
-const AGREEMENT_NAMES: Record<string, string> = {
-  ua: 'Usage Agreement',
-  rs: 'Rate Schedule',
-  lv: 'LabVantage Access Agreement',
-  psa: 'Professional Services Agreement',
-}
+import { AGREEMENT_IDS, AGREEMENT_NAMES } from '~/utils/agreements'
+import { DEFAULT_TIMEZONE } from '~/server/utils/constants'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
-  const { studyId, agreementId } = body
+  const { studyId, agreementId, timezone } = body
 
   if (!studyId || !agreementId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or agreementId' })
   }
-  if (!VALID_AGREEMENT_IDS.includes(agreementId)) {
+  if (!AGREEMENT_IDS.includes(agreementId)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid agreement ID' })
   }
   if (!config.signingSecret) {
@@ -56,7 +50,8 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  const sentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const tz = timezone || DEFAULT_TIMEZONE
+  const sentDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
   await supabase
     .from('agreements')
     .update({ sent_date: sentDate })

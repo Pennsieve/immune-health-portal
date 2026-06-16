@@ -4,6 +4,8 @@ import type { StudyStage, Affiliation } from '~/stores/admin'
 
 definePageMeta({ layout: 'admin' })
 
+const { relativeTime } = useRelativeTime()
+
 const adminStore = useAdminStore()
 const stageFilter = ref<StudyStage | 'All'>('All')
 const affiliationFilter = ref<Affiliation | 'All affiliations'>('All affiliations')
@@ -180,7 +182,7 @@ const signedCount = (study: typeof adminStore.studies[0]) =>
                 {{ study.stage === 'Complete' ? 'final' : 'est. $' + (study.budget.committed / 1000).toFixed(0) + 'K' }}
               </div>
             </td>
-            <td class="mono" style="font-size:0.78rem; color:var(--muted)">{{ study.updatedRelative }}</td>
+            <td class="mono" style="font-size:0.78rem; color:var(--muted)">{{ relativeTime(study.updatedAt) }}</td>
           </tr>
         </tbody>
       </table>

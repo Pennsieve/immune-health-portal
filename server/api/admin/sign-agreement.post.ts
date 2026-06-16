@@ -1,17 +1,17 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { verifySignToken } from '~/server/utils/signing'
-
-const VALID_AGREEMENT_IDS = ['ua', 'rs', 'lv', 'psa']
+import { AGREEMENT_IDS, AGREEMENT_COUNT } from '~/utils/agreements'
+import { DEFAULT_TIMEZONE } from '~/server/utils/constants'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
-  const { studyId, agreementId, signerName, signerEmail, token } = body
+  const { studyId, agreementId, signerName, signerEmail, token, timezone } = body
 
   if (!studyId || !agreementId || !signerName || !signerEmail) {
     throw createError({ statusCode: 400, statusMessage: 'Missing required fields' })
   }
-  if (!VALID_AGREEMENT_IDS.includes(agreementId)) {
+  if (!AGREEMENT_IDS.includes(agreementId)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid agreement ID' })
   }
 
@@ -46,8 +46,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date()
-  const signedDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    + ' at ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const tz = timezone || DEFAULT_TIMEZONE
+  const signedDate = now.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
+    + ' at ' + now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
 
   const { error: updateErr } = await supabase
     .from('agreements')
@@ -65,7 +66,7 @@ export default defineEventHandler(async (event) => {
     .select('status')
     .eq('study_id', studyId)
 
-  const allSigned = allAgreements?.length === 4 && allAgreements.every(a => a.status === 'Signed')
+  const allSigned = allAgreements?.length === AGREEMENT_COUNT && allAgreements.every(a => a.status === 'Signed')
 
   if (allSigned) {
     const { data: study } = await supabase
@@ -75,9 +76,9 @@ export default defineEventHandler(async (event) => {
       .single()
 
     if (study) {
-      const lifecycle = (study.lifecycle as Array<{ label: string; date: string; status: string }>).map((step, i) => {
-        if (i === 4) return { ...step, date: 'today', status: 'done' }
-        if (i === 5) return { ...step, date: 'in progress', status: 'active' }
+      const lifecycle = (study.lifecycle as Array<{ label: string; date: string; status: string }>).map((step) => {
+        if (step.label === 'Activated') return { ...step, date: signedDate, status: 'done' }
+        if (step.label === 'Processing') return { ...step, date: 'in progress', status: 'active' }
         return step
       })
 

@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const { studyId, name } = await readBody(event)
+  const { studyId, name, timezone } = await readBody(event)
 
   if (!studyId || !name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or name' })
@@ -20,8 +20,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const now = new Date()
-  const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    + ' · ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const tz = timezone || DEFAULT_TIMEZONE
+  const dateStr = now.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
+    + ' · ' + now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
 
   const newItem = {
     dotClass: '',

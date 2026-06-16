@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const { inquiryId, text, author } = await readBody(event)
+  const { inquiryId, text, author, timezone } = await readBody(event)
 
   if (!inquiryId || !text?.trim() || !author) {
     throw createError({ statusCode: 400, statusMessage: 'Missing required fields' })
@@ -19,7 +19,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
   }
 
-  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const tz = timezone || DEFAULT_TIMEZONE
+  const date = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' })
 
   const newNote = { author, date, text: text.trim() }
   const updatedNotes = [newNote, ...((inquiry.notes as unknown[]) || [])]

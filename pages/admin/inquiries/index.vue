@@ -3,6 +3,8 @@ import { useAdminStore } from '~/stores/admin'
 
 definePageMeta({ layout: 'admin' })
 
+const { relativeTime } = useRelativeTime()
+
 const adminStore = useAdminStore()
 const activeFilter = ref('New')
 const searchQuery = ref('')
@@ -100,7 +102,7 @@ const displayedInquiries = computed(() => {
             <td>
               <div class="mono" style="font-size:0.78rem">{{ inquiry.submittedDate }}</div>
               <div class="study-pi" :style="inquiry.isStale ? 'color:var(--warm)' : ''">
-                {{ inquiry.submittedRelative }}
+                {{ relativeTime(inquiry.createdAt) }}
               </div>
             </td>
             <td>

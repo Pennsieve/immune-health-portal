@@ -31,7 +31,7 @@ async function sendSignLink(studyId: string, agreementId: string) {
   try {
     await $fetch('/api/admin/send-sign-link', {
       method: 'POST',
-      body: { studyId, agreementId },
+      body: { studyId, agreementId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     })
     sentLink.value = new Set([...sentLink.value, key])
   }
@@ -77,7 +77,7 @@ async function postNote() {
   try {
     const { activityItem } = await $fetch('/api/admin/add-study-note', {
       method: 'POST',
-      body: { studyId: study.value.id, text: noteText.value, author: adminStore.user.name },
+      body: { studyId: study.value.id, text: noteText.value, author: adminStore.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     }) as { activityItem: { dotClass: string; title: string; date: string; note: string; ts: number } }
     study.value.activity.unshift(activityItem)
     noteText.value = ''

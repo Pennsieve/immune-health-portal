@@ -153,6 +153,7 @@ const submitForm = async () => {
         totalSamples: totalSamples.value,
         servicesText,
         servicesDetail,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     })
 

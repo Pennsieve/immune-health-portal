@@ -3,6 +3,7 @@ import { useAdminStore } from '~/stores/admin'
 
 definePageMeta({ layout: 'admin' })
 
+const { relativeTime } = useRelativeTime()
 const route = useRoute()
 const adminStore = useAdminStore()
 
@@ -36,7 +37,7 @@ async function postNote() {
   try {
     const { note } = await $fetch('/api/admin/add-inquiry-note', {
       method: 'POST',
-      body: { inquiryId: inquiry.value.id, text: noteText.value, author: adminStore.user.name },
+      body: { inquiryId: inquiry.value.id, text: noteText.value, author: adminStore.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     }) as { note: { author: string; date: string; text: string } }
     inquiry.value.notes.unshift(note)
     noteText.value = ''
@@ -69,7 +70,7 @@ async function approveAndSend() {
   try {
     const { studyId } = await $fetch('/api/admin/approve-inquiry', {
       method: 'POST',
-      body: { inquiryId: inquiry.value.id },
+      body: { inquiryId: inquiry.value.id, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     }) as { studyId: string }
     await adminStore.loadAll()
     navigateTo(`/admin/studies/${studyId}`)
@@ -134,7 +135,7 @@ async function confirmDecline() {
         <div class="meta-strip">
           <div class="meta-item">
             <span class="meta-label">Submitted</span>
-            <span class="meta-val">{{ inquiry.submittedDate }} · {{ inquiry.submittedRelative }}</span>
+            <span class="meta-val">{{ inquiry.submittedDate }} · {{ relativeTime(inquiry.createdAt) }}</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">IRB</span>
