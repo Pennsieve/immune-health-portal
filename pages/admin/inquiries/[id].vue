@@ -203,7 +203,7 @@ async function confirmDecline() {
           <div class="info-lbl">Services</div>
           <div>
             <div v-for="svc in inquiry.servicesDetail" :key="svc.name">
-              {{ svc.name }} × {{ svc.qty }} — <span class="mono">{{ svc.rate }}</span>
+              {{ svc.name }} × {{ svc.qty }} — <span class="mono">{{ typeof svc.rate === 'number' ? (svc.rate === 0 ? 'Contact' : `$${svc.rate}/ea`) : svc.rate }}</span>
             </div>
           </div>
 

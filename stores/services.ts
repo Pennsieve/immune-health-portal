@@ -33,14 +33,14 @@ export const useServicesStore = defineStore('services', {
     getServiceRate: (state) => (serviceId: string): number => {
       const service = state.services.find(s => s.id === serviceId)
       if (!service) return 0
-      return state.rateView === 'internal' ? service.internalRate : service.externalRate
+      return (state.rateView === 'internal' ? service.internalRate : service.externalRate) ?? 0
     },
 
     calculateTotal: (state) => (requests: ServiceRequest[]): number => {
       return requests.reduce((total, req) => {
         const service = state.services.find(s => s.id === req.serviceId)
         if (!service) return total
-        const rate = state.rateView === 'internal' ? service.internalRate : service.externalRate
+        const rate = (state.rateView === 'internal' ? service.internalRate : service.externalRate) ?? 0
         return total + (rate * req.quantity)
       }, 0)
     },

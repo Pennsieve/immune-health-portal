@@ -2,8 +2,9 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createSignToken } from '~/server/utils/signing'
 import { AGREEMENTS } from '~/utils/agreements'
 
-function parseRate(rateStr: string): number {
-  const match = rateStr.match(/\$?([\d,]+)/)
+function parseRate(rateVal: string | number): number {
+  if (typeof rateVal === 'number') return rateVal
+  const match = rateVal.match(/\$?([\d,]+)/)
   return match ? parseInt(match[1].replace(/,/g, '')) : 0
 }
 
@@ -41,7 +42,7 @@ export default defineEventHandler(async (event) => {
   const studyId = `${abbr}-${Math.random().toString(36).slice(2, 6)}`
 
   // Build budget lines from services_detail
-  const servicesDetail = (inquiry.services_detail as Array<{ name: string; qty: number; rate: string }>) || []
+  const servicesDetail = (inquiry.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || []
   const lines = servicesDetail.map(svc => {
     const rate = parseRate(svc.rate)
     return {

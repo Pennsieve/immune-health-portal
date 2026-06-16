@@ -48,11 +48,16 @@ onMounted(async () => {
   const { data: { session } } = await supabase.auth.getSession()
   if (session?.expires_at) {
     sessionExpiresAt.value = session.expires_at
-    sessionTimer = setInterval(() => {
-      // Force recompute every minute; also refresh the stored value from the live session
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
-        if (s?.expires_at) sessionExpiresAt.value = s.expires_at
-      })
+    sessionTimer = setInterval(async () => {
+      const { data: { session: s } } = await supabase.auth.getSession()
+      if (s?.expires_at) {
+        sessionExpiresAt.value = s.expires_at
+      }
+      else {
+        clearInterval(sessionTimer!)
+        await adminStore.logout()
+        navigateTo('/admin/login')
+      }
     }, 60000)
   }
 })
