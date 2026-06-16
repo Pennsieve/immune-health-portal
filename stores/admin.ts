@@ -26,6 +26,7 @@ export interface Inquiry {
   sampleType?: string
   phlebotomy?: string
   metadata?: string
+  additionalNotes?: string
   notes: Array<{ author: string; date: string; text: string }>
   feasibility: Array<{ label: string; checked: boolean }>
 }
@@ -115,6 +116,7 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     sampleType: row.sample_type as string | undefined,
     phlebotomy: row.phlebotomy as string | undefined,
     metadata: row.metadata as string | undefined,
+    additionalNotes: row.additional_notes as string | undefined,
     notes: (row.notes as Array<{ author: string; date: string; text: string }>) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
   }
@@ -179,10 +181,10 @@ function mapAgreement(row: Record<string, unknown>): Agreement {
 export const useAdminStore = defineStore('admin', {
   state: () => ({
     user: {
-      name: 'Lori Guercio',
-      email: 'lguercio@pennmedicine.upenn.edu',
-      initials: 'LG',
-      role: 'Admin · Operations Lead',
+      name: '',
+      email: '',
+      initials: '',
+      role: 'Admin',
     },
     inquiries: [] as Inquiry[],
     studies: [] as Study[],
@@ -214,7 +216,7 @@ export const useAdminStore = defineStore('admin', {
           const meta = user.user_metadata || {}
           const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Admin'
           const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
-          this.user = { name: fullName, email: user.email || '', initials, role: 'Admin · Operations Lead' }
+          this.user = { name: fullName, email: user.email || '', initials, role: 'Admin' }
         }
         await Promise.all([this.loadInquiries(), this.loadStudies()])
         this.isInitialized = true

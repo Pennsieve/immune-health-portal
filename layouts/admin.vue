@@ -111,11 +111,6 @@ onUnmounted(() => {
           <span class="sb-ico">≡</span> Studies
           <span class="sb-count">{{ adminStore.studies.length }}</span>
         </NuxtLink>
-
-        <div class="sb-footer">
-          <div style="font-weight:600; color:#7f8c8d; margin-bottom:0.2rem;">Phase 1 MVP</div>
-          v0.4.0 · staging · last sync 4 min ago
-        </div>
       </nav>
 
       <main class="admin-main">
