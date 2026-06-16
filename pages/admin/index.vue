@@ -55,15 +55,17 @@ const recentActivity = computed(() => {
     isInquiry: false,
   }))
 
-  const inquiryEvents = adminStore.inquiries.map(i => ({
-    title: 'New intake submitted',
-    date: i.submittedDate,
-    studyName: i.studyName,
-    studyAbbr: i.abbreviation || i.studyName,
-    studyId: i.id,
-    isInquiry: true,
-    status: i.status,
-  }))
+  const inquiryEvents = adminStore.inquiries
+    .filter(i => i.status !== 'Approved' && i.status !== 'Declined')
+    .map(i => ({
+      title: 'New intake submitted',
+      date: i.submittedDate,
+      studyName: i.studyName,
+      studyAbbr: i.abbreviation || i.studyName,
+      studyId: i.id,
+      isInquiry: true,
+      status: i.status,
+    }))
 
   const studyEvents = adminStore.studies.flatMap(s =>
     s.activity.map(a => ({
