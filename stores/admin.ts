@@ -21,7 +21,7 @@ export interface Inquiry {
   cohortSubjects: number
   cohortTimepoints: number
   services: string
-  servicesDetail: Array<{ name: string; qty: number; rate: string }>
+  servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
   status: InquiryStatus
   estimate?: number
   sampleType?: string
@@ -110,7 +110,7 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     cohortSubjects: row.cohort_subjects as number,
     cohortTimepoints: row.cohort_timepoints as number,
     services: row.services as string,
-    servicesDetail: (row.services_detail as Array<{ name: string; qty: number; rate: string }>) || [],
+    servicesDetail: (row.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || [],
     status: row.status as InquiryStatus,
     estimate: row.estimate as number | undefined,
     sampleType: row.sample_type as string | undefined,

@@ -33,7 +33,7 @@ const formatRate = (service: any): string => {
   }
 
   // Default formatting for single-value rates
-  const rate = servicesStore.rateView === 'internal' ? service.internalRate : service.externalRate
+  const rate = (servicesStore.rateView === 'internal' ? service.internalRate : service.externalRate) ?? 0
   if (rate === 0) return 'Contact'
   return `$${rate.toLocaleString()}`
 }
