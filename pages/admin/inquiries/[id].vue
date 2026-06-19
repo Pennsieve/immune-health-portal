@@ -212,6 +212,19 @@ async function confirmDecline() {
             {{ inquiry.affiliation }} — {{ inquiry.affiliationOrg }}
           </div>
 
+          <template v-if="inquiry.fundingName || inquiry.baName">
+            <div class="info-lbl">Funding / billing</div>
+            <div>
+              <div v-if="inquiry.fundingName">{{ inquiry.fundingName }}</div>
+              <div v-if="inquiry.baName">{{ inquiry.baName }}<template v-if="inquiry.baEmail"> · <span class="mono">{{ inquiry.baEmail }}</span></template></div>
+            </div>
+          </template>
+
+          <template v-if="inquiry.contractingContact">
+            <div class="info-lbl">Contracting contact</div>
+            <div><span class="mono">{{ inquiry.contractingContact }}</span></div>
+          </template>
+
           <template v-if="inquiry.additionalNotes">
             <div class="info-lbl">Additional notes</div>
             <div>{{ inquiry.additionalNotes }}</div>

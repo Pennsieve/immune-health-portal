@@ -71,7 +71,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Jan 15, 2026', 'Division of Gastroenterology · Perelman School of Medicine',
   'Investigation of beta-hydroxybutyrate (BHB) supplementation as a chemopreventive intervention for colorectal cancer.',
   'IH phlebotomist on Penn campus', 'REDCap · Project ID 23-bhb-pcc · synced via export',
-  '[{"label":"Inquiry","date":"Jan 15","status":"done"},{"label":"Review","date":"Jan 18","status":"done"},{"label":"Approved","date":"Jan 22","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Delivered","date":"—","status":"pending"}]',
+  '[{"label":"Inquiry","date":"Jan 15","status":"done"},{"label":"Review","date":"Jan 18","status":"done"},{"label":"Approved","date":"Jan 22","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Complete","date":"—","status":"pending"}]',
   '2h ago', (now() - interval '2 hours'),
   '{"samplesReceived":32,"samplesTotal":40,"cytofAcquired":18,"cytofTotal":40,"qcPassed":14,"qcTotal":18,"invoicedYtd":16400}',
   '[{"dotClass":"w","title":"Reminder sent — Pennsieve Data Sharing Agreement","date":"May 08, 2026 · 9:00 AM · automated"},{"dotClass":"m","title":"Lori Guercio","date":"May 04, 2026 · 3:12 PM · internal note","note":"Spoke with John (study lead) — Dr. Katona is out of country until 5/13. Pennsieve agreement signature delayed but confirmed coming."},{"dotClass":"","title":"Pennsieve Data Sharing Agreement sent to PI","date":"May 01, 2026 · 4:32 PM"},{"dotClass":"g","title":"14 processing events logged · CyTOF batch B-2026-018","date":"Apr 28, 2026 · logged by Hannah Pham (lab ops)"},{"dotClass":"g","title":"12 samples received at drop-off","date":"Feb 17, 2026 · logged by Sara Coleman (lab ops)"},{"dotClass":"","title":"Study activated","date":"Jan 28, 2026 · LabVantage ID STU-2026-014"}]'
@@ -88,7 +88,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Feb 15, 2025', 'Abramson Cancer Center',
   'Longitudinal profiling of asthma-related immune phenotypes following PRINCE checkpoint inhibitor protocol.',
   'IH phlebotomist on Penn campus', 'REDCap · Project ID 22-prince-val',
-  '[{"label":"Inquiry","date":"Feb 01","status":"done"},{"label":"Review","date":"Feb 05","status":"done"},{"label":"Approved","date":"Feb 10","status":"done"},{"label":"Agreements","date":"Feb 12","status":"done"},{"label":"Activated","date":"Feb 15","status":"done"},{"label":"Processing","date":"Dec 18","status":"done"},{"label":"Delivered","date":"Jan 15","status":"done"}]',
+  '[{"label":"Inquiry","date":"Feb 01","status":"done"},{"label":"Review","date":"Feb 05","status":"done"},{"label":"Approved","date":"Feb 10","status":"done"},{"label":"Agreements","date":"Feb 12","status":"done"},{"label":"Activated","date":"Feb 15","status":"done"},{"label":"Processing","date":"Dec 18","status":"done"},{"label":"Complete","date":"Jan 15","status":"done"}]',
   '3d ago', (now() - interval '3 days'), null,
   '[{"dotClass":"g","title":"All samples delivered on Pennsieve","date":"Jan 15, 2026 · N:dataset:3f12…aa42"},{"dotClass":"g","title":"135 CyTOF acquisitions complete","date":"Dec 18, 2025 · batch B-2025-041"}]'
 ),
@@ -104,7 +104,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Mar 28, 2026', 'Division of Oncology',
   'Investigation of immune correlates of surgical response in solid tumor patients.',
   'IH phlebotomist on Penn campus', 'REDCap · Project ID 26-surge',
-  '[{"label":"Inquiry","date":"Mar 22","status":"done"},{"label":"Review","date":"Mar 25","status":"done"},{"label":"Approved","date":"Mar 28","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Delivered","date":"—","status":"pending"}]',
+  '[{"label":"Inquiry","date":"Mar 22","status":"done"},{"label":"Review","date":"Mar 25","status":"done"},{"label":"Approved","date":"Mar 28","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Complete","date":"—","status":"pending"}]',
   'today', (now() - interval '30 minutes'), null,
   '[{"dotClass":"g","title":"Rate Schedule countersigned — Dr. Christie","date":"Apr 02, 2026 · 2:15 PM"},{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via public intake form"}]'
 ),
@@ -120,7 +120,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Nov 15, 2025', 'Department of Medicine, HMS',
   'Longitudinal characterization of T-cell diversity and exhaustion markers in autoimmune disease cohort.',
   'Remote — collected at HMS sites, shipped overnight', 'REDCap (HMS-hosted) · Project ID 22-titan-hms',
-  '[{"label":"Inquiry","date":"Oct 28","status":"done"},{"label":"Review","date":"Oct 31","status":"done"},{"label":"Approved","date":"Nov 02","status":"done"},{"label":"Agreements","date":"Nov 06","status":"done"},{"label":"Activated","date":"Nov 15","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Delivered","date":"—","status":"pending"}]',
+  '[{"label":"Inquiry","date":"Oct 28","status":"done"},{"label":"Review","date":"Oct 31","status":"done"},{"label":"Approved","date":"Nov 02","status":"done"},{"label":"Agreements","date":"Nov 06","status":"done"},{"label":"Activated","date":"Nov 15","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Complete","date":"—","status":"pending"}]',
   '5h ago', (now() - interval '5 hours'),
   '{"samplesReceived":124,"samplesTotal":200,"cytofAcquired":80,"cytofTotal":200,"qcPassed":74,"qcTotal":80,"invoicedYtd":78000}',
   '[{"dotClass":"g","title":"14 processing events logged · CyTOF batch B-2026-018","date":"May 11, 2026 · logged by Hannah Pham"},{"dotClass":"g","title":"Pennsieve dataset linked","date":"May 08, 2026 · N:dataset:0a83…cc11"},{"dotClass":"","title":"18 samples received at drop-off","date":"May 01, 2026 · logged by Sara Coleman"}]'
@@ -137,7 +137,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Mar 20, 2025', 'Department of Medicine, Stanford',
   'Comprehensive immune profiling of SLE patients at diagnosis, 6 months, and 12 months post-treatment.',
   'Remote — Stanford collection sites', 'REDCap (Stanford-hosted)',
-  '[{"label":"Inquiry","date":"Mar 10","status":"done"},{"label":"Review","date":"Mar 13","status":"done"},{"label":"Approved","date":"Mar 15","status":"done"},{"label":"Agreements","date":"Mar 15","status":"done"},{"label":"Activated","date":"Mar 20","status":"done"},{"label":"Processing","date":"Jan 10","status":"done"},{"label":"Delivered","date":"Jan 28","status":"done"}]',
+  '[{"label":"Inquiry","date":"Mar 10","status":"done"},{"label":"Review","date":"Mar 13","status":"done"},{"label":"Approved","date":"Mar 15","status":"done"},{"label":"Agreements","date":"Mar 15","status":"done"},{"label":"Activated","date":"Mar 20","status":"done"},{"label":"Processing","date":"Jan 10","status":"done"},{"label":"Complete","date":"Jan 28","status":"done"}]',
   '8d ago', (now() - interval '8 days'), null,
   '[{"dotClass":"g","title":"All data delivered on Pennsieve","date":"Jan 28, 2026"},{"dotClass":"g","title":"105 CyTOF acquisitions complete","date":"Jan 10, 2026"}]'
 ),
@@ -153,7 +153,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Jan 20, 2026', 'Biogen Research',
   'Phase II biomarker study for novel MS therapeutic. Immune profiling at baseline, 3 months, and 6 months.',
   'Remote — Biogen clinical sites, shipped overnight', 'REDCap (Biogen-hosted)',
-  '[{"label":"Inquiry","date":"Dec 12","status":"done"},{"label":"Review","date":"Dec 18","status":"done"},{"label":"Approved","date":"Jan 02","status":"done"},{"label":"Agreements","date":"Jan 07","status":"done"},{"label":"Activated","date":"Jan 20","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Delivered","date":"—","status":"pending"}]',
+  '[{"label":"Inquiry","date":"Dec 12","status":"done"},{"label":"Review","date":"Dec 18","status":"done"},{"label":"Approved","date":"Jan 02","status":"done"},{"label":"Agreements","date":"Jan 07","status":"done"},{"label":"Activated","date":"Jan 20","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Complete","date":"—","status":"pending"}]',
   'yesterday', (now() - interval '1 day'),
   '{"samplesReceived":50,"samplesTotal":150,"cytofAcquired":50,"cytofTotal":150,"qcPassed":47,"qcTotal":50,"invoicedYtd":42500}',
   '[{"dotClass":"g","title":"50 samples processed — first batch complete","date":"Apr 28, 2026 · CyTOF batch B-2026-016"},{"dotClass":"","title":"50 samples received at drop-off","date":"Apr 14, 2026"}]'

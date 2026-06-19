@@ -2135,6 +2135,138 @@ table.budget-table {
   }
 }
 
+/* Edit modal — wide variant with scrollable form body */
+.edit-modal-wide {
+  width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.em-body-scroll {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.em-section {
+  margin-bottom: 1.4rem;
+  &:last-child { margin-bottom: 0; }
+}
+
+.em-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.em-section-opt {
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.em-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.em-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  &.em-full { grid-column: 1 / -1; }
+
+  select, textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 72px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+}
+
+.em-computed {
+  padding: 0.45rem 0.6rem;
+  background: var(--cream);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.em-computed-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.em-service-lines {
+  margin-bottom: 0.5rem;
+}
+
+.em-service-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  &:last-child { border-bottom: none; }
+}
+
+.em-srv-name {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.em-srv-rate {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.em-srv-committed {
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  font-weight: 500;
+  min-width: 72px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.em-srv-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 3px;
+  line-height: 1;
+  &:hover { color: var(--warm); background: rgba(192,57,43,0.06); }
+}
+
+.em-srv-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  padding: 0.2rem 0 0.4rem;
+}
+
 /* Clerk modal */
 .clerk-overlay {
   position: fixed;
