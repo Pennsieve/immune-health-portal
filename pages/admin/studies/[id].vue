@@ -99,9 +99,6 @@ onMounted(async () => {
   if (servicesStore.services.length === 0) {
     await servicesStore.fetchServices()
   }
-  if (study.value) {
-    adminStore.loadStudyActivity(study.value.id)
-  }
 })
 
 const editOpen = ref(false)

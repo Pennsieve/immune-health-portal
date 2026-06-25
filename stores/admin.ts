@@ -253,7 +253,7 @@ export const useAdminStore = defineStore('admin', {
       const supabase = useSupabaseClient()
       const { data, error } = await supabase
         .from('studies')
-        .select('id, name, abbreviation, pi, study_lead, affiliation, affiliation_org, irb, stage, is_locked, cohort, budget, integrations, started_date, department, objectives, phlebotomy, metadata_desc, lifecycle, updated_at, quick_stats, agreements(*)')
+        .select('id, name, abbreviation, pi, study_lead, affiliation, affiliation_org, irb, stage, is_locked, cohort, budget, integrations, started_date, department, objectives, phlebotomy, metadata_desc, lifecycle, updated_at, quick_stats, activity, agreements(*)')
         .order('updated_at', { ascending: false })
       if (error) throw error
 
