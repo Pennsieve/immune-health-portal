@@ -150,13 +150,7 @@ export default defineEventHandler(async (event) => {
     metadata: METADATA_LABELS[form.metadataPlan] || form.metadataPlan || null,
     additional_notes: form.notes || null,
     notes: [],
-    feasibility: [
-      { label: 'IRB protocol reviewed', checked: false },
-      { label: 'Sample type confirmed viable', checked: false },
-      { label: 'Cohort scope reviewed', checked: false },
-      { label: 'Service capacity confirmed', checked: false },
-      { label: 'Budget / account code verified', checked: false },
-    ],
+    feasibility: ONBOARDING_CHECKLIST.map((label, i) => ({ label, checked: i === 0 })),
   })
 
   if (dbError) {

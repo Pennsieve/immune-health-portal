@@ -16,7 +16,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '[{"name":"PBMC processing","qty":120,"rate":"$450"},{"name":"CyTOF MDIPA","qty":120,"rate":"no quote — contact"},{"name":"Tier 1 analysis","qty":120,"rate":"$50"}]',
   58250, 'Fresh whole blood', 'Remote — collected at Merck sites, shipped overnight', 'REDCap (Merck-hosted instance)',
   '[{"author":"Lori Guercio","date":"May 12 · 11:08 AM","text":"CyTOF capacity check w/ Hannah — can absorb in early Q3 batch. Need MSA before agreement package goes out. Routing to legal."}]',
-  '[{"label":"Volume fits processing pipeline capacity","checked":true},{"label":"Sample type compatible (fresh whole blood)","checked":true},{"label":"IRB approval confirmed","checked":false},{"label":"Industry rate sheet reviewed","checked":false},{"label":"Master Service Agreement in place","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":false},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
 ),
 (
   'cardia-penn', 'CARDIA-Penn', 'CARDIA', 'New', 'May 11, 2026', '1 day ago', false,
@@ -28,7 +28,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '[{"name":"PBMC processing","qty":72,"rate":"$300"},{"name":"CyTOF MDIPA","qty":72,"rate":"$325"},{"name":"Sample banking","qty":72,"rate":"$50"}]',
   47880, 'Fresh whole blood', 'IH phlebotomist on Penn campus', 'REDCap (Penn-hosted)',
   '[]',
-  '[{"label":"Volume fits processing pipeline capacity","checked":true},{"label":"Sample type compatible (fresh whole blood)","checked":true},{"label":"IRB approval confirmed","checked":true},{"label":"Penn internal rate sheet reviewed","checked":false},{"label":"Phlebotomy scheduling confirmed","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":true},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
 ),
 (
   'resolve-ibd', 'RESOLVE-IBD', 'RESOLVE', 'New', 'May 09, 2026', '3 days ago', false,
@@ -40,7 +40,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '[{"name":"PBMC processing","qty":160,"rate":"$300"},{"name":"CyTOF MDIPA","qty":160,"rate":"$325"},{"name":"Tier 1 analysis","qty":160,"rate":"$50"},{"name":"Tier 2 analysis","qty":80,"rate":"$120"}]',
   117600, 'Fresh whole blood', 'IH phlebotomist on Penn campus', 'REDCap · Project ID 24-resolve-ibd',
   '[]',
-  '[{"label":"Volume fits processing pipeline capacity","checked":false},{"label":"Sample type compatible (fresh whole blood)","checked":true},{"label":"IRB approval confirmed","checked":true},{"label":"Penn internal rate sheet reviewed","checked":false},{"label":"Tier 2 analysis capacity available","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":true},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
 ),
 (
   'vector-chop', 'VECTOR-CHOP', 'VECTOR', 'Stale', 'May 06, 2026', '6 days ago', true,
@@ -52,7 +52,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '[{"name":"PBMC processing","qty":90,"rate":"$375"},{"name":"CyTOF MDIPA","qty":90,"rate":"$350"}]',
   65250, 'Fresh whole blood', 'Remote — collected at CHOP, shipped overnight', 'REDCap (CHOP-hosted)',
   '[]',
-  '[{"label":"Volume fits processing pipeline capacity","checked":true},{"label":"Sample type compatible (fresh whole blood)","checked":true},{"label":"IRB approval confirmed (CHOP & Penn)","checked":false},{"label":"External rate sheet reviewed","checked":false},{"label":"Data sharing agreement drafted","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":false},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
 );
 
 
