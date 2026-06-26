@@ -17,6 +17,11 @@ export interface Inquiry {
   studyLead?: { name: string; email: string }
   affiliation: Affiliation
   affiliationOrg: string
+  budgetCode?: string
+  fundingName?: string
+  baName?: string
+  baEmail?: string
+  contractingContact?: string
   irb: string
   cohortSubjects: number
   cohortTimepoints: number
@@ -77,6 +82,10 @@ export interface Study {
     remaining: number
     pctInvoiced: number
     accountCode?: string
+    fundingName?: string
+    baName?: string
+    baEmail?: string
+    contractingContact?: string
     billingContact?: string
     lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
   }
@@ -106,6 +115,11 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     studyLead: row.study_lead as { name: string; email: string } | undefined,
     affiliation: row.affiliation as Affiliation,
     affiliationOrg: row.affiliation_org as string,
+    budgetCode: row.budget_code as string | undefined,
+    fundingName: row.funding_name as string | undefined,
+    baName: row.ba_name as string | undefined,
+    baEmail: row.ba_email as string | undefined,
+    contractingContact: row.contracting_contact as string | undefined,
     irb: row.irb as string,
     cohortSubjects: row.cohort_subjects as number,
     cohortTimepoints: row.cohort_timepoints as number,
@@ -209,8 +223,8 @@ export const useAdminStore = defineStore('admin', {
       if (this.isLoading) return
       this.isLoading = true
       try {
-        const supabase = useSupabaseClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const { getUser } = useAuth()
+        const { data: { user } } = await getUser()
         if (user) {
           const meta = user.user_metadata || {}
           const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Admin'
@@ -239,7 +253,7 @@ export const useAdminStore = defineStore('admin', {
       const supabase = useSupabaseClient()
       const { data, error } = await supabase
         .from('studies')
-        .select('*, agreements(*)')
+        .select('id, name, abbreviation, pi, study_lead, affiliation, affiliation_org, irb, stage, is_locked, cohort, budget, integrations, started_date, department, objectives, phlebotomy, metadata_desc, lifecycle, updated_at, quick_stats, activity, agreements(*)')
         .order('updated_at', { ascending: false })
       if (error) throw error
 
@@ -251,6 +265,19 @@ export const useAdminStore = defineStore('admin', {
           .map(a => mapAgreement(a as Record<string, unknown>))
         return mapStudy(row as Record<string, unknown>, agreements)
       })
+    },
+
+    async loadStudyActivity(studyId: string) {
+      const supabase = useSupabaseClient()
+      const { data } = await supabase
+        .from('studies')
+        .select('activity')
+        .eq('id', studyId)
+        .single()
+      const study = this.studies.find(s => s.id === studyId)
+      if (study && data?.activity) {
+        study.activity = data.activity as ActivityItem[]
+      }
     },
 
     async signAgreement(studyId: string, agreementId: string, signerName: string, signerEmail: string) {
@@ -329,14 +356,41 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    async updateStudyName(studyId: string, name: string) {
-      const result = await $fetch<{ success: boolean; activityItem: ActivityItem }>('/api/admin/update-study', {
+    async updateStudy(studyId: string, fields: {
+      name: string
+      abbreviation: string
+      pi: { name: string; email: string }
+      studyLead?: { name: string; email: string }
+      affiliation: Affiliation
+      affiliationOrg: string
+      irb: string
+      stage: StudyStage
+      objectives?: string
+      phlebotomy?: string
+      metadata?: string
+      cohort: Study['cohort']
+      budget: Study['budget']
+    }, changeNote?: string) {
+      const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle'] }>('/api/admin/update-study', {
         method: 'POST',
-        body: { studyId, name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, ...fields },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
-        study.name = name
+        study.name = fields.name
+        study.abbreviation = fields.abbreviation
+        study.pi = fields.pi
+        study.studyLead = fields.studyLead
+        study.affiliation = fields.affiliation
+        study.affiliationOrg = fields.affiliationOrg
+        study.irb = fields.irb
+        study.stage = fields.stage
+        study.objectives = fields.objectives
+        study.phlebotomy = fields.phlebotomy
+        study.metadata = fields.metadata
+        Object.assign(study.cohort, fields.cohort)
+        Object.assign(study.budget, fields.budget)
+        study.lifecycle = result.lifecycle
         study.activity.unshift(result.activityItem)
       }
     },
@@ -365,8 +419,8 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async logout() {
-      const supabase = useSupabaseClient()
-      await supabase.auth.signOut()
+      const { signOut } = useAuth()
+      await signOut()
       this.inquiries = []
       this.studies = []
       this.isInitialized = false

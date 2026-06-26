@@ -134,6 +134,11 @@ export default defineEventHandler(async (event) => {
     study_lead: form.projectLead ? { name: form.projectLead, email: form.leadEmail } : null,
     affiliation: AFFILIATION_LABELS[form.affiliation] || 'External',
     affiliation_org: affiliationOrg,
+    budget_code: form.affiliation === 'internal' ? (form.budgetCode || null) : null,
+    funding_name: form.affiliation === 'internal' ? (form.fundingName || null) : null,
+    ba_name: form.affiliation === 'internal' ? (form.baName || null) : null,
+    ba_email: form.affiliation === 'internal' ? (form.baEmail || null) : null,
+    contracting_contact: form.affiliation !== 'internal' ? (form.externalContact || null) : null,
     irb: form.irbNumber || null,
     cohort_subjects: form.subjectCount,
     cohort_timepoints: form.timepointCount,
@@ -145,13 +150,7 @@ export default defineEventHandler(async (event) => {
     metadata: METADATA_LABELS[form.metadataPlan] || form.metadataPlan || null,
     additional_notes: form.notes || null,
     notes: [],
-    feasibility: [
-      { label: 'IRB protocol reviewed', checked: false },
-      { label: 'Sample type confirmed viable', checked: false },
-      { label: 'Cohort scope reviewed', checked: false },
-      { label: 'Service capacity confirmed', checked: false },
-      { label: 'Budget / account code verified', checked: false },
-    ],
+    feasibility: ONBOARDING_CHECKLIST.map((label, i) => ({ label, checked: i === 0 })),
   })
 
   if (dbError) {

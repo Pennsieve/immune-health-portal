@@ -1,8 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { user, signIn } = useAuth()
 
 const email = ref('')
 const password = ref('')
@@ -17,12 +16,9 @@ async function handleSignIn() {
   errorMessage.value = ''
   isLoading.value = true
   try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.value,
-      password: password.value,
-    })
+    const { error } = await signIn(email.value, password.value)
     if (error) {
-      errorMessage.value = error.message
+      errorMessage.value = error.message.replace('email or phone', 'email')
     }
     else {
       await navigateTo('/admin')
@@ -62,7 +58,7 @@ async function handleSignIn() {
       <form class="login-form" @submit.prevent="handleSignIn">
         <span class="form-overline">Admin Console</span>
         <h2>Sign in</h2>
-        <p class="lead">Restricted to authorized I3H staff. Credentials managed via Supabase Auth.</p>
+        <p class="lead">Restricted to authorized I3H staff. Contact your administrator to request access.</p>
 
         <div class="form-field">
           <label class="lbl">Work email</label>

@@ -3,7 +3,7 @@ import { useAdminStore } from '~/stores/admin'
 
 const adminStore = useAdminStore()
 const route = useRoute()
-const supabase = useSupabaseClient()
+const { getSession } = useAuth()
 
 const userMenuOpen = ref(false)
 const sessionExpiresAt = ref<number | null>(null)
@@ -45,11 +45,11 @@ onMounted(async () => {
   if (!adminStore.isInitialized) {
     await adminStore.loadAll()
   }
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await getSession()
   if (session?.expires_at) {
     sessionExpiresAt.value = session.expires_at
     sessionTimer = setInterval(async () => {
-      const { data: { session: s } } = await supabase.auth.getSession()
+      const { data: { session: s } } = await getSession()
       if (s?.expires_at) {
         sessionExpiresAt.value = s.expires_at
       }
@@ -115,6 +115,9 @@ onUnmounted(() => {
         <NuxtLink to="/admin/studies" class="sb-link" :class="{ active: isActive('/admin/studies') }">
           <span class="sb-ico">≡</span> Studies
           <span class="sb-count">{{ adminStore.studies.length }}</span>
+        </NuxtLink>
+        <NuxtLink to="/admin/reports" class="sb-link" :class="{ active: isActive('/admin/reports') }">
+          <span class="sb-ico">↗</span> Reports
         </NuxtLink>
       </nav>
 
