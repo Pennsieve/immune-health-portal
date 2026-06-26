@@ -116,6 +116,9 @@ onUnmounted(() => {
           <span class="sb-ico">≡</span> Studies
           <span class="sb-count">{{ adminStore.studies.length }}</span>
         </NuxtLink>
+        <NuxtLink to="/admin/reports" class="sb-link" :class="{ active: isActive('/admin/reports') }">
+          <span class="sb-ico">↗</span> Reports
+        </NuxtLink>
       </nav>
 
       <main class="admin-main">

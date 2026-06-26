@@ -38,6 +38,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys (server-side only)
+    redcapApiUrl: process.env.REDCAP_API_URL || '',
+    redcapApiToken: process.env.REDCAP_API_TOKEN || '',
     signingSecret: process.env.SIGNING_SECRET || '',
     mailersendApiKey: process.env.MAILERSEND_API_TOKEN || '',
     mailersendFromEmail: process.env.MAILERSEND_FROM_EMAIL || 'noreply@test-q3enl6k3n8042vwr.mlsender.net',

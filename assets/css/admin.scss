@@ -335,9 +335,9 @@
 
 .admin-main {
   padding: 2rem 2.4rem 4rem;
-  max-width: 1240px;
   width: 100%;
   flex: 1;
+  min-width: 1100px;
 }
 
 /* =========================================================
@@ -2415,4 +2415,50 @@ table.budget-table {
     letter-spacing: 0.08em;
     font-weight: 600;
   }
+}
+
+/* =========================================================
+   Reports / QC page
+   ========================================================= */
+.qc-section-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding: 1.4rem 0 0.7rem;
+}
+
+.qc-chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.qc-chart-wrap {
+  padding: 0.4rem 1rem 1.2rem;
+  height: 290px;
+  position: relative;
+}
+
+.qc-empty-panel {
+  padding: 2rem 1.6rem;
+  font-size: 0.88rem;
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    background: rgba(1,31,91,0.06);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+
+  p { margin: 0; }
+}
+
+.qc-loading {
+  padding: 3rem;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--muted);
 }
