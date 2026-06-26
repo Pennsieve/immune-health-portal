@@ -3,7 +3,7 @@ import { useAdminStore } from '~/stores/admin'
 
 const adminStore = useAdminStore()
 const route = useRoute()
-const supabase = useSupabaseClient()
+const { getSession } = useAuth()
 
 const userMenuOpen = ref(false)
 const sessionExpiresAt = ref<number | null>(null)
@@ -45,11 +45,11 @@ onMounted(async () => {
   if (!adminStore.isInitialized) {
     await adminStore.loadAll()
   }
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await getSession()
   if (session?.expires_at) {
     sessionExpiresAt.value = session.expires_at
     sessionTimer = setInterval(async () => {
-      const { data: { session: s } } = await supabase.auth.getSession()
+      const { data: { session: s } } = await getSession()
       if (s?.expires_at) {
         sessionExpiresAt.value = s.expires_at
       }

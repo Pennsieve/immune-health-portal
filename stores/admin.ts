@@ -223,8 +223,8 @@ export const useAdminStore = defineStore('admin', {
       if (this.isLoading) return
       this.isLoading = true
       try {
-        const supabase = useSupabaseClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const { getUser } = useAuth()
+        const { data: { user } } = await getUser()
         if (user) {
           const meta = user.user_metadata || {}
           const fullName = meta.full_name || meta.name || user.email?.split('@')[0] || 'Admin'
@@ -419,8 +419,8 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async logout() {
-      const supabase = useSupabaseClient()
-      await supabase.auth.signOut()
+      const { signOut } = useAuth()
+      await signOut()
       this.inquiries = []
       this.studies = []
       this.isInitialized = false
