@@ -183,6 +183,33 @@ function removeServiceLine(i: number) {
 const deleteOpen = ref(false)
 const isDeleting = ref(false)
 
+const regenerateOpen = ref(false)
+const isRegenerating = ref(false)
+const regenerateCopied = ref(false)
+
+async function regenerateStatusLink() {
+  if (!study.value) return
+  isRegenerating.value = true
+  try {
+    const { statusUrl } = await $fetch<{ statusUrl: string }>('/api/admin/regenerate-status-link', {
+      method: 'POST',
+      body: { studyId: study.value.id },
+    })
+    study.value.statusTokenVersion++
+    regenerateOpen.value = false
+    await navigator.clipboard.writeText(statusUrl)
+    regenerateCopied.value = true
+    setTimeout(() => { regenerateCopied.value = false }, 3000)
+  }
+  catch (e: unknown) {
+    const msg = (e as { data?: { statusMessage?: string } })?.data?.statusMessage ?? 'Unknown error'
+    alert(`Failed to regenerate link: ${msg}`)
+  }
+  finally {
+    isRegenerating.value = false
+  }
+}
+
 async function confirmDelete() {
   if (!study.value) return
   isDeleting.value = true
@@ -397,8 +424,11 @@ const affiliationClass = computed(() => {
             <span class="txt">Agreements pending · {{ study.agreements.filter(a => a.status === 'Pending').length }} outstanding</span>
           </div>
         </template>
-        <button class="btn btn-secondary btn-sm" @click="openEdit">Edit study record</button>
-        <button class="btn btn-danger btn-sm" @click="deleteOpen = true">Delete study record</button>
+        <button class="btn btn-secondary btn-sm" style="width:100%" @click="openEdit">Edit ✎</button>
+        <button class="btn btn-danger btn-sm" style="width:100%" @click="deleteOpen = true">Delete ✕</button>
+        <button class="btn btn-ghost btn-sm" style="width:100%;font-size:0.78rem;" @click="regenerateOpen = true">
+          {{ regenerateCopied ? 'Link copied ✓' : 'Regenerate PI status link' }}
+        </button>
       </div>
     </div>
 
@@ -771,6 +801,29 @@ const affiliationClass = computed(() => {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regenerate PI status link modal -->
+  <div v-if="regenerateOpen" class="clerk-overlay" @click.self="regenerateOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Regenerate PI status link</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0 0 0.75rem; font-size:0.88rem;">
+          This will invalidate the PI's current status link, generate a new one, email it to the PI, and copy it to your clipboard.
+        </p>
+        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+          Use this if the PI's email address changed, or if the link was accidentally shared with someone it shouldn't have been.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isRegenerating" @click="regenerateOpen = false">Cancel</button>
+        <button class="btn btn-secondary btn-sm" :disabled="isRegenerating" @click="regenerateStatusLink">
+          {{ isRegenerating ? 'Regenerating…' : 'Regenerate & copy link' }}
+        </button>
       </div>
     </div>
   </div>

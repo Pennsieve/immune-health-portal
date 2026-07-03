@@ -21,7 +21,7 @@ async function handleSignIn() {
       errorMessage.value = error.message.replace('email or phone', 'email')
     }
     else {
-      await navigateTo('/admin')
+      window.location.href = '/admin'
     }
   }
   finally {
@@ -62,12 +62,12 @@ async function handleSignIn() {
 
         <div class="form-field">
           <label class="lbl">Work email</label>
-          <input v-model="email" type="email" placeholder="name@pennmedicine.upenn.edu" autocomplete="email" @keydown.enter.prevent="handleSignIn">
+          <input v-model="email" type="email" placeholder="name@pennmedicine.upenn.edu" autocomplete="email">
         </div>
 
         <div class="form-field">
           <label class="lbl">Password</label>
-          <input v-model="password" type="password" placeholder="••••••••" autocomplete="current-password" @keydown.enter.prevent="handleSignIn">
+          <input v-model="password" type="password" placeholder="••••••••" autocomplete="current-password">
         </div>
 
         <div class="form-helper">

@@ -99,6 +99,7 @@ export interface Study {
   lifecycle: Array<{ label: string; date: string; status: 'done' | 'active' | 'pending' }>
   updatedAt: string
   isLocked: boolean
+  statusTokenVersion: number
   quickStats?: { samplesReceived: number; samplesTotal: number; cytofAcquired: number; cytofTotal: number; qcPassed: number; qcTotal: number; invoicedYtd: number }
 }
 
@@ -161,6 +162,7 @@ function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study 
     irb: row.irb as string,
     stage: row.stage as StudyStage,
     isLocked: row.is_locked as boolean,
+    statusTokenVersion: (row.status_token_version as number) ?? 1,
     agreements,
     cohort: row.cohort as Study['cohort'],
     budget: row.budget as Study['budget'],
@@ -416,6 +418,58 @@ export const useAdminStore = defineStore('admin', {
         date: dateStr,
         ts: Date.now(),
       })
+    },
+
+    async updateInquiry(inquiryId: string, fields: {
+      studyName: string
+      abbreviation: string
+      pi: { name: string; email: string }
+      studyLead?: { name: string; email: string }
+      affiliation: Affiliation
+      affiliationOrg: string
+      irb: string
+      objectives?: string
+      phlebotomy?: string
+      metadata?: string
+      sampleType?: string
+      cohortSubjects: number
+      cohortTimepoints: number
+      servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
+      budgetCode?: string
+      fundingName?: string
+      baName?: string
+      baEmail?: string
+      contractingContact?: string
+      estimate?: number
+    }) {
+      await $fetch('/api/admin/update-inquiry', {
+        method: 'POST',
+        body: { inquiryId, ...fields },
+      })
+      const inquiry = this.inquiries.find(i => i.id === inquiryId)
+      if (inquiry) {
+        inquiry.studyName = fields.studyName
+        inquiry.abbreviation = fields.abbreviation
+        inquiry.pi = fields.pi
+        inquiry.studyLead = fields.studyLead
+        inquiry.affiliation = fields.affiliation
+        inquiry.affiliationOrg = fields.affiliationOrg
+        inquiry.irb = fields.irb
+        inquiry.objectives = fields.objectives || ''
+        inquiry.phlebotomy = fields.phlebotomy
+        inquiry.metadata = fields.metadata
+        inquiry.sampleType = fields.sampleType
+        inquiry.cohortSubjects = fields.cohortSubjects
+        inquiry.cohortTimepoints = fields.cohortTimepoints
+        inquiry.servicesDetail = fields.servicesDetail
+        inquiry.services = fields.servicesDetail.map(s => s.name).join(', ')
+        inquiry.budgetCode = fields.budgetCode
+        inquiry.fundingName = fields.fundingName
+        inquiry.baName = fields.baName
+        inquiry.baEmail = fields.baEmail
+        inquiry.contractingContact = fields.contractingContact
+        inquiry.estimate = fields.estimate
+      }
     },
 
     async logout() {

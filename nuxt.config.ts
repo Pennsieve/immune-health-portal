@@ -38,6 +38,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys (server-side only)
+    siteUrl: process.env.SITE_URL || 'http://localhost:3000',
     redcapApiUrl: process.env.REDCAP_API_URL || '',
     redcapApiToken: process.env.REDCAP_API_TOKEN || '',
     signingSecret: process.env.SIGNING_SECRET || '',

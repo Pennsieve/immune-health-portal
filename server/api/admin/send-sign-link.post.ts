@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
 
   const pi = study.pi as { name: string; email: string }
   const token = createSignToken(studyId, agreementId, pi.email, config.signingSecret)
-  const { origin } = getRequestURL(event)
+  const origin = config.siteUrl
   const signUrl = `${origin}/admin/sign/${studyId}-${agreementId}?token=${token}`
   const agreementName = AGREEMENT_NAMES[agreementId] ?? 'Agreement'
 

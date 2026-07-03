@@ -1,5 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { createSignToken } from '~/server/utils/signing'
+import { createSignToken, createStatusToken } from '~/server/utils/signing'
 import { AGREEMENTS } from '~/utils/agreements'
 
 function parseRate(rateVal: string | number): number {
@@ -130,12 +130,15 @@ export default defineEventHandler(async (event) => {
 
   // 3. Generate signing links for all 4 agreements
   const pi = inquiry.pi as { name: string; email: string }
-  const { origin } = getRequestURL(event)
+  const origin = config.siteUrl
 
   const links = AGREEMENTS.map(a => ({
     ...a,
     url: `${origin}/admin/sign/${studyId}-${a.id}?token=${createSignToken(studyId, a.id, pi.email, config.signingSecret)}`,
   }))
+
+  const statusToken = createStatusToken(studyId, pi.email, 1, config.signingSecret)
+  const statusUrl = `${origin}/status/${studyId}?token=${statusToken}`
 
   // 4. Email the PI
   await $fetch('https://api.mailersend.com/v1/email', {
@@ -148,7 +151,7 @@ export default defineEventHandler(async (event) => {
       from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
       to: [{ email: pi.email, name: pi.name }],
       subject: `Action required: Agreement package for ${inquiry.study_name as string}`,
-      html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links),
+      html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links, statusUrl),
     },
   })
 
@@ -163,6 +166,7 @@ function buildApprovalEmail(
   studyName: string,
   abbr: string,
   links: Array<{ id: string; name: string; description: string; url: string }>,
+  statusUrl: string,
 ): string {
   const linkRows = links.map(l => `
     <tr>
@@ -188,10 +192,19 @@ function buildApprovalEmail(
       ${linkRows}
     </table>
     <p style="font-size:0.82rem;color:#888;">Links expire in 48 hours. If any expire before you finish, you can request a new link from your I3H contact.</p>
+    <div style="margin:28px 0;padding:20px;background:#f5f4f0;border-radius:8px;text-align:center;">
+      <p style="margin:0 0 12px;font-size:0.88rem;color:#555;">
+        You can check your study's current stage, agreement status, and sample processing progress at any time:
+      </p>
+      <a href="${statusUrl}"
+         style="background:#1a7a4c;color:#fff;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.88rem;">
+        View Study Status →
+      </a>
+    </div>
     <p>Best regards,<br>The I3H Operations Team</p>
   </div>
   <div style="text-align:center;padding:20px;font-size:12px;color:#aaa;">
-    <p>These links are unique to you. Do not forward this email.</p>
+    <p>Signing links are unique to you and expire in 48 hours. Do not forward this email.</p>
     <p>&copy; ${new Date().getFullYear()} Penn Institute for Immunology &amp; Immune Health</p>
   </div>
 </div>`
