@@ -7,6 +7,12 @@ export interface SignTokenPayload {
   exp: number
 }
 
+export interface StatusTokenPayload {
+  studyId: string
+  piEmail: string
+  ver: number
+}
+
 const b64 = (s: string) => Buffer.from(s).toString('base64url')
 const decode = (s: string) => Buffer.from(s, 'base64url').toString('utf8')
 const HEADER = b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -38,4 +44,20 @@ export function verifySignToken(token: string, secret: string): SignTokenPayload
   const payload = JSON.parse(decode(body)) as SignTokenPayload
   if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('token expired')
   return payload
+}
+
+export function createStatusToken(studyId: string, piEmail: string, ver: number, secret: string): string {
+  const payload: StatusTokenPayload = { studyId, piEmail, ver }
+  const body = b64(JSON.stringify(payload))
+  const sig = createHmac('sha256', secret).update(`${HEADER}.${body}`).digest('base64url')
+  return `${HEADER}.${body}.${sig}`
+}
+
+export function verifyStatusToken(token: string, secret: string): StatusTokenPayload {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('malformed token')
+  const [header, body, sig] = parts
+  const expected = createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url')
+  if (sig !== expected) throw new Error('invalid signature')
+  return JSON.parse(decode(body)) as StatusTokenPayload
 }

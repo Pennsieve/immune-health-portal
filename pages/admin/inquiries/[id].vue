@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useAdminStore } from '~/stores/admin'
+import type { Affiliation } from '~/stores/admin'
+import { useServicesStore } from '~/stores/services'
 
 definePageMeta({ layout: 'admin' })
 
@@ -99,6 +101,167 @@ async function confirmDecline() {
     isDeclining.value = false
   }
 }
+
+const servicesStore = useServicesStore()
+
+onMounted(async () => {
+  if (servicesStore.services.length === 0) {
+    await servicesStore.fetchServices()
+  }
+})
+
+const editOpen = ref(false)
+const isSaving = ref(false)
+const newServiceId = ref('')
+
+type ServiceLine = { name: string; qty: number; rate: string | number }
+
+const editForm = reactive({
+  studyName: '',
+  abbreviation: '',
+  piName: '',
+  piEmail: '',
+  studyLeadName: '',
+  studyLeadEmail: '',
+  affiliation: 'Internal' as Affiliation,
+  affiliationOrg: '',
+  irb: '',
+  budgetCode: '',
+  fundingName: '',
+  baName: '',
+  baEmail: '',
+  contractingContact: '',
+  objectives: '',
+  phlebotomy: '',
+  metadata: '',
+  cohortSubjects: 0,
+  cohortTimepoints: 0,
+  cohortSampleType: '',
+  servicesDetail: [] as ServiceLine[],
+})
+
+const availableToAdd = computed(() =>
+  servicesStore.activeServices.filter(
+    svc => !editForm.servicesDetail.some(l => l.name === svc.name),
+  ),
+)
+
+function addServiceLine() {
+  if (!newServiceId.value) return
+  const svc = servicesStore.services.find(s => s.id === newServiceId.value)
+  if (!svc) return
+  const rate = editForm.affiliation === 'Internal' ? (svc.internalRate ?? 0) : (svc.externalRate ?? 0)
+  editForm.servicesDetail.push({ name: svc.name, qty: 1, rate })
+  newServiceId.value = ''
+}
+
+function removeServiceLine(i: number) {
+  editForm.servicesDetail.splice(i, 1)
+}
+
+const hasChanges = computed(() => {
+  if (!inquiry.value || !editOpen.value) return false
+  const q = inquiry.value
+  if (editForm.studyName.trim() !== q.studyName) return true
+  if (editForm.abbreviation.trim() !== (q.abbreviation ?? '')) return true
+  if (editForm.piName.trim() !== q.pi.name || editForm.piEmail.trim() !== q.pi.email) return true
+  if (editForm.studyLeadName.trim() !== (q.studyLead?.name ?? '') || editForm.studyLeadEmail.trim() !== (q.studyLead?.email ?? '')) return true
+  if (editForm.affiliation !== q.affiliation) return true
+  if (editForm.affiliationOrg.trim() !== (q.affiliationOrg ?? '')) return true
+  if (editForm.irb.trim() !== (q.irb ?? '')) return true
+  if (editForm.budgetCode.trim() !== (q.budgetCode ?? '')) return true
+  if (editForm.fundingName.trim() !== (q.fundingName ?? '')) return true
+  if (editForm.baName.trim() !== (q.baName ?? '')) return true
+  if (editForm.baEmail.trim() !== (q.baEmail ?? '')) return true
+  if (editForm.contractingContact.trim() !== (q.contractingContact ?? '')) return true
+  if (editForm.objectives.trim() !== (q.objectives ?? '')) return true
+  if (editForm.phlebotomy !== (q.phlebotomy ?? '')) return true
+  if (editForm.metadata !== (q.metadata ?? '')) return true
+  if (editForm.cohortSubjects !== q.cohortSubjects || editForm.cohortTimepoints !== q.cohortTimepoints) return true
+  if (editForm.cohortSampleType !== (q.sampleType ?? '')) return true
+  if (editForm.servicesDetail.length !== q.servicesDetail.length) return true
+  for (let i = 0; i < editForm.servicesDetail.length; i++) {
+    if (editForm.servicesDetail[i].name !== q.servicesDetail[i].name || editForm.servicesDetail[i].qty !== q.servicesDetail[i].qty) return true
+  }
+  return false
+})
+
+function openEdit() {
+  if (!inquiry.value) return
+  const q = inquiry.value
+  editForm.studyName = q.studyName
+  editForm.abbreviation = q.abbreviation ?? ''
+  editForm.piName = q.pi.name
+  editForm.piEmail = q.pi.email
+  editForm.studyLeadName = q.studyLead?.name ?? ''
+  editForm.studyLeadEmail = q.studyLead?.email ?? ''
+  editForm.affiliation = q.affiliation
+  editForm.affiliationOrg = q.affiliationOrg ?? ''
+  editForm.irb = q.irb ?? ''
+  editForm.budgetCode = q.budgetCode ?? ''
+  editForm.fundingName = q.fundingName ?? ''
+  editForm.baName = q.baName ?? ''
+  editForm.baEmail = q.baEmail ?? ''
+  editForm.contractingContact = q.contractingContact ?? ''
+  editForm.objectives = q.objectives ?? ''
+  editForm.phlebotomy = q.phlebotomy ?? ''
+  editForm.metadata = q.metadata ?? ''
+  editForm.cohortSubjects = q.cohortSubjects
+  editForm.cohortTimepoints = q.cohortTimepoints
+  editForm.cohortSampleType = q.sampleType ?? ''
+  editForm.servicesDetail = q.servicesDetail.map(s => ({ ...s }))
+  newServiceId.value = ''
+  editOpen.value = true
+}
+
+async function saveEdit() {
+  if (!inquiry.value || !editForm.studyName.trim()) return
+  isSaving.value = true
+  try {
+    const servicesDetail = editForm.servicesDetail.map(s => ({ ...s, qty: Math.max(0, s.qty as number) }))
+    const estimate = servicesDetail.reduce((sum, s) => {
+      const rate = typeof s.rate === 'number' ? s.rate : 0
+      return sum + rate * s.qty
+    }, 0)
+    await adminStore.updateInquiry(inquiry.value.id, {
+      studyName: editForm.studyName.trim(),
+      abbreviation: editForm.abbreviation.trim(),
+      pi: { name: editForm.piName.trim(), email: editForm.piEmail.trim() },
+      studyLead: editForm.studyLeadName.trim()
+        ? { name: editForm.studyLeadName.trim(), email: editForm.studyLeadEmail.trim() }
+        : undefined,
+      affiliation: editForm.affiliation,
+      affiliationOrg: editForm.affiliationOrg.trim(),
+      irb: editForm.irb.trim(),
+      objectives: editForm.objectives.trim() || undefined,
+      phlebotomy: editForm.phlebotomy || undefined,
+      metadata: editForm.metadata || undefined,
+      sampleType: editForm.cohortSampleType || undefined,
+      cohortSubjects: Math.max(0, editForm.cohortSubjects),
+      cohortTimepoints: Math.max(0, editForm.cohortTimepoints),
+      servicesDetail,
+      budgetCode: editForm.affiliation === 'Internal' ? (editForm.budgetCode.trim() || undefined) : undefined,
+      fundingName: editForm.affiliation === 'Internal' ? (editForm.fundingName.trim() || undefined) : undefined,
+      baName: editForm.affiliation === 'Internal' ? (editForm.baName.trim() || undefined) : undefined,
+      baEmail: editForm.affiliation === 'Internal' ? (editForm.baEmail.trim() || undefined) : undefined,
+      contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || undefined) : undefined,
+      estimate: estimate > 0 ? estimate : undefined,
+    })
+    editOpen.value = false
+  }
+  catch (err: unknown) {
+    console.error('[saveEdit inquiry]', err)
+    const e = err as Record<string, unknown>
+    const msg = ((e?.data as Record<string, unknown>)?.statusMessage as string)
+      || (e?.statusMessage as string)
+      || (e?.message as string)
+      || JSON.stringify(err)
+    alert(`Failed to save: ${msg}`)
+  }
+  finally {
+    isSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -155,21 +318,33 @@ async function confirmDecline() {
           </div>
         </div>
       </div>
-      <div v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'" class="hero-actions">
-        <button
-          class="btn btn-primary"
-          :disabled="isApproving || isDeclining || inquiry.status === 'Approved' || !feasibilityComplete"
-          @click="approveAndSend"
-        >
-          {{ isApproving ? 'Approving…' : 'Approve &amp; send agreement →' }}
-        </button>
-        <button
-          class="btn btn-danger btn-sm"
-          :disabled="isApproving || isDeclining || inquiry.status === 'Approved'"
-          @click="declineOpen = true"
-        >
-          {{ isDeclining ? 'Declining…' : 'Decline' }}
-        </button>
+      <div class="hero-actions">
+        <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
+          <span
+            class="tip-left"
+            :data-tip="!feasibilityComplete ? 'Complete all feasibility checklist items before approving' : undefined"
+          >
+            <button
+              class="btn btn-success"
+              style="width:100%"
+              :disabled="isApproving || isDeclining || !feasibilityComplete"
+              @click="approveAndSend"
+            >
+              {{ isApproving ? 'Approving…' : 'Approve &amp; send agreements ✓' }}
+            </button>
+          </span>
+        </template>
+        <button class="btn btn-secondary btn-sm" style="width:100%" @click="openEdit">Edit ✎</button>
+        <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
+          <button
+            class="btn btn-danger btn-sm"
+            style="width:100%"
+            :disabled="isApproving || isDeclining"
+            @click="declineOpen = true"
+          >
+            {{ isDeclining ? 'Declining… ✕' : 'Decline ✕' }}
+          </button>
+        </template>
       </div>
     </div>
 
@@ -179,7 +354,7 @@ async function confirmDecline() {
       <div class="panel">
         <div class="panel-head">
           <h3>Intake submission</h3>
-          <span class="ctx">Read-only · submitted via /intake</span>
+          <span class="ctx">submitted via /intake</span>
         </div>
         <div class="study-info-grid">
           <div class="info-lbl">Study objectives</div>
@@ -237,14 +412,14 @@ async function confirmDecline() {
         <div class="panel">
           <div class="panel-head"><h3>Feasibility checklist</h3></div>
           <div style="padding:0.4rem 1.4rem 1.2rem; font-size:0.86rem;">
-            <label
+            <div
               v-for="item in inquiry.feasibility"
               :key="item.label"
               style="display:flex; align-items:center; gap:0.6rem; padding:0.45rem 0;"
             >
               <input type="checkbox" :checked="item.checked" @change="toggleFeasibility(item)">
-              {{ item.label }}
-            </label>
+              <span>{{ item.label }}</span>
+            </div>
           </div>
         </div>
 
@@ -273,6 +448,193 @@ async function confirmDecline() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit inquiry modal -->
+  <div v-if="editOpen" class="clerk-overlay" @click.self="editOpen = false">
+    <div class="edit-modal edit-modal-wide">
+      <div class="em-head">
+        <h3>Edit inquiry</h3>
+      </div>
+      <div class="em-body em-body-scroll">
+        <!-- Study info -->
+        <div class="em-section">
+          <div class="em-section-title">Study info</div>
+          <div class="em-grid">
+            <div class="em-field em-full">
+              <label class="em-label">Study name *</label>
+              <input v-model="editForm.studyName" type="text" autofocus @keydown.escape="editOpen = false">
+            </div>
+            <div class="em-field">
+              <label class="em-label">Abbreviation</label>
+              <input v-model="editForm.abbreviation" type="text">
+            </div>
+            <div class="em-field">
+              <label class="em-label">IRB</label>
+              <input v-model="editForm.irb" type="text">
+            </div>
+            <div class="em-field">
+              <label class="em-label">Affiliation</label>
+              <select v-model="editForm.affiliation">
+                <option>Internal</option>
+                <option>External</option>
+                <option>Industry</option>
+              </select>
+            </div>
+            <div v-if="editForm.affiliation === 'Internal'" class="em-field">
+              <label class="em-label">Budget account number</label>
+              <input v-model="editForm.budgetCode" type="text" placeholder="400-____-_-______-____-____-____">
+            </div>
+            <div v-else class="em-field">
+              <label class="em-label">Institution</label>
+              <input v-model="editForm.affiliationOrg" type="text">
+            </div>
+            <div v-if="editForm.affiliation !== 'Internal'" class="em-field">
+              <label class="em-label">Contracting / grants office contact</label>
+              <input v-model="editForm.contractingContact" type="email" placeholder="contracts@institution.edu">
+            </div>
+            <template v-if="editForm.affiliation === 'Internal'">
+              <div class="em-field em-full">
+                <label class="em-label">Funding source name (in CAMS)</label>
+                <input v-model="editForm.fundingName" type="text" placeholder="Project title as listed in CAMS">
+              </div>
+              <div class="em-field">
+                <label class="em-label">Business administrator name</label>
+                <input v-model="editForm.baName" type="text">
+              </div>
+              <div class="em-field">
+                <label class="em-label">BA contact email</label>
+                <input v-model="editForm.baEmail" type="email">
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Principal Investigator -->
+        <div class="em-section">
+          <div class="em-section-title">Principal Investigator</div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">PI name</label>
+              <input v-model="editForm.piName" type="text">
+            </div>
+            <div class="em-field">
+              <label class="em-label">PI email</label>
+              <input v-model="editForm.piEmail" type="email">
+            </div>
+          </div>
+        </div>
+
+        <!-- Study Lead -->
+        <div class="em-section">
+          <div class="em-section-title">Study Lead <span class="em-section-opt">(optional)</span></div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">Lead name</label>
+              <input v-model="editForm.studyLeadName" type="text">
+            </div>
+            <div class="em-field">
+              <label class="em-label">Lead email</label>
+              <input v-model="editForm.studyLeadEmail" type="email">
+            </div>
+          </div>
+        </div>
+
+        <!-- Study details -->
+        <div class="em-section">
+          <div class="em-section-title">Study details</div>
+          <div class="em-field em-full" style="margin-bottom:0.75rem;">
+            <label class="em-label">Objectives</label>
+            <textarea v-model="editForm.objectives" rows="3" />
+          </div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">Phlebotomy</label>
+              <select v-model="editForm.phlebotomy">
+                <option value="">—</option>
+                <option>IH phlebotomist on campus</option>
+                <option>Remote phlebotomy needed</option>
+                <option>Study team will collect and transfer</option>
+                <option>N/A – using stored samples</option>
+              </select>
+            </div>
+            <div class="em-field">
+              <label class="em-label">Metadata plan</label>
+              <select v-model="editForm.metadata">
+                <option value="">—</option>
+                <option>REDCap</option>
+                <option>Other system</option>
+                <option>To be discussed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Services -->
+        <div class="em-section">
+          <div class="em-section-title">Services</div>
+          <div class="em-service-lines">
+            <div v-for="(line, i) in editForm.servicesDetail" :key="i" class="em-service-row">
+              <span class="em-srv-name">{{ line.name }}</span>
+              <span class="em-srv-rate">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${line.rate}/ea` : 'Contact' }}</span>
+              <input
+                v-model.number="editForm.servicesDetail[i].qty"
+                type="number"
+                min="0"
+                style="width:72px;"
+              >
+              <span class="em-srv-committed">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${(line.rate * Math.max(0, (editForm.servicesDetail[i].qty as number) || 0)).toLocaleString()}` : '—' }}</span>
+              <button class="em-srv-remove" type="button" @click="removeServiceLine(i)">✕</button>
+            </div>
+            <div v-if="editForm.servicesDetail.length === 0" class="em-srv-empty">No services added yet.</div>
+          </div>
+          <select
+            v-if="availableToAdd.length > 0"
+            v-model="newServiceId"
+            style="width:auto; margin-top:0.4rem;"
+            @change="addServiceLine"
+          >
+            <option value="">+ Add service…</option>
+            <option v-for="svc in availableToAdd" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
+          </select>
+        </div>
+
+        <!-- Cohort -->
+        <div class="em-section">
+          <div class="em-section-title">Cohort</div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">Subjects</label>
+              <input v-model.number="editForm.cohortSubjects" type="number" min="0">
+            </div>
+            <div class="em-field">
+              <label class="em-label">Timepoints / subject</label>
+              <input v-model.number="editForm.cohortTimepoints" type="number" min="0">
+            </div>
+            <div class="em-field">
+              <label class="em-label">Sample type</label>
+              <select v-model="editForm.cohortSampleType">
+                <option value="">—</option>
+                <option>Fresh whole blood</option>
+                <option>Stored PBMCs (cryopreserved)</option>
+                <option>Tissue</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="em-field">
+              <label class="em-label">Total samples</label>
+              <div class="em-computed">{{ editForm.cohortSubjects * editForm.cohortTimepoints }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isSaving" @click="editOpen = false">Cancel</button>
+        <button class="btn btn-primary btn-sm" :disabled="isSaving || !editForm.studyName.trim() || !hasChanges" @click="saveEdit">
+          {{ isSaving ? 'Saving…' : 'Save changes' }}
+        </button>
       </div>
     </div>
   </div>
