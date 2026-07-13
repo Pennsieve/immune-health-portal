@@ -1,5 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { verifyStatusToken, createSignToken } from '~/server/utils/signing'
+import { AGREEMENT_IDS } from '~/utils/agreements'
 
 type LifecycleStep = { label: string; date: string; status: 'done' | 'active' | 'pending' }
 
@@ -54,7 +55,9 @@ export default defineEventHandler(async (event) => {
 
   const origin = config.siteUrl
 
-  const agreements = ((data.agreements as Array<Record<string, unknown>>) || []).map(agr => ({
+  const agreements = ((data.agreements as Array<Record<string, unknown>>) || [])
+    .filter(agr => AGREEMENT_IDS.includes(agr.id as typeof AGREEMENT_IDS[number]))
+    .map(agr => ({
     id: agr.id,
     name: agr.name,
     status: agr.status,

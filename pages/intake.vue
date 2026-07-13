@@ -6,7 +6,14 @@
  * Sidebar and page copy fetched from Contentful
  */
 import { useContentful } from '~/composables/useContentful'
-import type { IntakeFormData, AffiliationType, IntakePageContent } from '~/types/index'
+import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import type { IntakeFormData, AffiliationType, IntakePageContent, CollectionGroup } from '~/types/index'
+
+// Build an empty per-timepoint samples map for a new cohort row
+const emptySamples = (): Record<string, number> =>
+  Object.fromEntries(COLLECTION_TIMEPOINTS.map(tp => [tp.key, tp.key === 'base' ? 1 : 0]))
+
+const newGroup = (name = ''): CollectionGroup => ({ name, subjects: 0, samples: emptySamples() })
 
 const servicesStore = await useServicesData()
 const { fetchSingleton } = useContentful()
@@ -19,30 +26,155 @@ const form = reactive<IntakeFormData>({
   piEmail: '',
   projectLead: '',
   leadEmail: '',
+  collaborators: '',
+  collectionSites: [],
+  collectionSiteOther: '',
+  participantNaming: '',
+  cohortCount: undefined,
+  cohortNames: '',
+  clinicalQuestion: '',
+  irbStatus: 'not-submitted',
   irbNumber: '',
+  irbTimeline: '',
+  pilotData: 'no',
+  pilotDataDetail: '',
   objectives: '',
   subjectCount: 0,
+  enrollmentPeriod: undefined,
+  firstSampleDate: '',
   timepointCount: 0,
+  collectionGroups: [newGroup()],
+  statisticalJustification: '',
   sampleType: 'fresh-blood',
+  tubeTypes: [],
+  tubeTypeOther: '',
   phlebotomyNeeds: 'ih-campus',
+  specialHandling: [],
+  specialHandlingNotes: '',
   services: [],
+  customAssays: '',
+  clinicalVariables: [],
+  clinicalVariableOther: '',
   affiliation: 'internal',
   budgetCode: '',
   fundingName: '',
   baName: '',
   baEmail: '',
+  ilabsId: '',
   externalInstitution: '',
   externalContact: '',
+  pennsieveStatus: 'unsure',
+  dataSharing: 'no',
+  dataSharingNotes: '',
   metadataPlan: '',
+  hardDeadlines: '',
+  sampleArrival: 'rolling',
   notes: '',
 })
+
+// Preset options for common collection sites and structured multi-selects
+const COLLECTION_SITE_OPTIONS = ['HUP', 'PAH', 'Presby', 'Radnor', 'CHOP', 'Remote / off-site']
+const TUBE_TYPE_OPTIONS = ['EDTA', 'Sodium heparin', 'Lithium heparin', 'ACD', 'Serum (SST)', 'Other']
+const SPECIAL_HANDLING_OPTIONS = [
+  'Time-sensitive processing window',
+  'Pediatric / low-volume draws',
+  'Infectious / biohazard samples',
+  'Rare or irreplaceable samples',
+]
+const CLINICAL_VARIABLE_OPTIONS = ['Demographics', 'Treatment arms', 'Clinical outcomes', 'Biomarkers', 'Medications', 'Other']
+
+// Toggle a value within one of the checkbox-array fields
+const toggleInArray = (field: 'collectionSites' | 'tubeTypes' | 'specialHandling' | 'clinicalVariables', value: string) => {
+  const arr = form[field]
+  const i = arr.indexOf(value)
+  if (i === -1) arr.push(value)
+  else arr.splice(i, 1)
+}
+
+// Cohort sample matrix (per-group estimator) helpers
+const TIMEPOINTS = COLLECTION_TIMEPOINTS
+
+const addGroup = () => {
+  form.collectionGroups.push(newGroup())
+}
+
+const removeGroup = (index: number) => {
+  form.collectionGroups.splice(index, 1)
+}
+
+// Earliest selectable month for "First Samples Expected" — the current month (no past dates)
+const currentMonth = computed(() => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})
+
+// Latest selectable month — 10 years out, to block absurd years entered via arrow keys
+const maxMonth = computed(() => {
+  const now = new Date()
+  return `${now.getFullYear() + 10}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})
+
+// First samples expected: clamp to the [current month, +10 years] window.
+// Snaps past dates up and absurd future years (entered via arrow keys) down.
+const onFirstSampleInput = (e: Event) => {
+  const el = e.target as HTMLInputElement
+  if (el.value && el.value < currentMonth.value) {
+    el.value = currentMonth.value
+  }
+  else if (el.value && el.value > maxMonth.value) {
+    el.value = maxMonth.value
+  }
+  form.firstSampleDate = el.value
+}
+
+// Enrollment period: non-negative integers only, capped at 3 digits.
+// Strip every non-digit so "e", "-", ".", etc. can't be entered.
+const onEnrollmentInput = (e: Event) => {
+  const el = e.target as HTMLInputElement
+  const digits = el.value.replace(/\D/g, '').slice(0, 3)
+  el.value = digits
+  form.enrollmentPeriod = digits === '' ? undefined : Number(digits)
+}
+
+// Samples contributed by a single cohort row = subjects × tubes across all timepoints
+const groupTotal = (g: CollectionGroup) =>
+  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((sum, tp) => sum + (Number(g.samples[tp.key]) || 0), 0)
 
 const submitMessage = ref('')
 const submitSuccess = ref(false)
 const isSubmitting = ref(false)
 
-// Computed values
-const totalSamples = computed(() => form.subjectCount * form.timepointCount)
+// Total unique subjects across all cohort rows
+const totalSubjects = computed(() =>
+  form.collectionGroups.reduce((sum, g) => sum + (Number(g.subjects) || 0), 0),
+)
+
+// Per-timepoint sample totals (one bar per fixed column), with projected dates
+const timepointTotals = computed(() =>
+  TIMEPOINTS.map((tp) => {
+    let dateLabel = ''
+    if (form.firstSampleDate) {
+      // Parse the "YYYY-MM" value in local time (new Date("YYYY-MM") is UTC and
+      // shifts a month earlier once rendered in a timezone behind UTC)
+      const [year, month] = form.firstSampleDate.split('-').map(Number)
+      const d = new Date(year, (month || 1) - 1, 1)
+      if (!Number.isNaN(d.getTime())) {
+        d.setDate(d.getDate() + tp.weekOffset * 7)
+        dateLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      }
+    }
+    const total = form.collectionGroups.reduce(
+      (sum, g) => sum + (Number(g.subjects) || 0) * (Number(g.samples[tp.key]) || 0),
+      0,
+    )
+    return { ...tp, dateLabel, total }
+  }),
+)
+
+// Computed values — total samples derives from the whole matrix
+const totalSamples = computed(() =>
+  form.collectionGroups.reduce((sum, g) => sum + groupTotal(g), 0),
+)
 
 const estimatedTotal = computed(() => {
   return servicesStore.calculateTotal(form.services)
@@ -93,10 +225,14 @@ const setAffiliation = (affiliation: AffiliationType) => {
 
 // Form submission
 const submitForm = async () => {
+  // Sync the legacy scalar fields (used downstream) from the matrix
+  form.subjectCount = totalSubjects.value
+  form.timepointCount = timepointTotals.value.filter(tp => tp.total > 0).length
+
   // Validate required fields
   if (!form.projectName || !form.principalInvestigator || !form.piEmail ||
       !form.projectLead || !form.leadEmail || !form.objectives ||
-      !form.subjectCount || !form.timepointCount || form.services.length === 0) {
+      !totalSubjects.value || !totalSamples.value || form.services.length === 0) {
     submitMessage.value = '⚠ Please fill in all required fields.'
     submitSuccess.value = false
     return
@@ -210,7 +346,10 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
 
           <div class="form-group">
             <label>Project Acronym / ID</label>
-            <input v-model="form.acronym" type="text" placeholder="e.g. BHB ColCan">
+            <div class="hint">
+              Must be limited to 20 characters for LIMS
+            </div>
+            <input v-model="form.acronym" type="text" maxlength="20" placeholder="e.g. BHB ColCan">
           </div>
 
           <div class="form-row">
@@ -236,11 +375,59 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
           </div>
 
           <div class="form-group">
-            <label>IRB Number</label>
+            <label>Other Study Staff & Collaborators</label>
             <div class="hint">
-              If already approved
+              CRC, PM, tech, or other contacts who'll interact with our team; academic or corporate partners
             </div>
-            <input v-model="form.irbNumber" type="text" placeholder="e.g. 850567">
+            <textarea v-model="form.collaborators" rows="2" placeholder="Name — role (e.g. Jane Doe — CRC; Acme Bio — corporate partner)" />
+          </div>
+
+          <div class="form-group">
+            <label>Collection Site(s)</label>
+            <div class="hint">
+              Where will samples be drawn or sent from? Select all that apply.
+            </div>
+            <div class="chip-group">
+              <label
+                v-for="site in COLLECTION_SITE_OPTIONS"
+                :key="site"
+                class="chip"
+                :class="{ active: form.collectionSites.includes(site) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="form.collectionSites.includes(site)"
+                  @change="toggleInArray('collectionSites', site)"
+                >
+                {{ site }}
+              </label>
+            </div>
+            <input
+              v-if="form.collectionSites.includes('Remote / off-site')"
+              v-model="form.collectionSiteOther"
+              type="text"
+              class="mt-sm"
+              placeholder="Which remote / off-site locations?"
+            >
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Participant Naming Convention</label>
+              <input v-model="form.participantNaming" type="text" placeholder="e.g. SLE001">
+            </div>
+            <div class="form-group">
+              <label>Number of Cohorts</label>
+              <input v-model.number="form.cohortCount" type="number" min="0" placeholder="e.g. 3">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Cohort Names</label>
+            <div class="hint">
+              Define each cohort (e.g. SLE, SSc, irAE, Healthy control)
+            </div>
+            <input v-model="form.cohortNames" type="text" placeholder="e.g. SLE, SSc, irAE">
           </div>
 
           <div class="form-group">
@@ -249,6 +436,89 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
               Describe your primary and secondary objectives
             </div>
             <textarea v-model="form.objectives" rows="4" placeholder="What are you trying to learn? What comparisons matter most?" />
+          </div>
+
+          <div class="form-group">
+            <label>Clinical Question</label>
+            <div class="hint">
+              The specific clinical question you're trying to answer
+            </div>
+            <textarea v-model="form.clinicalQuestion" rows="2" placeholder="e.g. Does treatment X restore immune cell populations in irAE patients?" />
+          </div>
+
+          <div class="form-group">
+            <label>IRB Status</label>
+            <div class="seg-toggle">
+              <button
+                type="button"
+                :class="{ active: form.irbStatus === 'approved' }"
+                @click="form.irbStatus = 'approved'"
+              >
+                Approved
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.irbStatus === 'pending' }"
+                @click="form.irbStatus = 'pending'"
+              >
+                Submitted / pending
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.irbStatus === 'not-submitted' }"
+                @click="form.irbStatus = 'not-submitted'"
+              >
+                Not yet submitted
+              </button>
+            </div>
+            <input
+              v-if="form.irbStatus === 'approved'"
+              v-model="form.irbNumber"
+              type="text"
+              class="mt-sm"
+              placeholder="Protocol / IRB number (e.g. 850567). Add UPCC number if applicable."
+            >
+            <input
+              v-else-if="form.irbStatus === 'pending'"
+              v-model="form.irbNumber"
+              type="text"
+              class="mt-sm"
+              placeholder="Expected approval timeline"
+            >
+            <input
+              v-else-if="form.irbStatus === 'not-submitted'"
+              v-model="form.irbTimeline"
+              type="text"
+              class="mt-sm"
+              placeholder="Expected timeline for submission"
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Preliminary / Pilot Data</label>
+            <div class="seg-toggle">
+              <button
+                type="button"
+                :class="{ active: form.pilotData === 'yes' }"
+                @click="form.pilotData = 'yes'"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.pilotData === 'no' }"
+                @click="form.pilotData = 'no'"
+              >
+                No
+              </button>
+            </div>
+            <textarea
+              v-if="form.pilotData === 'yes'"
+              v-model="form.pilotDataDetail"
+              rows="2"
+              class="mt-sm"
+              placeholder="What platform was used and what did you learn?"
+            />
           </div>
 
           <div class="form-divider" />
@@ -260,21 +530,111 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
 
           <div class="form-row">
             <div class="form-group">
-              <label>Estimated Unique Subjects <span class="req">*</span></label>
-              <input v-model.number="form.subjectCount" type="number" min="0" placeholder="20" @input="form.subjectCount = Math.max(0, form.subjectCount)">
+              <label>Enrollment Period</label>
+              <div class="hint">
+                Over what timeframe?
+              </div>
+              <div class="num-suffix">
+                <input :value="form.enrollmentPeriod" type="text" inputmode="numeric" placeholder="e.g. 18" @input="onEnrollmentInput">
+                <span class="suffix">months</span>
+              </div>
             </div>
             <div class="form-group">
-              <label>Time Points per Subject <span class="req">*</span></label>
-              <input v-model.number="form.timepointCount" type="number" min="0" placeholder="3" @input="form.timepointCount = Math.max(0, form.timepointCount)">
+              <label>First Samples Expected</label>
+              <div class="hint">
+                Drives the projected dates below
+              </div>
+              <input :value="form.firstSampleDate" type="month" :min="currentMonth" :max="maxMonth" @input="onFirstSampleInput" @change="onFirstSampleInput">
             </div>
           </div>
 
+          <!-- Cohort sample matrix -->
           <div class="form-group">
-            <label>Total Estimated Samples</label>
+            <label>Cohort Sample Matrix <span class="req">*</span></label>
             <div class="hint">
-              Auto-calculated from subjects × time points
+              Add a row per cohort/group. Enter the number of tubes collected <em>per subject</em> at each timepoint (0 = not collected).
             </div>
-            <input :value="totalSamples || '—'" type="text" readonly disabled>
+
+            <div class="matrix-scroll">
+              <table class="matrix">
+                <thead>
+                  <tr>
+                    <th class="m-group">Cohort / Group</th>
+                    <th class="m-subs">Subjects</th>
+                    <th v-for="tp in TIMEPOINTS" :key="tp.key" class="m-tp">{{ tp.short }}</th>
+                    <th class="m-total">Samples</th>
+                    <th class="m-x" />
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(g, i) in form.collectionGroups" :key="i">
+                    <td class="m-group">
+                      <input v-model="g.name" type="text" placeholder="e.g. Active">
+                    </td>
+                    <td class="m-subs">
+                      <input v-model.number="g.subjects" type="number" min="0">
+                    </td>
+                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="m-tp">
+                      <input v-model.number="g.samples[tp.key]" type="number" min="0">
+                    </td>
+                    <td class="m-total mono">{{ groupTotal(g).toLocaleString() }}</td>
+                    <td class="m-x">
+                      <button
+                        type="button"
+                        class="sched-remove"
+                        :disabled="form.collectionGroups.length === 1"
+                        title="Remove cohort"
+                        @click="removeGroup(i)"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td class="m-group">Total</td>
+                    <td class="m-subs mono">{{ totalSubjects.toLocaleString() }}</td>
+                    <td v-for="tp in timepointTotals" :key="tp.key" class="m-tp mono">{{ tp.total.toLocaleString() }}</td>
+                    <td class="m-total mono">{{ totalSamples.toLocaleString() }}</td>
+                    <td class="m-x" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <button type="button" class="sched-add" @click="addGroup">
+              + Add cohort
+            </button>
+          </div>
+
+          <!-- Estimator summary -->
+          <div v-if="totalSubjects > 0 && totalSamples > 0" class="estimator">
+            <div class="est-head">
+              <span>Projected sample volume</span>
+              <span class="est-total">{{ totalSamples.toLocaleString() }} samples</span>
+            </div>
+            <div class="est-sub">
+              {{ totalSubjects.toLocaleString() }} subjects across {{ form.collectionGroups.length }} cohort{{ form.collectionGroups.length === 1 ? '' : 's' }}
+            </div>
+            <div class="est-bars">
+              <div
+                v-for="tp in timepointTotals"
+                :key="tp.key"
+                class="est-bar-row"
+              >
+                <span class="est-bar-label">
+                  {{ tp.label }}<span v-if="tp.dateLabel" class="est-bar-date"> · {{ tp.dateLabel }}</span>
+                </span>
+                <div class="est-bar-track">
+                  <div
+                    class="est-bar-fill"
+                    :style="{ width: `${totalSamples ? Math.max(2, (tp.total / totalSamples) * 100) : 0}%` }"
+                  />
+                </div>
+                <span class="est-bar-val">{{ tp.total.toLocaleString() }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -298,6 +658,35 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
             </select>
           </div>
 
+          <div v-if="form.sampleType === 'fresh-blood'" class="form-group">
+            <label>Collection Tube Type(s)</label>
+            <div class="hint">
+              CBC with differential provided with PBMC processing services requires a small EDTA collection tube. CyTOF requires heparin collection tubes. Minimum 4 mL sodium heparin tube if only requesting CyTOF services; otherwise, 300 microliters of whole blood can be taken for CyTOF prior to processing heparin PBMCs.
+            </div>
+            <div class="chip-group">
+              <label
+                v-for="tube in TUBE_TYPE_OPTIONS"
+                :key="tube"
+                class="chip"
+                :class="{ active: form.tubeTypes.includes(tube) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="form.tubeTypes.includes(tube)"
+                  @change="toggleInArray('tubeTypes', tube)"
+                >
+                {{ tube }}
+              </label>
+            </div>
+            <input
+              v-if="form.tubeTypes.includes('Other')"
+              v-model="form.tubeTypeOther"
+              type="text"
+              class="mt-sm"
+              placeholder="Please specify the other tube type"
+            >
+          </div>
+
           <div class="form-group">
             <label>Phlebotomy Needs</label>
             <select v-model="form.phlebotomyNeeds">
@@ -317,6 +706,42 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
                 N/A – using stored samples
               </option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label>Special Handling Requirements</label>
+            <div class="hint">
+              Select any that apply.
+            </div>
+            <div class="chip-group">
+              <label
+                v-for="opt in SPECIAL_HANDLING_OPTIONS"
+                :key="opt"
+                class="chip"
+                :class="{ active: form.specialHandling.includes(opt) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="form.specialHandling.includes(opt)"
+                  @change="toggleInArray('specialHandling', opt)"
+                >
+                {{ opt }}
+              </label>
+            </div>
+            <input
+              v-model="form.specialHandlingNotes"
+              type="text"
+              class="mt-sm"
+              placeholder="Any other special handling details"
+            >
+          </div>
+
+          <div class="form-group">
+            <label>Statistical Justification</label>
+            <div class="hint">
+              Power calculation or other basis for your subject / sample numbers, if available
+            </div>
+            <textarea v-model="form.statisticalJustification" rows="2" placeholder="e.g. Powered to detect a 20% difference in CD8 frequency at 80% power, alpha 0.05" />
           </div>
 
           <!-- Services Selection -->
@@ -391,6 +816,43 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
             </div>
           </div>
 
+          <div class="form-group">
+            <label>Custom Panels or Assays</label>
+            <div class="hint">
+              Anything beyond our standard menu you're interested in?
+            </div>
+            <input v-model="form.customAssays" type="text" placeholder="e.g. custom CyTOF panel, spectral flow">
+          </div>
+
+          <div class="form-group">
+            <label>Clinical Variables Tracked</label>
+            <div class="hint">
+              What clinical data will you track alongside the immune data? Select all that apply.
+            </div>
+            <div class="chip-group">
+              <label
+                v-for="v in CLINICAL_VARIABLE_OPTIONS"
+                :key="v"
+                class="chip"
+                :class="{ active: form.clinicalVariables.includes(v) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="form.clinicalVariables.includes(v)"
+                  @change="toggleInArray('clinicalVariables', v)"
+                >
+                {{ v }}
+              </label>
+            </div>
+            <input
+              v-if="form.clinicalVariables.includes('Other')"
+              v-model="form.clinicalVariableOther"
+              type="text"
+              class="mt-sm"
+              placeholder="Please specify the other clinical variable(s)"
+            >
+          </div>
+
           <div class="form-divider" />
 
           <!-- Funding & Affiliation -->
@@ -454,6 +916,14 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
                 <input v-model="form.baEmail" type="email" placeholder="name@pennmedicine.upenn.edu">
               </div>
             </div>
+
+            <div class="form-group">
+              <label>iLabs Service Request ID</label>
+              <div class="hint">
+                If you already have one
+              </div>
+              <input v-model="form.ilabsId" type="text" placeholder="e.g. IH-1234">
+            </div>
           </template>
 
           <!-- External funding fields -->
@@ -469,11 +939,68 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
             </div>
           </template>
 
+          <div class="form-group">
+            <label>Pennsieve Account</label>
+            <div class="hint">
+              All final data is delivered through Pennsieve.
+            </div>
+            <div class="seg-toggle">
+              <button
+                type="button"
+                :class="{ active: form.pennsieveStatus === 'has-account' }"
+                @click="form.pennsieveStatus = 'has-account'"
+              >
+                Have an account
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.pennsieveStatus === 'need-setup' }"
+                @click="form.pennsieveStatus = 'need-setup'"
+              >
+                Need setup
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.pennsieveStatus === 'unsure' }"
+                @click="form.pennsieveStatus = 'unsure'"
+              >
+                Not sure
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Data Sharing Restrictions or Embargo</label>
+            <div class="seg-toggle">
+              <button
+                type="button"
+                :class="{ active: form.dataSharing === 'yes' }"
+                @click="form.dataSharing = 'yes'"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.dataSharing === 'no' }"
+                @click="form.dataSharing = 'no'"
+              >
+                No
+              </button>
+            </div>
+            <input
+              v-if="form.dataSharing === 'yes'"
+              v-model="form.dataSharingNotes"
+              type="text"
+              class="mt-sm"
+              placeholder="Describe the restriction or embargo"
+            >
+          </div>
+
           <div class="form-divider" />
 
-          <!-- Additional -->
+          <!-- Timeline & Additional -->
           <div class="form-section-label">
-            Additional Notes
+            Timeline & Additional Notes
           </div>
 
           <div class="form-group">
@@ -498,8 +1025,36 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
           </div>
 
           <div class="form-group">
+            <label>Sample Arrival</label>
+            <div class="seg-toggle">
+              <button
+                type="button"
+                :class="{ active: form.sampleArrival === 'single-batch' }"
+                @click="form.sampleArrival = 'single-batch'"
+              >
+                Single batch
+              </button>
+              <button
+                type="button"
+                :class="{ active: form.sampleArrival === 'rolling' }"
+                @click="form.sampleArrival = 'rolling'"
+              >
+                Rolling basis
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Hard Deadlines</label>
+            <div class="hint">
+              Grant milestones, publication timelines, conference presentations, etc.
+            </div>
+            <input v-model="form.hardDeadlines" type="text" placeholder="e.g. Grant renewal Sept 2026">
+          </div>
+
+          <div class="form-group">
             <label>Additional Notes or Questions</label>
-            <textarea v-model="form.notes" rows="4" placeholder="Anything else we should know – special requirements, timeline constraints, etc." />
+            <textarea v-model="form.notes" rows="4" placeholder="Anything else we should know – special requirements, feasibility concerns, questions about our pipeline / pricing, etc." />
           </div>
 
           <div class="submit-section">
@@ -636,6 +1191,339 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
     font-weight: 600;
     color: var(--ink);
   }
+}
+
+.mt-sm {
+  margin-top: 0.6rem;
+}
+
+// Structured multi-select chips
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  border: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--card);
+  color: var(--ink);
+  user-select: none;
+
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+  }
+
+  &:hover {
+    border-color: var(--accent);
+  }
+
+  &.active {
+    background: rgba(26, 82, 118, 0.08);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+}
+
+// Numeric input with a static unit suffix (e.g. "months")
+.num-suffix {
+  display: flex;
+  align-items: stretch;
+  width: 50%;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+
+    // Hide the number spinner arrows — they crowd out the digits in this narrow field
+    -moz-appearance: textfield;
+    appearance: textfield;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+
+  .suffix {
+    display: flex;
+    align-items: center;
+    padding: 0 0.8rem 0 0;
+    border: 1.5px solid var(--line);
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    background: var(--cream);
+    color: var(--muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: border 0.2s;
+  }
+
+  // Keep the suffix border in step with the input's focus highlight
+  &:focus-within .suffix {
+    border-color: var(--penn-blue);
+  }
+}
+
+// Segmented yes/no & status toggles
+.seg-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.2rem;
+
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: none;
+    border-right: 1.5px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--muted);
+    transition: all 0.2s;
+
+    &:last-child {
+      border-right: none;
+    }
+
+    &.active {
+      background: var(--accent);
+      color: #fff;
+    }
+  }
+}
+
+// Cohort sample matrix estimator
+.matrix-scroll {
+  margin-top: 0.5rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--cream);
+}
+
+.matrix {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 480px;
+
+  th {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    font-weight: 600;
+    text-align: center;
+    padding: 0.55rem 0.4rem 0.4rem;
+    white-space: nowrap;
+  }
+
+  th.m-group {
+    text-align: left;
+    padding-left: 0.7rem;
+  }
+
+  td {
+    padding: 0.25rem 0.35rem;
+    text-align: center;
+  }
+
+  td.m-group {
+    padding-left: 0.7rem;
+  }
+
+  input {
+    padding: 0.35rem 0.4rem;
+    font-size: 0.82rem;
+    border: 1.5px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    color: var(--ink);
+    width: 100%;
+    text-align: center;
+  }
+
+  .m-group input {
+    text-align: left;
+  }
+
+  .m-subs input,
+  .m-tp input {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .m-subs { width: 74px; }
+  .m-tp { width: 62px; }
+
+  .m-total {
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    padding-right: 0.6rem;
+  }
+
+  .m-x { width: 28px; }
+
+  tfoot td {
+    border-top: 1.5px solid var(--line);
+    font-weight: 600;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  tfoot .m-group {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+}
+
+.sched-remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem;
+  border-radius: 4px;
+
+  &:hover:not(:disabled) {
+    color: var(--warm);
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  &:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+}
+
+.sched-add {
+  margin-top: 0.5rem;
+  border: 1px dashed var(--line);
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.45rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(26, 82, 118, 0.05);
+    border-color: var(--accent);
+  }
+}
+
+// Estimator summary
+.estimator {
+  margin-top: 1rem;
+  margin-bottom: 1.75rem;
+  background: rgba(26, 82, 118, 0.04);
+  border: 1px solid rgba(26, 82, 118, 0.12);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+}
+
+.est-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+
+  span:first-child {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .est-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+}
+
+.est-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0.2rem 0 0.8rem;
+}
+
+.est-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.est-bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 52px;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.est-bar-label {
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .est-bar-date {
+    color: var(--muted);
+  }
+}
+
+.est-bar-track {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.est-bar-fill {
+  height: 100%;
+  background: var(--penn-blue, var(--accent));
+  border-radius: 4px;
+  transition: width 0.25s;
+}
+
+.est-bar-val {
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .srv-list {
