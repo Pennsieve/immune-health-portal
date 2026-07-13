@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create study record' })
   }
 
-  // 2. Create all 4 agreements
+  // 2. Create all agreements
   const { error: agrErr } = await supabase.from('agreements').insert(
     AGREEMENTS.map(a => ({
       id: a.id,
@@ -128,7 +128,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create agreement records' })
   }
 
-  // 3. Generate signing links for all 4 agreements
+  // 3. Generate signing links for all agreements
   const pi = inquiry.pi as { name: string; email: string }
   const origin = config.siteUrl
 

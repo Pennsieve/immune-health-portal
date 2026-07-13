@@ -91,6 +91,31 @@ export interface ServiceRequest {
 }
 
 // Intake Form Types
+
+// Fixed collection timepoints for the cohort sample matrix.
+// Each entry is a column in the estimator grid.
+export const COLLECTION_TIMEPOINTS = [
+  { key: 'base', label: 'Base (Day 0)', short: 'Base', weekOffset: 0 },
+  { key: 'w24', label: 'Week 24', short: 'W24', weekOffset: 24 },
+  { key: 'w52', label: 'Week 52', short: 'W52', weekOffset: 52 },
+  { key: 'w104', label: 'Week 104', short: 'W104', weekOffset: 104 },
+] as const
+
+export type CollectionTimepointKey = typeof COLLECTION_TIMEPOINTS[number]['key']
+
+// One cohort/group row in the sample matrix. `samples` holds the tubes/parent
+// samples collected per subject at each timepoint (0 = not collected).
+export interface CollectionGroup {
+  name: string
+  subjects: number
+  samples: Record<string, number>
+}
+
+export type IrbStatus = 'approved' | 'pending' | 'not-submitted'
+export type YesNo = 'yes' | 'no'
+export type PennsieveStatus = 'has-account' | 'need-setup' | 'unsure'
+export type SampleArrival = 'single-batch' | 'rolling'
+
 export interface IntakeFormData {
   projectName: string
   acronym?: string
@@ -98,21 +123,49 @@ export interface IntakeFormData {
   piEmail: string
   projectLead: string
   leadEmail: string
+  collaborators?: string
+  collectionSites: string[]
+  collectionSiteOther?: string
+  participantNaming?: string
+  cohortCount?: number
+  cohortNames?: string
+  clinicalQuestion?: string
+  irbStatus?: IrbStatus
   irbNumber?: string
+  irbTimeline?: string
+  pilotData?: YesNo
+  pilotDataDetail?: string
   objectives: string
   subjectCount: number
+  enrollmentPeriod?: number
+  firstSampleDate?: string
   timepointCount: number
+  collectionGroups: CollectionGroup[]
+  statisticalJustification?: string
   sampleType: SampleType
+  tubeTypes: string[]
+  tubeTypeOther?: string
   phlebotomyNeeds: PhlebotomyOption
+  specialHandling: string[]
+  specialHandlingNotes?: string
   services: ServiceRequest[]
+  customAssays?: string
+  clinicalVariables: string[]
+  clinicalVariableOther?: string
   affiliation: AffiliationType
   budgetCode?: string
   fundingName?: string
   baName?: string
   baEmail?: string
+  ilabsId?: string
   externalInstitution?: string
   externalContact?: string
+  pennsieveStatus?: PennsieveStatus
+  dataSharing?: YesNo
+  dataSharingNotes?: string
   metadataPlan?: string
+  hardDeadlines?: string
+  sampleArrival?: SampleArrival
   notes?: string
 }
 

@@ -1,7 +1,16 @@
 -- ============================================================
--- Admin Console Schema
--- Run this in the Supabase SQL editor (Project → SQL Editor)
+-- I3H Portal — full idempotent schema setup
+-- Run this in the Supabase SQL editor (Project → SQL Editor).
+--
+-- Safe to run on a fresh database OR one that already has some of
+-- these tables/columns. It creates anything missing and refreshes
+-- the RLS policies and triggers without erroring on re-run.
+--
+-- This is the union of migrations 001, 002, and 003.
+-- It does NOT insert any demo data (see seed.sql for that).
 -- ============================================================
+
+-- ── Tables ──────────────────────────────────────────────────
 
 -- Inquiries: one row per PI intake submission
 create table if not exists inquiries (
@@ -34,6 +43,8 @@ create table if not exists inquiries (
   additional_notes   text,
   notes              jsonb default '[]'::jsonb,
   feasibility        jsonb default '[]'::jsonb,
+  intake_details     jsonb default '{}'::jsonb,   -- expanded intake answers (migration 003)
+  sample_schedule    jsonb default '[]'::jsonb,   -- cohort sample matrix (migration 003)
   created_at         timestamptz default now(),
   updated_at         timestamptz default now()
 );
@@ -43,30 +54,31 @@ create table if not exists studies (
   id               text primary key,
   name             text not null,
   abbreviation     text,
-  pi               jsonb,   -- { name, email }
-  study_lead       jsonb,   -- { name, email }
+  pi               jsonb,
+  study_lead       jsonb,
   affiliation      text,
   affiliation_org  text,
   irb              text,
   stage            text not null default 'Inquiry',
   is_locked        boolean default false,
-  cohort           jsonb,   -- { subjects, timepoints, totalSamples, processedSamples, sampleType }
-  budget           jsonb,   -- { committed, invoiced, remaining, pctInvoiced, accountCode, billingContact, lines[] }
-  integrations     jsonb default '{}'::jsonb,  -- { redcap, labvantage, pennsieve }
+  cohort           jsonb,
+  budget           jsonb,
+  integrations     jsonb default '{}'::jsonb,
   started_date     text,
   department       text,
   objectives       text,
   phlebotomy       text,
   metadata_desc    text,
-  lifecycle        jsonb default '[]'::jsonb,  -- [{ label, date, status }]
+  lifecycle        jsonb default '[]'::jsonb,
   updated_relative text,
-  quick_stats      jsonb,   -- { samplesReceived, samplesTotal, cytofAcquired, ... }
-  activity         jsonb default '[]'::jsonb,  -- [{ dotClass, title, date, author, note }]
+  quick_stats      jsonb,
+  activity         jsonb default '[]'::jsonb,
+  status_token_version integer not null default 1,   -- migration 002
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );
 
--- Agreements: one row per (study, agreement_type) — updated individually for signing
+-- Agreements: one row per (study, agreement_type)
 create table if not exists agreements (
   id             text not null,
   study_id       text not null references studies(id) on delete cascade,
@@ -81,35 +93,36 @@ create table if not exists agreements (
   primary key (study_id, id)
 );
 
--- ============================================================
--- Row Level Security
--- All tables: authenticated users (admin staff) have full access
--- The PI signing flow uses a service-role server API route (bypasses RLS)
--- ============================================================
+-- ── Columns added by later migrations ───────────────────────
+-- (in case the tables above already existed before those migrations)
+alter table inquiries add column if not exists intake_details  jsonb default '{}'::jsonb;
+alter table inquiries add column if not exists sample_schedule jsonb default '[]'::jsonb;
+alter table studies   add column if not exists status_token_version integer not null default 1;
 
+-- ── Row Level Security ──────────────────────────────────────
 alter table inquiries  enable row level security;
 alter table studies    enable row level security;
 alter table agreements enable row level security;
 
+drop policy if exists "Admin full access on inquiries" on inquiries;
 create policy "Admin full access on inquiries"
   on inquiries for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
+drop policy if exists "Admin full access on studies" on studies;
 create policy "Admin full access on studies"
   on studies for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
+drop policy if exists "Admin full access on agreements" on agreements;
 create policy "Admin full access on agreements"
   on agreements for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
 
--- ============================================================
--- updated_at trigger
--- ============================================================
-
+-- ── updated_at trigger ──────────────────────────────────────
 create or replace function handle_updated_at()
 returns trigger language plpgsql as $$
 begin
@@ -118,5 +131,16 @@ begin
 end;
 $$;
 
-create trigger inquiries_updated_at  before update on inquiries  for each row execute procedure handle_updated_at();
-create trigger studies_updated_at    before update on studies    for each row execute procedure handle_updated_at();
+drop trigger if exists inquiries_updated_at on inquiries;
+create trigger inquiries_updated_at before update on inquiries for each row execute procedure handle_updated_at();
+
+drop trigger if exists studies_updated_at on studies;
+create trigger studies_updated_at   before update on studies   for each row execute procedure handle_updated_at();
+
+-- ── Verify ──────────────────────────────────────────────────
+-- After running, this should return the two branch-critical columns:
+select column_name
+from information_schema.columns
+where table_name = 'inquiries'
+  and column_name in ('intake_details', 'sample_schedule')
+order by column_name;

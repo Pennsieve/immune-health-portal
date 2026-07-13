@@ -1,6 +1,5 @@
 export const AGREEMENTS = [
-  { id: 'ua',  name: 'User Agreement',                  description: 'Master scope of work between PI and I3H' },
-  { id: 'rs',  name: 'Rate Schedule',                   description: 'Itemized pricing and billing terms' },
+  { id: 'ua',  name: 'User Agreement',                  description: 'Master scope of work and pricing acknowledgment between PI and I3H' },
   { id: 'lv',  name: 'LabVantage Sample Intake Form',   description: 'Sample ID assignment authorization' },
   { id: 'psa', name: 'Pennsieve Data Sharing Agreement', description: 'Data hosting + access controls on Pennsieve workspace' },
 ] as const

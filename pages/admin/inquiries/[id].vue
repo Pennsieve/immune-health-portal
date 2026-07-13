@@ -2,6 +2,7 @@
 import { useAdminStore } from '~/stores/admin'
 import type { Affiliation } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
+import { COLLECTION_TIMEPOINTS } from '~/types/index'
 
 definePageMeta({ layout: 'admin' })
 
@@ -24,6 +25,55 @@ const affiliationClass = computed(() => {
 
 const feasibilityComplete = computed(() =>
   !!inquiry.value?.feasibility.length && inquiry.value.feasibility.every(i => i.checked),
+)
+
+// Human labels for the expanded intake_details answers, in display order
+const INTAKE_DETAIL_LABELS: Array<[string, string]> = [
+  ['clinicalQuestion', 'Clinical question'],
+  ['collaborators', 'Other staff & collaborators'],
+  ['collectionSites', 'Collection sites'],
+  ['participantNaming', 'Participant naming'],
+  ['cohortCount', 'Number of cohorts'],
+  ['cohortNames', 'Cohort names'],
+  ['irbStatus', 'IRB status'],
+  ['irbTimeline', 'IRB submission timeline'],
+  ['pilotData', 'Pilot data'],
+  ['pilotDataDetail', 'Pilot data detail'],
+  ['enrollmentPeriod', 'Enrollment period'],
+  ['firstSampleDate', 'First samples expected'],
+  ['statisticalJustification', 'Statistical justification'],
+  ['tubeTypes', 'Collection tubes'],
+  ['specialHandling', 'Special handling'],
+  ['specialHandlingNotes', 'Special handling notes'],
+  ['customAssays', 'Custom panels / assays'],
+  ['clinicalVariables', 'Clinical variables'],
+  ['ilabsId', 'iLabs Service Request ID'],
+  ['pennsieveStatus', 'Pennsieve account'],
+  ['dataSharing', 'Data sharing restrictions'],
+  ['dataSharingNotes', 'Data sharing detail'],
+  ['sampleArrival', 'Sample arrival'],
+  ['hardDeadlines', 'Hard deadlines'],
+]
+
+const intakeDetailRows = computed(() => {
+  const d = inquiry.value?.intakeDetails || {}
+  return INTAKE_DETAIL_LABELS
+    .filter(([key]) => {
+      const v = d[key]
+      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
+    })
+    .map(([key, label]) => {
+      const v = d[key]
+      return { label, value: Array.isArray(v) ? v.join(', ') : String(v) }
+    })
+})
+
+const TIMEPOINTS = COLLECTION_TIMEPOINTS
+const collectionGroups = computed(() => inquiry.value?.collectionGroups || [])
+const groupTotal = (g: { subjects: number; samples: Record<string, number> }) =>
+  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((s, tp) => s + (Number(g.samples?.[tp.key]) || 0), 0)
+const matrixGrandTotal = computed(() =>
+  collectionGroups.value.reduce((s, g) => s + groupTotal(g), 0),
 )
 
 const isApproving = ref(false)
@@ -403,6 +453,45 @@ async function saveEdit() {
           <template v-if="inquiry.additionalNotes">
             <div class="info-lbl">Additional notes</div>
             <div>{{ inquiry.additionalNotes }}</div>
+          </template>
+
+          <template v-for="row in intakeDetailRows" :key="row.label">
+            <div class="info-lbl">{{ row.label }}</div>
+            <div>{{ row.value }}</div>
+          </template>
+
+          <template v-if="collectionGroups.length">
+            <div class="info-lbl">Cohort sample matrix</div>
+            <div>
+              <table class="sched-table">
+                <thead>
+                  <tr>
+                    <th>Cohort</th>
+                    <th>Subs</th>
+                    <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                    <th>Samples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(g, i) in collectionGroups" :key="i">
+                    <td>{{ g.name || '—' }}</td>
+                    <td class="mono">{{ g.subjects }}</td>
+                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">{{ g.samples?.[tp.key] || 0 }}</td>
+                    <td class="mono">{{ groupTotal(g).toLocaleString() }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td class="mono">{{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0).toLocaleString() }}</td>
+                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">
+                      {{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[tp.key]) || 0), 0).toLocaleString() }}
+                    </td>
+                    <td class="mono">{{ matrixGrandTotal.toLocaleString() }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </template>
         </div>
       </div>

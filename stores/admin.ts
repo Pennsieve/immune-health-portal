@@ -33,6 +33,8 @@ export interface Inquiry {
   phlebotomy?: string
   metadata?: string
   additionalNotes?: string
+  intakeDetails?: Record<string, unknown>
+  collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
   notes: Array<{ author: string; date: string; text: string }>
   feasibility: Array<{ label: string; checked: boolean }>
 }
@@ -132,6 +134,8 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     phlebotomy: row.phlebotomy as string | undefined,
     metadata: row.metadata as string | undefined,
     additionalNotes: row.additional_notes as string | undefined,
+    intakeDetails: (row.intake_details as Record<string, unknown>) || {},
+    collectionGroups: (row.sample_schedule as Array<{ name: string; subjects: number; samples: Record<string, number> }>) || [],
     notes: (row.notes as Array<{ author: string; date: string; text: string }>) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
   }

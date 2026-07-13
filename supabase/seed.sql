@@ -106,7 +106,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'IH phlebotomist on Penn campus', 'REDCap · Project ID 26-surge',
   '[{"label":"Inquiry","date":"Mar 22","status":"done"},{"label":"Review","date":"Mar 25","status":"done"},{"label":"Approved","date":"Mar 28","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Complete","date":"—","status":"pending"}]',
   'today', (now() - interval '30 minutes'), null,
-  '[{"dotClass":"g","title":"Rate Schedule countersigned — Dr. Christie","date":"Apr 02, 2026 · 2:15 PM"},{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via public intake form"}]'
+  '[{"dotClass":"g","title":"User Agreement countersigned — Dr. Christie","date":"Apr 02, 2026 · 2:15 PM"},{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via public intake form"}]'
 ),
 (
   'titan-harvard', 'TITAN-Harvard', 'TITAN',
@@ -163,33 +163,27 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
 -- AGREEMENTS (one row per agreement per study)
 
 insert into agreements (study_id, id, name, description, status, signed_by, signed_date, signed_email, sent_date, reminder_date) values
--- BHB ColCan (3 signed, 1 pending)
+-- BHB ColCan (2 signed, 1 pending)
 ('bhb-colcan','ua','User Agreement','Master scope of work between PI and I3H','Signed','Robert Katona','Jan 24, 2026 at 2:48 PM','katona@pennmedicine.upenn.edu',null,null),
-('bhb-colcan','rs','Rate Schedule','Penn Internal — Jan 2026 rate card','Signed','Robert Katona','Jan 24, 2026 at 2:51 PM','katona@pennmedicine.upenn.edu',null,null),
 ('bhb-colcan','lv','LabVantage Sample Intake Form','Sample ID assignment authorization','Signed','Robert Katona','Jan 28, 2026 at 11:14 AM','katona@pennmedicine.upenn.edu',null,null),
 ('bhb-colcan','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls on Pennsieve workspace','Pending',null,null,null,'May 01','May 08'),
 -- PRINCE-Val (all signed)
 ('prince-val','ua','User Agreement','Master scope of work','Signed','Robert Vonderheide','Feb 10, 2025 at 9:12 AM','vonderheide@pennmedicine.upenn.edu',null,null),
-('prince-val','rs','Rate Schedule','Penn Internal — 2025 rate card','Signed','Robert Vonderheide','Feb 10, 2025 at 9:14 AM','vonderheide@pennmedicine.upenn.edu',null,null),
 ('prince-val','lv','LabVantage Sample Intake Form','Sample ID assignment','Signed','Robert Vonderheide','Feb 12, 2025','vonderheide@pennmedicine.upenn.edu',null,null),
 ('prince-val','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls','Signed','Robert Vonderheide','Feb 12, 2025','vonderheide@pennmedicine.upenn.edu',null,null),
--- SURGE-Christie (2 signed, 2 pending)
+-- SURGE-Christie (1 signed, 2 pending)
 ('surge-christie','ua','User Agreement','Master scope of work','Signed','Michael Christie','Apr 02, 2026 at 10:32 AM','christie@pennmedicine.upenn.edu',null,null),
-('surge-christie','rs','Rate Schedule','Penn Internal — Jan 2026 rate card','Signed','Michael Christie','Apr 02, 2026 at 10:35 AM','christie@pennmedicine.upenn.edu',null,null),
 ('surge-christie','lv','LabVantage Sample Intake Form','Sample ID assignment','Pending',null,null,null,'Apr 10','Apr 17'),
 ('surge-christie','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls','Pending',null,null,null,'Apr 10',null),
 -- TITAN-Harvard (all signed)
 ('titan-harvard','ua','User Agreement','Master scope of work','Signed','Wei Chen','Nov 04, 2025','chen@harvard.edu',null,null),
-('titan-harvard','rs','Rate Schedule','External rate card','Signed','Wei Chen','Nov 04, 2025','chen@harvard.edu',null,null),
 ('titan-harvard','lv','LabVantage Sample Intake Form','Sample ID assignment','Signed','Wei Chen','Nov 06, 2025','chen@harvard.edu',null,null),
 ('titan-harvard','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls','Signed','Wei Chen','Nov 06, 2025','chen@harvard.edu',null,null),
 -- IMMUNE-Stanford (all signed)
 ('immune-stanford','ua','User Agreement','Master scope of work','Signed','Anjali Patel','Mar 14, 2025','patel@stanford.edu',null,null),
-('immune-stanford','rs','Rate Schedule','External rate card','Signed','Anjali Patel','Mar 14, 2025','patel@stanford.edu',null,null),
 ('immune-stanford','lv','LabVantage Sample Intake Form','Sample ID assignment','Signed','Anjali Patel','Mar 15, 2025','patel@stanford.edu',null,null),
 ('immune-stanford','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls','Signed','Anjali Patel','Mar 15, 2025','patel@stanford.edu',null,null),
 -- NOVA-BioGen (all signed)
 ('nova-biogen','ua','User Agreement','Master scope of work','Signed','Elena Martinez','Jan 05, 2026','martinez@biogen.com',null,null),
-('nova-biogen','rs','Rate Schedule','Industry rate card','Signed','Elena Martinez','Jan 05, 2026','martinez@biogen.com',null,null),
 ('nova-biogen','lv','LabVantage Sample Intake Form','Sample ID assignment','Signed','Elena Martinez','Jan 07, 2026','martinez@biogen.com',null,null),
 ('nova-biogen','psa','Pennsieve Data Sharing Agreement','Data hosting + access controls','Signed','Elena Martinez','Jan 07, 2026','martinez@biogen.com',null,null);
