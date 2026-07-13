@@ -15,9 +15,9 @@ expected_cols(tbl, col) as (
     -- inquiries
     ('inquiries','id'),('inquiries','study_name'),('inquiries','abbreviation'),
     ('inquiries','status'),('inquiries','submitted_date'),('inquiries','submitted_relative'),
-    ('inquiries','is_stale'),('inquiries','objectives'),('inquiries','pi'),
+    ('inquiries','objectives'),('inquiries','pi'),
     ('inquiries','study_lead'),('inquiries','affiliation'),('inquiries','affiliation_org'),
-    ('inquiries','irb'),('inquiries','cohort_subjects'),('inquiries','cohort_timepoints'),
+    ('inquiries','irb'),('inquiries','cohort_subjects'),
     ('inquiries','services'),('inquiries','services_detail'),('inquiries','estimate'),
     ('inquiries','sample_type'),('inquiries','phlebotomy'),('inquiries','metadata'),
     ('inquiries','budget_code'),('inquiries','funding_name'),('inquiries','ba_name'),
@@ -32,7 +32,7 @@ expected_cols(tbl, col) as (
     ('studies','department'),('studies','objectives'),('studies','phlebotomy'),
     ('studies','metadata_desc'),('studies','lifecycle'),('studies','updated_relative'),
     ('studies','quick_stats'),('studies','activity'),('studies','status_token_version'),
-    ('studies','created_at'),('studies','updated_at'),
+    ('studies','intake_details'),('studies','additional_notes'),('studies','created_at'),('studies','updated_at'),
     -- agreements
     ('agreements','id'),('agreements','study_id'),('agreements','name'),
     ('agreements','description'),('agreements','status'),('agreements','signed_by'),

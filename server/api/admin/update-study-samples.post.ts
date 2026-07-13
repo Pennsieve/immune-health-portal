@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const cohort = study.cohort as {
-    subjects: number; timepoints: number; totalSamples: number
+    subjects: number; totalSamples: number
     processedSamples: number; sampleType: string
   }
   const budget = study.budget as {

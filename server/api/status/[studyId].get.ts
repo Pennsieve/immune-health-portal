@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
   const supabase = serverSupabaseServiceRole(event)
   const { data, error } = await supabase
     .from('studies')
-    .select('name, abbreviation, irb, pi, stage, cohort, lifecycle, objectives, phlebotomy, status_token_version, agreements(*)')
+    .select('name, abbreviation, irb, pi, study_lead, affiliation, affiliation_org, stage, cohort, budget, lifecycle, objectives, additional_notes, phlebotomy, metadata_desc, intake_details, status_token_version, agreements(*)')
     .eq('id', studyId)
     .single()
 
@@ -68,16 +68,45 @@ export default defineEventHandler(async (event) => {
       : null,
   }))
 
+  const studyLead = data.study_lead as { name: string; email: string } | null
+
+  // Budget is exposed to the PI as a services + cost summary only — internal
+  // billing details (account codes, BA / contracting contacts) are stripped.
+  const budget = data.budget as {
+    committed?: number; invoiced?: number
+    lines?: Array<{ service: string; rate: number; planned: number; completed: number }>
+  } | null
+  const budgetSummary = budget
+    ? {
+        committed: budget.committed ?? 0,
+        invoiced: budget.invoiced ?? 0,
+        lines: (budget.lines || []).map(l => ({
+          service: l.service,
+          rate: l.rate,
+          planned: l.planned,
+          completed: l.completed,
+        })),
+      }
+    : null
+
   return {
     name: data.name,
     abbreviation: data.abbreviation,
     irb: data.irb,
     piName: pi.name,
+    piEmail: pi.email,
+    studyLead: studyLead ? { name: studyLead.name, email: studyLead.email } : null,
+    affiliation: data.affiliation,
+    affiliationOrg: data.affiliation_org,
     stage: data.stage,
     cohort: data.cohort,
+    budget: budgetSummary,
     lifecycle: normalizeLifecycle((data.lifecycle as LifecycleStep[]) || []),
     objectives: data.objectives,
+    additionalNotes: data.additional_notes,
     phlebotomy: data.phlebotomy,
+    metadata: data.metadata_desc,
+    intakeDetails: (data.intake_details as Record<string, unknown>) || {},
     agreements,
   }
 })

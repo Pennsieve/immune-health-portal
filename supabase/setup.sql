@@ -6,8 +6,7 @@
 -- these tables/columns. It creates anything missing and refreshes
 -- the RLS policies and triggers without erroring on re-run.
 --
--- This is the union of migrations 001, 002, and 003.
--- It does NOT insert any demo data (see seed.sql for that).
+-- This does NOT insert any demo data (see seed.sql for that).
 -- ============================================================
 
 -- ── Tables ──────────────────────────────────────────────────
@@ -20,7 +19,6 @@ create table if not exists inquiries (
   status             text not null default 'New',
   submitted_date     text,
   submitted_relative text,
-  is_stale           boolean default false,
   objectives         text,
   pi                 jsonb,           -- { name, email }
   study_lead         jsonb,           -- { name, email }
@@ -28,7 +26,6 @@ create table if not exists inquiries (
   affiliation_org    text,
   irb                text,
   cohort_subjects    integer,
-  cohort_timepoints  integer,
   services           text,
   services_detail    jsonb default '[]'::jsonb,
   estimate           numeric,
@@ -67,12 +64,14 @@ create table if not exists studies (
   started_date     text,
   department       text,
   objectives       text,
+  additional_notes text,                              -- PI's additional notes carried from the inquiry
   phlebotomy       text,
   metadata_desc    text,
   lifecycle        jsonb default '[]'::jsonb,
   updated_relative text,
   quick_stats      jsonb,
   activity         jsonb default '[]'::jsonb,
+  intake_details   jsonb default '{}'::jsonb,        -- expanded intake answers carried from the inquiry
   status_token_version integer not null default 1,   -- migration 002
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
@@ -97,7 +96,16 @@ create table if not exists agreements (
 -- (in case the tables above already existed before those migrations)
 alter table inquiries add column if not exists intake_details  jsonb default '{}'::jsonb;
 alter table inquiries add column if not exists sample_schedule jsonb default '[]'::jsonb;
+alter table studies   add column if not exists intake_details  jsonb default '{}'::jsonb;
 alter table studies   add column if not exists status_token_version integer not null default 1;
+alter table studies   add column if not exists additional_notes text;
+
+-- ── Removed columns ─────────────────────────────────────────
+-- The legacy scalar "timepoints" metric was replaced by the cohort sample
+-- matrix. Drop it if an older database still has the column.
+alter table inquiries drop column if exists cohort_timepoints;
+-- The "Stale" inquiry state was removed; drop its backing flag.
+alter table inquiries drop column if exists is_stale;
 
 -- ── Row Level Security ──────────────────────────────────────
 alter table inquiries  enable row level security;

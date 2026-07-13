@@ -42,7 +42,6 @@ const form = reactive<IntakeFormData>({
   subjectCount: 0,
   enrollmentPeriod: undefined,
   firstSampleDate: '',
-  timepointCount: 0,
   collectionGroups: [newGroup()],
   statisticalJustification: '',
   sampleType: 'fresh-blood',
@@ -72,16 +71,12 @@ const form = reactive<IntakeFormData>({
   notes: '',
 })
 
-// Preset options for common collection sites and structured multi-selects
-const COLLECTION_SITE_OPTIONS = ['HUP', 'PAH', 'Presby', 'Radnor', 'CHOP', 'Remote / off-site']
-const TUBE_TYPE_OPTIONS = ['EDTA', 'Sodium heparin', 'Lithium heparin', 'ACD', 'Serum (SST)', 'Other']
-const SPECIAL_HANDLING_OPTIONS = [
-  'Time-sensitive processing window',
-  'Pediatric / low-volume draws',
-  'Infectious / biohazard samples',
-  'Rare or irreplaceable samples',
-]
-const CLINICAL_VARIABLE_OPTIONS = ['Demographics', 'Treatment arms', 'Clinical outcomes', 'Biomarkers', 'Medications', 'Other']
+// Multi-select option lists come from the shared intake schema (single source of
+// truth) so the form's choices can never drift from the admin edit modals.
+const COLLECTION_SITE_OPTIONS = fieldOptionValues('collectionSites')
+const TUBE_TYPE_OPTIONS = fieldOptionValues('tubeTypes')
+const SPECIAL_HANDLING_OPTIONS = fieldOptionValues('specialHandling')
+const CLINICAL_VARIABLE_OPTIONS = fieldOptionValues('clinicalVariables')
 
 // Toggle a value within one of the checkbox-array fields
 const toggleInArray = (field: 'collectionSites' | 'tubeTypes' | 'specialHandling' | 'clinicalVariables', value: string) => {
@@ -223,11 +218,19 @@ const setAffiliation = (affiliation: AffiliationType) => {
   servicesStore.setRateView(affiliation === 'internal' ? 'internal' : 'external')
 }
 
+// IRB status handling — only "approved" studies have an IRB number; the
+// pre-approval states capture an expected timeline instead. Clear whichever
+// field no longer applies so stale values aren't submitted.
+const setIrbStatus = (status: 'approved' | 'pending' | 'not-submitted') => {
+  form.irbStatus = status
+  if (status === 'approved') form.irbTimeline = ''
+  else form.irbNumber = ''
+}
+
 // Form submission
 const submitForm = async () => {
-  // Sync the legacy scalar fields (used downstream) from the matrix
+  // Sync the subject count (used downstream) from the matrix
   form.subjectCount = totalSubjects.value
-  form.timepointCount = timepointTotals.value.filter(tp => tp.total > 0).length
 
   // Validate required fields
   if (!form.projectName || !form.principalInvestigator || !form.piEmail ||
@@ -452,21 +455,21 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
               <button
                 type="button"
                 :class="{ active: form.irbStatus === 'approved' }"
-                @click="form.irbStatus = 'approved'"
+                @click="setIrbStatus('approved')"
               >
                 Approved
               </button>
               <button
                 type="button"
                 :class="{ active: form.irbStatus === 'pending' }"
-                @click="form.irbStatus = 'pending'"
+                @click="setIrbStatus('pending')"
               >
                 Submitted / pending
               </button>
               <button
                 type="button"
                 :class="{ active: form.irbStatus === 'not-submitted' }"
-                @click="form.irbStatus = 'not-submitted'"
+                @click="setIrbStatus('not-submitted')"
               >
                 Not yet submitted
               </button>
@@ -480,10 +483,10 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
             >
             <input
               v-else-if="form.irbStatus === 'pending'"
-              v-model="form.irbNumber"
+              v-model="form.irbTimeline"
               type="text"
               class="mt-sm"
-              placeholder="Expected approval timeline"
+              placeholder="Expected timeline for approval"
             >
             <input
               v-else-if="form.irbStatus === 'not-submitted'"
@@ -1629,6 +1632,7 @@ const { data: intakePage } = await useAsyncData('intakePage', () =>
   padding: 1.5rem 1.8rem;
   color: #fff;
   margin-top: 1rem;
+  margin-bottom: 1.5rem;
 
   h4 {
     font-size: 0.72rem;

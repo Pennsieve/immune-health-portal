@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { serverSupabaseServiceRole } from '#supabase/server'
+import { cleanIntakeDetails } from '~/utils/intakeFields'
 
 const SAMPLE_TYPE_LABELS: Record<string, string> = {
   'fresh-blood': 'Fresh whole blood',
@@ -23,22 +24,6 @@ const AFFILIATION_LABELS: Record<string, string> = {
   external: 'External',
   industry: 'Industry',
 }
-const IRB_STATUS_LABELS: Record<string, string> = {
-  'approved': 'Approved',
-  'pending': 'Submitted / pending',
-  'not-submitted': 'Not yet submitted',
-}
-const PENNSIEVE_LABELS: Record<string, string> = {
-  'has-account': 'Has an account',
-  'need-setup': 'Needs setup',
-  'unsure': 'Not sure',
-}
-const SAMPLE_ARRIVAL_LABELS: Record<string, string> = {
-  'single-batch': 'Single batch',
-  'rolling': 'Rolling basis',
-}
-const YES_NO_LABELS: Record<string, string> = { yes: 'Yes', no: 'No' }
-
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
@@ -50,6 +35,14 @@ export default defineEventHandler(async (event) => {
 
   const { form, estimatedTotal, totalSamples, servicesText, servicesDetail, timezone } = body
   const tz = timezone || DEFAULT_TIMEZONE
+
+  // Cohort scope is derived from the sample matrix (subjects + cohort count),
+  // consistent with the study/inquiry displays. "timepoints" is no longer shown.
+  const cohortGroups: Array<{ subjects?: number }> = Array.isArray(form.collectionGroups) ? form.collectionGroups : []
+  const cohortCount = cohortGroups.length
+  const matrixSubjects = cohortGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0)
+  const scopeSubjects = matrixSubjects || form.subjectCount || 0
+  const cohortLabel = `${cohortCount} ${cohortCount === 1 ? 'cohort' : 'cohorts'}`
 
   // Validate all email addresses before touching the DB
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -98,7 +91,7 @@ export default defineEventHandler(async (event) => {
           <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
             <tr><td style="padding:3px 0;color:#7f8c8d;width:160px;">Study</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.projectName}${form.acronym ? ` (${form.acronym})` : ''}</td></tr>
             <tr><td style="padding:3px 0;color:#7f8c8d;">Principal Investigator</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.principalInvestigator}</td></tr>
-            <tr><td style="padding:3px 0;color:#7f8c8d;">Cohort scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.subjectCount} subjects × ${form.timepointCount} timepoints = ${totalSamples} samples</td></tr>
+            <tr><td style="padding:3px 0;color:#7f8c8d;">Cohort scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${scopeSubjects} subjects · ${cohortLabel} · ${totalSamples} samples</td></tr>
             <tr><td style="padding:3px 0;color:#7f8c8d;">Services requested</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${servicesText}</td></tr>
             ${estimatedTotal ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Estimated total</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">$${estimatedTotal.toLocaleString()}</td></tr>` : ''}
           </table>
@@ -137,53 +130,9 @@ export default defineEventHandler(async (event) => {
     ? 'University of Pennsylvania'
     : (form.externalInstitution || '')
 
-  // Structured intake answers that don't have dedicated columns are stored together.
-  // Empty / default values are dropped so the admin view only shows what the PI actually provided.
-  const intakeDetails: Record<string, unknown> = {}
-  const setDetail = (key: string, value: unknown) => {
-    if (value === undefined || value === null || value === '') return
-    if (Array.isArray(value) && value.length === 0) return
-    intakeDetails[key] = value
-  }
-  // Replace an "Other"-type placeholder in a checkbox list with the user's free-text detail
-  const withOther = (list: unknown, placeholder: string, detail: unknown): string[] => {
-    const arr = Array.isArray(list) ? [...list] as string[] : []
-    if (detail && arr.includes(placeholder)) {
-      arr[arr.indexOf(placeholder)] = `${placeholder} (${detail})`
-    }
-    return arr
-  }
-  const collectionSites = withOther(form.collectionSites, 'Remote / off-site', form.collectionSiteOther)
-  const tubeTypes = form.sampleType === 'fresh-blood'
-    ? withOther(form.tubeTypes, 'Other', form.tubeTypeOther)
-    : []
-  const clinicalVariables = withOther(form.clinicalVariables, 'Other', form.clinicalVariableOther)
-  const irbDetail = form.irbStatus === 'not-submitted' ? form.irbTimeline : ''
-
-  setDetail('collaborators', form.collaborators)
-  setDetail('collectionSites', collectionSites)
-  setDetail('participantNaming', form.participantNaming)
-  setDetail('cohortCount', form.cohortCount)
-  setDetail('cohortNames', form.cohortNames)
-  setDetail('clinicalQuestion', form.clinicalQuestion)
-  setDetail('irbStatus', IRB_STATUS_LABELS[form.irbStatus] || form.irbStatus)
-  setDetail('irbTimeline', irbDetail)
-  setDetail('pilotData', YES_NO_LABELS[form.pilotData] || form.pilotData)
-  setDetail('pilotDataDetail', form.pilotData === 'yes' ? form.pilotDataDetail : '')
-  setDetail('enrollmentPeriod', form.enrollmentPeriod ? `${form.enrollmentPeriod} months` : '')
-  setDetail('firstSampleDate', form.firstSampleDate)
-  setDetail('statisticalJustification', form.statisticalJustification)
-  setDetail('tubeTypes', tubeTypes)
-  setDetail('specialHandling', form.specialHandling)
-  setDetail('specialHandlingNotes', form.specialHandlingNotes)
-  setDetail('customAssays', form.customAssays)
-  setDetail('clinicalVariables', clinicalVariables)
-  setDetail('ilabsId', form.affiliation === 'internal' ? form.ilabsId : '')
-  setDetail('pennsieveStatus', PENNSIEVE_LABELS[form.pennsieveStatus] || form.pennsieveStatus)
-  setDetail('dataSharing', YES_NO_LABELS[form.dataSharing] || form.dataSharing)
-  setDetail('dataSharingNotes', form.dataSharing === 'yes' ? form.dataSharingNotes : '')
-  setDetail('hardDeadlines', form.hardDeadlines)
-  setDetail('sampleArrival', SAMPLE_ARRIVAL_LABELS[form.sampleArrival] || form.sampleArrival)
+  // Structured intake answers are stored RAW (schema resolves labels for display).
+  // Empty / not-applicable values are dropped by the shared cleaner.
+  const intakeDetails = cleanIntakeDetails(form as Record<string, unknown>)
 
   // Cohort sample matrix — one row per group, tubes/subject at each fixed timepoint
   const TIMEPOINT_KEYS = ['base', 'w24', 'w52', 'w104']
@@ -214,9 +163,8 @@ export default defineEventHandler(async (event) => {
     ba_name: form.affiliation === 'internal' ? (form.baName || null) : null,
     ba_email: form.affiliation === 'internal' ? (form.baEmail || null) : null,
     contracting_contact: form.affiliation !== 'internal' ? (form.externalContact || null) : null,
-    irb: form.irbNumber || null,
+    irb: form.irbStatus === 'approved' ? (form.irbNumber || null) : null,
     cohort_subjects: form.subjectCount,
-    cohort_timepoints: form.timepointCount,
     services: servicesText,
     services_detail: servicesDetail || [],
     estimate: estimatedTotal || null,
@@ -277,7 +225,7 @@ export default defineEventHandler(async (event) => {
               ${form.projectLead ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Study lead</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.projectLead} · ${form.leadEmail}</td></tr>` : ''}
               <tr><td style="padding:3px 0;color:#7f8c8d;">Affiliation</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${AFFILIATION_LABELS[form.affiliation] || form.affiliation}${form.externalInstitution ? ` · ${form.externalInstitution}` : ''}</td></tr>
               ${form.irbNumber ? `<tr><td style="padding:3px 0;color:#7f8c8d;">IRB</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.irbNumber}</td></tr>` : ''}
-              <tr><td style="padding:3px 0;color:#7f8c8d;">Scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.subjectCount} × ${form.timepointCount} = ${totalSamples} samples · ${SAMPLE_TYPE_LABELS[form.sampleType] || form.sampleType || '—'}</td></tr>
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${scopeSubjects} subjects · ${cohortLabel} · ${totalSamples} samples · ${SAMPLE_TYPE_LABELS[form.sampleType] || form.sampleType || '—'}</td></tr>
               ${intakeDetails.firstSampleDate || intakeDetails.sampleArrival ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Collection</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${[intakeDetails.firstSampleDate ? `first samples ${intakeDetails.firstSampleDate}` : '', intakeDetails.sampleArrival, Array.isArray(intakeDetails.collectionSites) ? (intakeDetails.collectionSites as string[]).join(', ') : ''].filter(Boolean).join(' · ')}</td></tr>` : ''}
               <tr><td style="padding:3px 0;color:#7f8c8d;">Services</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${servicesText}</td></tr>
               ${estimatedTotal ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Est. revenue</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">$${estimatedTotal.toLocaleString()}</td></tr>` : ''}

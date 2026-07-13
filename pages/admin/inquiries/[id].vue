@@ -3,6 +3,7 @@ import { useAdminStore } from '~/stores/admin'
 import type { Affiliation } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
 import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -27,46 +28,13 @@ const feasibilityComplete = computed(() =>
   !!inquiry.value?.feasibility.length && inquiry.value.feasibility.every(i => i.checked),
 )
 
-// Human labels for the expanded intake_details answers, in display order
-const INTAKE_DETAIL_LABELS: Array<[string, string]> = [
-  ['clinicalQuestion', 'Clinical question'],
-  ['collaborators', 'Other staff & collaborators'],
-  ['collectionSites', 'Collection sites'],
-  ['participantNaming', 'Participant naming'],
-  ['cohortCount', 'Number of cohorts'],
-  ['cohortNames', 'Cohort names'],
-  ['irbStatus', 'IRB status'],
-  ['irbTimeline', 'IRB submission timeline'],
-  ['pilotData', 'Pilot data'],
-  ['pilotDataDetail', 'Pilot data detail'],
-  ['enrollmentPeriod', 'Enrollment period'],
-  ['firstSampleDate', 'First samples expected'],
-  ['statisticalJustification', 'Statistical justification'],
-  ['tubeTypes', 'Collection tubes'],
-  ['specialHandling', 'Special handling'],
-  ['specialHandlingNotes', 'Special handling notes'],
-  ['customAssays', 'Custom panels / assays'],
-  ['clinicalVariables', 'Clinical variables'],
-  ['ilabsId', 'iLabs Service Request ID'],
-  ['pennsieveStatus', 'Pennsieve account'],
-  ['dataSharing', 'Data sharing restrictions'],
-  ['dataSharingNotes', 'Data sharing detail'],
-  ['sampleArrival', 'Sample arrival'],
-  ['hardDeadlines', 'Hard deadlines'],
-]
-
-const intakeDetailRows = computed(() => {
-  const d = inquiry.value?.intakeDetails || {}
-  return INTAKE_DETAIL_LABELS
-    .filter(([key]) => {
-      const v = d[key]
-      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
-    })
-    .map(([key, label]) => {
-      const v = d[key]
-      return { label, value: Array.isArray(v) ? v.join(', ') : String(v) }
-    })
-})
+// Read-only rows for the expanded intake answers (schema-driven: raw value -> label)
+const detailRows = computed(() => intakeDetailRows(inquiry.value?.intakeDetails))
+// Fields the edit modal shows, grouped by section (from the shared schema)
+const fieldsBySection = INTAKE_SECTIONS.map(section => ({
+  section,
+  fields: INTAKE_FIELDS.filter(f => f.section === section),
+}))
 
 const TIMEPOINTS = COLLECTION_TIMEPOINTS
 const collectionGroups = computed(() => inquiry.value?.collectionGroups || [])
@@ -164,6 +132,11 @@ const editOpen = ref(false)
 const isSaving = ref(false)
 const newServiceId = ref('')
 
+// Approved / declined inquiries are terminal and can no longer be edited.
+const isEditable = computed(() =>
+  !!inquiry.value && inquiry.value.status !== 'Approved' && inquiry.value.status !== 'Declined',
+)
+
 type ServiceLine = { name: string; qty: number; rate: string | number }
 
 const editForm = reactive({
@@ -184,12 +157,43 @@ const editForm = reactive({
   objectives: '',
   phlebotomy: '',
   metadata: '',
-  cohortSubjects: 0,
-  cohortTimepoints: 0,
   cohortSampleType: '',
   servicesDetail: [] as ServiceLine[],
+  intakeDetails: {} as Record<string, unknown>,
+  collectionGroups: [] as Array<{ name: string; subjects: number; samples: Record<string, number> }>,
 })
 
+// Normalise a cohort matrix to numeric cells for comparison / saving
+function normalizeGroups(groups: Array<{ name: string; subjects: number; samples: Record<string, number> }>) {
+  return groups.map(g => ({
+    name: g.name || '',
+    subjects: Number(g.subjects) || 0,
+    samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, Number(g.samples?.[tp.key]) || 0])),
+  }))
+}
+
+function addEditGroup() {
+  editForm.collectionGroups.push({
+    name: '',
+    subjects: 0,
+    samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, 0])),
+  })
+}
+function removeEditGroup(i: number) {
+  editForm.collectionGroups.splice(i, 1)
+}
+
+// Cohort scope is derived from the edited matrix, not entered by hand.
+const editMatrixSubjects = computed(() =>
+  editForm.collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0),
+)
+const editMatrixTotal = computed(() =>
+  editForm.collectionGroups.reduce(
+    (s, g) => s + (Number(g.subjects) || 0)
+      * TIMEPOINTS.reduce((a, tp) => a + (Number(g.samples?.[tp.key]) || 0), 0),
+    0,
+  ),
+)
 const availableToAdd = computed(() =>
   servicesStore.activeServices.filter(
     svc => !editForm.servicesDetail.some(l => l.name === svc.name),
@@ -227,17 +231,21 @@ const hasChanges = computed(() => {
   if (editForm.objectives.trim() !== (q.objectives ?? '')) return true
   if (editForm.phlebotomy !== (q.phlebotomy ?? '')) return true
   if (editForm.metadata !== (q.metadata ?? '')) return true
-  if (editForm.cohortSubjects !== q.cohortSubjects || editForm.cohortTimepoints !== q.cohortTimepoints) return true
+  if (editMatrixSubjects.value !== q.cohortSubjects) return true
   if (editForm.cohortSampleType !== (q.sampleType ?? '')) return true
   if (editForm.servicesDetail.length !== q.servicesDetail.length) return true
   for (let i = 0; i < editForm.servicesDetail.length; i++) {
     if (editForm.servicesDetail[i].name !== q.servicesDetail[i].name || editForm.servicesDetail[i].qty !== q.servicesDetail[i].qty) return true
   }
+  // Expanded intake answers
+  if (JSON.stringify(cleanIntakeDetails(editForm.intakeDetails)) !== JSON.stringify(cleanIntakeDetails(q.intakeDetails ?? {}))) return true
+  // Cohort sample matrix
+  if (JSON.stringify(normalizeGroups(editForm.collectionGroups)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? []))) return true
   return false
 })
 
 function openEdit() {
-  if (!inquiry.value) return
+  if (!inquiry.value || !isEditable.value) return
   const q = inquiry.value
   editForm.studyName = q.studyName
   editForm.abbreviation = q.abbreviation ?? ''
@@ -256,10 +264,10 @@ function openEdit() {
   editForm.objectives = q.objectives ?? ''
   editForm.phlebotomy = q.phlebotomy ?? ''
   editForm.metadata = q.metadata ?? ''
-  editForm.cohortSubjects = q.cohortSubjects
-  editForm.cohortTimepoints = q.cohortTimepoints
   editForm.cohortSampleType = q.sampleType ?? ''
   editForm.servicesDetail = q.servicesDetail.map(s => ({ ...s }))
+  editForm.intakeDetails = JSON.parse(JSON.stringify(q.intakeDetails ?? {}))
+  editForm.collectionGroups = normalizeGroups(q.collectionGroups ?? [])
   newServiceId.value = ''
   editOpen.value = true
 }
@@ -287,8 +295,7 @@ async function saveEdit() {
       phlebotomy: editForm.phlebotomy || undefined,
       metadata: editForm.metadata || undefined,
       sampleType: editForm.cohortSampleType || undefined,
-      cohortSubjects: Math.max(0, editForm.cohortSubjects),
-      cohortTimepoints: Math.max(0, editForm.cohortTimepoints),
+      cohortSubjects: editMatrixSubjects.value,
       servicesDetail,
       budgetCode: editForm.affiliation === 'Internal' ? (editForm.budgetCode.trim() || undefined) : undefined,
       fundingName: editForm.affiliation === 'Internal' ? (editForm.fundingName.trim() || undefined) : undefined,
@@ -296,6 +303,8 @@ async function saveEdit() {
       baEmail: editForm.affiliation === 'Internal' ? (editForm.baEmail.trim() || undefined) : undefined,
       contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || undefined) : undefined,
       estimate: estimate > 0 ? estimate : undefined,
+      intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
+      collectionGroups: normalizeGroups(editForm.collectionGroups),
     })
     editOpen.value = false
   }
@@ -338,7 +347,7 @@ async function saveEdit() {
             <span class="dot" /> Approved
           </span>
           <span v-else class="adm-badge b-review">
-            <span class="dot" /> Awaiting feasibility
+            <span class="dot" /> Awaiting review
           </span>
         </h2>
         <div class="pi-line">
@@ -356,7 +365,7 @@ async function saveEdit() {
           </div>
           <div class="meta-item">
             <span class="meta-label">Cohort scope</span>
-            <span class="meta-val">{{ inquiry.cohortSubjects }} subjects × {{ inquiry.cohortTimepoints }} timepoints = {{ inquiry.cohortSubjects * inquiry.cohortTimepoints }}</span>
+            <span class="meta-val">{{ inquiry.cohortSubjects }} subjects · {{ matrixGrandTotal.toLocaleString() }} samples</span>
           </div>
           <div v-if="inquiry.estimate" class="meta-item">
             <span class="meta-label">Estimate</span>
@@ -372,6 +381,7 @@ async function saveEdit() {
         <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
           <span
             class="tip-left"
+            style="width:100%"
             :data-tip="!feasibilityComplete ? 'Complete all feasibility checklist items before approving' : undefined"
           >
             <button
@@ -384,7 +394,13 @@ async function saveEdit() {
             </button>
           </span>
         </template>
-        <button class="btn btn-secondary btn-sm" style="width:100%" @click="openEdit">Edit ✎</button>
+        <span
+          class="tip-left"
+          style="width:100%"
+          :data-tip="!isEditable ? 'This inquiry has been processed and can no longer be edited' : undefined"
+        >
+          <button class="btn btn-secondary btn-sm" style="width:100%" :disabled="!isEditable" @click="openEdit">Edit ✎</button>
+        </span>
         <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
           <button
             class="btn btn-danger btn-sm"
@@ -455,7 +471,7 @@ async function saveEdit() {
             <div>{{ inquiry.additionalNotes }}</div>
           </template>
 
-          <template v-for="row in intakeDetailRows" :key="row.label">
+          <template v-for="row in detailRows" :key="row.label">
             <div class="info-lbl">{{ row.label }}</div>
             <div>{{ row.value }}</div>
           </template>
@@ -695,14 +711,6 @@ async function saveEdit() {
           <div class="em-section-title">Cohort</div>
           <div class="em-grid">
             <div class="em-field">
-              <label class="em-label">Subjects</label>
-              <input v-model.number="editForm.cohortSubjects" type="number" min="0">
-            </div>
-            <div class="em-field">
-              <label class="em-label">Timepoints / subject</label>
-              <input v-model.number="editForm.cohortTimepoints" type="number" min="0">
-            </div>
-            <div class="em-field">
               <label class="em-label">Sample type</label>
               <select v-model="editForm.cohortSampleType">
                 <option value="">—</option>
@@ -714,9 +722,52 @@ async function saveEdit() {
             </div>
             <div class="em-field">
               <label class="em-label">Total samples</label>
-              <div class="em-computed">{{ editForm.cohortSubjects * editForm.cohortTimepoints }}</div>
+              <div class="em-computed">
+                {{ editMatrixTotal.toLocaleString() }}
+                <span class="em-computed-note">from matrix below</span>
+              </div>
             </div>
           </div>
+        </div>
+
+        <!-- Cohort sample matrix -->
+        <div class="em-section">
+          <div class="em-section-title">Cohort sample matrix</div>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Cohort / Group</th>
+                  <th>Subjects</th>
+                  <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
+                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td><input v-model.number="g.subjects" type="number" min="0"></td>
+                  <td v-for="tp in TIMEPOINTS" :key="tp.key">
+                    <input v-model.number="g.samples[tp.key]" type="number" min="0">
+                  </td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
+                </tr>
+                <tr v-if="!editForm.collectionGroups.length">
+                  <td :colspan="TIMEPOINTS.length + 3" class="em-srv-empty">No cohorts yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add cohort</button>
+            <span class="em-matrix-total">{{ editMatrixSubjects.toLocaleString() }} subjects · {{ editMatrixTotal.toLocaleString() }} samples</span>
+          </div>
+        </div>
+
+        <!-- Expanded intake answers — rendered from the shared schema -->
+        <div v-for="group in fieldsBySection" :key="group.section" class="em-section">
+          <div class="em-section-title">{{ group.section }}</div>
+          <IntakeFields :fields="group.fields" :model="editForm.intakeDetails" variant="modal" show-all />
         </div>
       </div>
       <div class="em-foot">

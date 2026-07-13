@@ -38,7 +38,6 @@ export interface Cohort {
   irbNumber?: string
   objectives: string
   subjectCount: number
-  timepointCount: number
   totalSamples: number
   sampleType: SampleType
   phlebotomyNeeds: PhlebotomyOption
@@ -139,7 +138,6 @@ export interface IntakeFormData {
   subjectCount: number
   enrollmentPeriod?: number
   firstSampleDate?: string
-  timepointCount: number
   collectionGroups: CollectionGroup[]
   statisticalJustification?: string
   sampleType: SampleType

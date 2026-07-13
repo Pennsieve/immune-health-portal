@@ -4,8 +4,9 @@ export default defineEventHandler(async (event) => {
   const {
     inquiryId, studyName, abbreviation, pi, studyLead,
     affiliation, affiliationOrg, irb, objectives, phlebotomy,
-    metadata, sampleType, cohortSubjects, cohortTimepoints,
+    metadata, sampleType, cohortSubjects,
     servicesDetail, budgetCode, fundingName, baName, baEmail, contractingContact, estimate,
+    intakeDetails, collectionGroups,
   } = await readBody(event)
 
   if (!inquiryId || !studyName?.trim()) {
@@ -14,33 +15,51 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
+  // A processed inquiry (approved or declined) is terminal and can no longer be edited.
+  const { data: existing, error: fetchErr } = await supabase
+    .from('inquiries')
+    .select('status')
+    .eq('id', inquiryId)
+    .single()
+  if (fetchErr || !existing) {
+    throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
+  }
+  const currentStatus = (existing as Record<string, unknown>).status
+  if (currentStatus === 'Approved' || currentStatus === 'Declined') {
+    throw createError({ statusCode: 409, statusMessage: 'This inquiry has already been processed and can no longer be edited' })
+  }
+
   const services = (servicesDetail as Array<{ name: string }>).map(s => s.name).join(', ')
+
+  const updateData: Record<string, unknown> = {
+    study_name: studyName.trim(),
+    abbreviation: abbreviation?.trim() ?? null,
+    pi,
+    study_lead: studyLead ?? null,
+    affiliation,
+    affiliation_org: affiliationOrg,
+    irb,
+    objectives: objectives || null,
+    phlebotomy: phlebotomy || null,
+    metadata: metadata || null,
+    sample_type: sampleType || null,
+    cohort_subjects: cohortSubjects,
+    services,
+    services_detail: servicesDetail,
+    estimate: estimate ?? null,
+    budget_code: budgetCode || null,
+    funding_name: fundingName || null,
+    ba_name: baName || null,
+    ba_email: baEmail || null,
+    contracting_contact: contractingContact || null,
+  }
+  // Expanded intake answers + cohort matrix (only overwrite when provided)
+  if (intakeDetails !== undefined) updateData.intake_details = intakeDetails ?? {}
+  if (collectionGroups !== undefined) updateData.sample_schedule = collectionGroups ?? []
 
   const { error } = await supabase
     .from('inquiries')
-    .update({
-      study_name: studyName.trim(),
-      abbreviation: abbreviation?.trim() ?? null,
-      pi,
-      study_lead: studyLead ?? null,
-      affiliation,
-      affiliation_org: affiliationOrg,
-      irb,
-      objectives: objectives || null,
-      phlebotomy: phlebotomy || null,
-      metadata: metadata || null,
-      sample_type: sampleType || null,
-      cohort_subjects: cohortSubjects,
-      cohort_timepoints: cohortTimepoints,
-      services,
-      services_detail: servicesDetail,
-      estimate: estimate ?? null,
-      budget_code: budgetCode || null,
-      funding_name: fundingName || null,
-      ba_name: baName || null,
-      ba_email: baEmail || null,
-      contracting_contact: contractingContact || null,
-    })
+    .update(updateData)
     .eq('id', inquiryId)
 
   if (error) {
