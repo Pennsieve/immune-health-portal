@@ -1,0 +1,279 @@
+// ============================================================
+// Intake questionnaire — single source of truth
+//
+// Every "expanded" intake field is defined here once and consumed by:
+//   - the public intake form           (pages/intake.vue)
+//   - the edit-inquiry modal           (pages/admin/inquiries/[id].vue)
+//   - the edit-study modal             (pages/admin/studies/[id].vue)
+//   - the admin detail read-out        (inquiry + study pages)
+//   - the confirmation emails          (server/api/submit-intake.post.ts)
+//
+// Values are stored RAW (the option `value`, or free text). Display labels
+// are resolved through this schema via `intakeDisplayValue()`, so no surface
+// keeps its own copy of the labels/options and they can never drift.
+// ============================================================
+
+export type IntakeFieldType =
+  | 'text'
+  | 'textarea'
+  | 'months' // numeric with a "months" suffix
+  | 'month' // YYYY-MM picker
+  | 'select'
+  | 'yesno'
+  | 'multiselect' // checkbox chips
+
+export interface IntakeOption {
+  value: string
+  label: string
+}
+
+export interface IntakeField {
+  key: string
+  label: string
+  section: string
+  type: IntakeFieldType
+  hint?: string
+  placeholder?: string
+  options?: IntakeOption[]
+  // multiselect: selecting this option reveals a free-text companion field
+  otherValue?: string
+  otherKey?: string
+  otherPlaceholder?: string
+  // select/yesno: this value (or any of these values) reveals a free-text companion field
+  detailKey?: string
+  detailShowIf?: string | string[]
+  detailLabel?: string
+  detailPlaceholder?: string
+  // cross-field visibility (e.g. tube types only for fresh blood)
+  showIfKey?: string
+  showIfEquals?: string
+}
+
+const YES_NO: IntakeOption[] = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+]
+
+export const INTAKE_SECTIONS = ['Study design', 'Scope', 'Samples', 'Assays', 'Data & compliance', 'Logistics'] as const
+
+export const INTAKE_FIELDS: IntakeField[] = [
+  // ── Study design ──
+  {
+    key: 'clinicalQuestion', label: 'Clinical Question', section: 'Study design', type: 'textarea',
+    hint: "The specific clinical question you're trying to answer",
+    placeholder: 'e.g. Does treatment X restore immune cell populations in irAE patients?',
+  },
+  {
+    key: 'collaborators', label: 'Other Staff & Collaborators', section: 'Study design', type: 'text',
+    hint: 'Co-investigators, coordinators, or collaborators on the study',
+    placeholder: 'Names / roles',
+  },
+  {
+    key: 'collectionSites', label: 'Collection Site(s)', section: 'Study design', type: 'multiselect',
+    hint: 'Where will samples be collected?',
+    options: ['HUP', 'PAH', 'Presby', 'Radnor', 'CHOP', 'Remote / off-site'].map(v => ({ value: v, label: v })),
+    otherValue: 'Remote / off-site', otherKey: 'collectionSiteOther', otherPlaceholder: 'Where?',
+  },
+  {
+    key: 'participantNaming', label: 'Participant Naming Convention', section: 'Study design', type: 'text',
+    placeholder: 'e.g. STUDY-001, STUDY-002',
+  },
+  {
+    key: 'cohortCount', label: 'Number of Cohorts', section: 'Study design', type: 'text',
+    placeholder: 'e.g. 3',
+  },
+  {
+    key: 'cohortNames', label: 'Cohort Names', section: 'Study design', type: 'text',
+    placeholder: 'e.g. SLE, SSc, irAE',
+  },
+  {
+    key: 'irbStatus', label: 'IRB Status', section: 'Study design', type: 'select',
+    options: [
+      { value: 'approved', label: 'Approved' },
+      { value: 'pending', label: 'Submitted / pending' },
+      { value: 'not-submitted', label: 'Not yet submitted' },
+    ],
+    detailKey: 'irbTimeline', detailShowIf: ['pending', 'not-submitted'],
+    detailLabel: 'Expected IRB timeline', detailPlaceholder: 'Expected timeline for approval / submission',
+  },
+  {
+    key: 'pilotData', label: 'Preliminary / Pilot Data', section: 'Study design', type: 'yesno',
+    options: YES_NO,
+    detailKey: 'pilotDataDetail', detailShowIf: 'yes',
+    detailLabel: 'Pilot data detail', detailPlaceholder: 'Briefly describe your preliminary data',
+  },
+
+  // ── Scope ──
+  {
+    key: 'enrollmentPeriod', label: 'Enrollment Period', section: 'Scope', type: 'months',
+    hint: 'Over what timeframe?', placeholder: 'e.g. 18',
+  },
+  {
+    key: 'firstSampleDate', label: 'First Samples Expected', section: 'Scope', type: 'month',
+    hint: 'Drives the projected dates in the estimator',
+  },
+  {
+    key: 'statisticalJustification', label: 'Statistical Justification', section: 'Scope', type: 'textarea',
+    hint: 'Power calculation or rationale for the sample size',
+    placeholder: 'e.g. Powered at 80% to detect a 1.5-fold difference…',
+  },
+
+  // ── Samples ──
+  {
+    key: 'tubeTypes', label: 'Collection Tube Type(s)', section: 'Samples', type: 'multiselect',
+    hint: 'CBC with differential is run on all fresh blood samples.',
+    options: ['EDTA', 'Sodium heparin', 'Lithium heparin', 'ACD', 'Serum (SST)', 'Other'].map(v => ({ value: v, label: v })),
+    otherValue: 'Other', otherKey: 'tubeTypeOther', otherPlaceholder: 'Specify tube type',
+    showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+  },
+  {
+    key: 'specialHandling', label: 'Special Handling Requirements', section: 'Samples', type: 'multiselect',
+    options: [
+      'Time-sensitive processing window',
+      'Pediatric / low-volume draws',
+      'Infectious / biohazard samples',
+      'Rare or irreplaceable samples',
+    ].map(v => ({ value: v, label: v })),
+    detailKey: 'specialHandlingNotes', detailShowIf: '__always__',
+    detailLabel: 'Special handling notes', detailPlaceholder: 'Any other handling notes',
+  },
+
+  // ── Assays ──
+  {
+    key: 'customAssays', label: 'Custom Panels or Assays', section: 'Assays', type: 'text',
+    hint: "Anything beyond our standard menu you're interested in?",
+    placeholder: 'e.g. custom CyTOF panel, spectral flow',
+  },
+  {
+    key: 'clinicalVariables', label: 'Clinical Variables Tracked', section: 'Assays', type: 'multiselect',
+    options: ['Demographics', 'Treatment arms', 'Clinical outcomes', 'Biomarkers', 'Medications', 'Other'].map(v => ({ value: v, label: v })),
+    otherValue: 'Other', otherKey: 'clinicalVariableOther', otherPlaceholder: 'Specify variable',
+  },
+
+  // ── Data & compliance ──
+  {
+    key: 'ilabsId', label: 'iLab Service Request ID', section: 'Data & compliance', type: 'text',
+    hint: 'If you already have an iLab request open',
+    placeholder: 'e.g. IL-123456',
+    showIfKey: 'affiliation', showIfEquals: 'internal',
+  },
+  {
+    key: 'pennsieveStatus', label: 'Pennsieve Account', section: 'Data & compliance', type: 'select',
+    hint: 'Data is delivered via the Pennsieve platform',
+    options: [
+      { value: 'has-account', label: 'Has an account' },
+      { value: 'need-setup', label: 'Needs setup' },
+      { value: 'unsure', label: 'Not sure' },
+    ],
+  },
+  {
+    key: 'dataSharing', label: 'Data Sharing Restrictions', section: 'Data & compliance', type: 'yesno',
+    hint: 'Any restrictions on how data may be shared?',
+    options: YES_NO,
+    detailKey: 'dataSharingNotes', detailShowIf: 'yes',
+    detailLabel: 'Data sharing detail', detailPlaceholder: 'Describe the restriction',
+  },
+
+  // ── Logistics ──
+  {
+    key: 'sampleArrival', label: 'Sample Arrival', section: 'Logistics', type: 'select',
+    options: [
+      { value: 'single-batch', label: 'Single batch' },
+      { value: 'rolling', label: 'Rolling basis' },
+    ],
+  },
+  {
+    key: 'hardDeadlines', label: 'Hard Deadlines', section: 'Logistics', type: 'text',
+    hint: 'Grant reporting dates, conference deadlines, etc.',
+    placeholder: 'e.g. R01 renewal due March 2027',
+  },
+]
+
+// All keys that live inside intake_details (field values + their companions)
+export const INTAKE_DETAIL_KEYS: string[] = INTAKE_FIELDS.flatMap(f =>
+  [f.key, f.otherKey, f.detailKey].filter((k): k is string => !!k),
+)
+
+const FIELD_BY_KEY = new Map(INTAKE_FIELDS.map(f => [f.key, f]))
+
+// Whether a field's conditional detail companion applies for the given value.
+// `detailShowIf` may be a single value, a list of values, or '__always__'.
+export function detailApplies(showIf: string | string[] | undefined, value: unknown): boolean {
+  if (showIf === undefined) return false
+  if (showIf === '__always__') return true
+  return Array.isArray(showIf) ? showIf.includes(value as string) : value === showIf
+}
+
+// Option values for a field (e.g. the checkbox list a form section renders).
+export function fieldOptionValues(key: string): string[] {
+  return (FIELD_BY_KEY.get(key)?.options ?? []).map(o => o.value)
+}
+// Option label for a single raw value (e.g. for seg-toggle button text).
+export function fieldOptionLabel(key: string, value: string): string {
+  return FIELD_BY_KEY.get(key)?.options?.find(o => o.value === value)?.label ?? value
+}
+
+// Resolve a stored raw value to its human label (arrays joined, options mapped).
+// Companion "other"/detail text is appended where present.
+export function intakeDisplayValue(key: string, details: Record<string, unknown> | undefined): string {
+  const field = FIELD_BY_KEY.get(key)
+  const raw = details?.[key]
+  const rawEmpty = raw === undefined || raw === null || raw === ''
+    || (Array.isArray(raw) && raw.length === 0)
+  // A conditional companion (e.g. specialHandlingNotes) can carry text even when
+  // the parent field has no selection, so factor it in before bailing out.
+  const detailText = field?.detailKey ? String(details?.[field.detailKey] ?? '') : ''
+  if (rawEmpty && !detailText) return ''
+  if (!field) return Array.isArray(raw) ? raw.join(', ') : String(raw)
+
+  let label = ''
+  if (field.type === 'multiselect') {
+    const arr = Array.isArray(raw) ? raw : []
+    const otherText = field.otherKey ? String(details?.[field.otherKey] ?? '') : ''
+    label = arr
+      .map((v) => {
+        const opt = field.options?.find(o => o.value === v)
+        const l = opt?.label ?? String(v)
+        return (field.otherValue && v === field.otherValue && otherText) ? `${l} (${otherText})` : l
+      })
+      .join(', ')
+  }
+  else if (!rawEmpty) {
+    const opt = field.options?.find(o => o.value === raw)
+    label = opt?.label ?? String(raw)
+    if (field.type === 'months') label = `${raw} months`
+  }
+  // Append the conditional companion text (works for every field type now).
+  if (detailText) label = `${label}${label ? ' — ' : ''}${detailText}`
+  return label
+}
+
+// Rows (label + value) for read-only display, skipping empties.
+export function intakeDetailRows(details: Record<string, unknown> | undefined): Array<{ label: string; value: string }> {
+  return INTAKE_FIELDS
+    .map(f => ({ label: f.label, value: intakeDisplayValue(f.key, details) }))
+    .filter(r => r.value !== '')
+}
+
+// Build a clean intake_details object from a raw source (form values or an edited
+// copy): drops empties and only keeps companion fields when they apply. Shared by
+// submit-intake and both edit modals so storage is identical everywhere.
+export function cleanIntakeDetails(src: Record<string, unknown>): Record<string, unknown> {
+  const keep = (v: unknown) =>
+    v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
+  const out: Record<string, unknown> = {}
+  for (const field of INTAKE_FIELDS) {
+    if (keep(src[field.key])) out[field.key] = src[field.key]
+    if (field.otherKey && field.otherValue
+      && Array.isArray(src[field.key]) && (src[field.key] as string[]).includes(field.otherValue)
+      && keep(src[field.otherKey])) {
+      out[field.otherKey] = src[field.otherKey]
+    }
+    if (field.detailKey
+      && detailApplies(field.detailShowIf, src[field.key])
+      && keep(src[field.detailKey])) {
+      out[field.detailKey] = src[field.detailKey]
+    }
+  }
+  return out
+}

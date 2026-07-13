@@ -151,7 +151,7 @@ const progressSteps = [
           <div class="dash-panel">
             <h3>Processing Tracker</h3>
             <div class="panel-subtitle">
-              {{ selectedCohort.totalSamples }} total samples across {{ selectedCohort.subjectCount }} subjects · {{ selectedCohort.timepointCount }} timepoints each
+              {{ selectedCohort.totalSamples }} total samples across {{ selectedCohort.subjectCount }} subjects
             </div>
 
             <div class="tracker-grid">

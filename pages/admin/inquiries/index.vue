@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { useAdminStore } from '~/stores/admin'
+import { useAdminStore, type Inquiry } from '~/stores/admin'
 
 definePageMeta({ layout: 'admin' })
+
+// True projected sample total from the cohort matrix (sample_schedule).
+const scopeDisplay = (inquiry: Inquiry) => {
+  const groups = inquiry.collectionGroups || []
+  const total = groups.reduce(
+    (sum, g) => sum + (Number(g.subjects) || 0)
+      * Object.values(g.samples || {}).reduce((a, b) => a + (Number(b) || 0), 0),
+    0,
+  )
+  return `${inquiry.cohortSubjects} subj · ${total.toLocaleString()} samples`
+}
 
 const { relativeTime } = useRelativeTime()
 
@@ -9,12 +20,12 @@ const adminStore = useAdminStore()
 const activeFilter = ref('New')
 const searchQuery = ref('')
 
+// `value` is the underlying inquiry status; `label` is what the tab displays.
 const filters = computed(() => [
-  { label: 'New',       count: adminStore.inquiries.filter(i => i.status === 'New' || i.status === 'Stale').length },
-  { label: 'In Review', count: adminStore.inquiries.filter(i => i.status === 'In Review').length },
-  { label: 'Approved',  count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
-  { label: 'Declined',  count: adminStore.inquiries.filter(i => i.status === 'Declined').length },
-  { label: 'All',       count: adminStore.inquiries.length },
+  { value: 'New',      label: 'Awaiting review', count: adminStore.inquiries.filter(i => i.status === 'New').length },
+  { value: 'Approved', label: 'Approved',        count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
+  { value: 'Declined', label: 'Declined',        count: adminStore.inquiries.filter(i => i.status === 'Declined').length },
+  { value: 'All',      label: 'All',             count: adminStore.inquiries.length },
 ])
 
 const affiliationLabel = (aff: string) => {
@@ -26,18 +37,13 @@ const affiliationLabel = (aff: string) => {
 const statusLabel = (status: string) => {
   if (status === 'Approved') return 'b-complete'
   if (status === 'Declined') return 'b-declined'
-  if (status === 'Stale') return 'b-warn'
   return 'b-review'
 }
 
 const displayedInquiries = computed(() => {
   let list = adminStore.inquiries
   if (activeFilter.value !== 'All') {
-    list = list.filter(i =>
-      activeFilter.value === 'New'
-        ? (i.status === 'New' || i.status === 'Stale')
-        : i.status === activeFilter.value,
-    )
+    list = list.filter(i => i.status === activeFilter.value)
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
@@ -64,10 +70,10 @@ const displayedInquiries = computed(() => {
       <div class="chip-group">
         <button
           v-for="f in filters"
-          :key="f.label"
+          :key="f.value"
           class="chip"
-          :class="{ active: activeFilter === f.label }"
-          @click="activeFilter = f.label"
+          :class="{ active: activeFilter === f.value }"
+          @click="activeFilter = f.value"
         >
           {{ f.label }} <span class="chip-count">{{ f.count }}</span>
         </button>
@@ -101,7 +107,7 @@ const displayedInquiries = computed(() => {
           >
             <td>
               <div class="mono" style="font-size:0.78rem">{{ inquiry.submittedDate }}</div>
-              <div class="study-pi" :style="inquiry.isStale ? 'color:var(--warm)' : ''">
+              <div class="study-pi">
                 {{ relativeTime(inquiry.createdAt) }}
               </div>
             </td>
@@ -119,12 +125,12 @@ const displayedInquiries = computed(() => {
               </span>
             </td>
             <td class="mono" style="font-size:0.82rem">
-              {{ inquiry.cohortSubjects }} × {{ inquiry.cohortTimepoints }} = {{ inquiry.cohortSubjects * inquiry.cohortTimepoints }}
+              {{ scopeDisplay(inquiry) }}
             </td>
             <td style="font-size:0.78rem; color:var(--muted)">{{ inquiry.services }}</td>
             <td>
               <span class="adm-badge" :class="statusLabel(inquiry.status)">
-                <span class="dot" /> {{ inquiry.status === 'New' ? 'Awaiting Review' : inquiry.status }}
+                <span class="dot" /> {{ inquiry.status === 'New' ? 'Awaiting review' : inquiry.status }}
               </span>
             </td>
             <td style="text-align:right">

@@ -2360,6 +2360,56 @@ table.budget-table {
   padding: 0.2rem 0 0.4rem;
 }
 
+/* Editable cohort matrix inside the edit-inquiry modal */
+.em-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  th {
+    text-align: center;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.25rem 0.35rem;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.2rem 0.25rem;
+    vertical-align: middle;
+
+    input {
+      width: 100%;
+      padding: 0.4rem 0.5rem;
+    }
+
+    input[type="number"] {
+      width: 58px;
+      text-align: center;
+    }
+  }
+
+  td:first-child input {
+    min-width: 120px;
+  }
+}
+
+.em-matrix-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.em-matrix-total {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* Clerk modal */
 .clerk-overlay {
   position: fixed;

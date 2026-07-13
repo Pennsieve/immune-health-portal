@@ -56,6 +56,20 @@ export default defineEventHandler(async (event) => {
   })
   const committed = lines.reduce((sum, l) => sum + l.committed, 0)
 
+  // True projected sample total from the cohort matrix (sample_schedule).
+  const TIMEPOINT_KEYS = ['base', 'w24', 'w52', 'w104']
+  const sampleSchedule = (inquiry.sample_schedule as Array<{ name?: string; subjects?: number; samples?: Record<string, number> }>) || []
+  const cohortGroups = sampleSchedule.map(g => ({
+    name: g.name || '',
+    subjects: Number(g.subjects) || 0,
+    samples: Object.fromEntries(TIMEPOINT_KEYS.map(k => [k, Number(g.samples?.[k]) || 0])),
+  }))
+  const matrixTotal = cohortGroups.reduce(
+    (sum, g) => sum + g.subjects * Object.values(g.samples).reduce((a, b) => a + b, 0),
+    0,
+  )
+  const totalSamples = matrixTotal
+
   // 1. Create study
   const { error: studyErr } = await supabase.from('studies').insert({
     id: studyId,
@@ -70,10 +84,10 @@ export default defineEventHandler(async (event) => {
     is_locked: true,
     cohort: {
       subjects: inquiry.cohort_subjects,
-      timepoints: inquiry.cohort_timepoints,
-      totalSamples: (inquiry.cohort_subjects as number) * (inquiry.cohort_timepoints as number),
+      totalSamples,
       processedSamples: 0,
       sampleType: inquiry.sample_type || 'TBD',
+      groups: cohortGroups,
     },
     budget: {
       committed,
@@ -88,7 +102,9 @@ export default defineEventHandler(async (event) => {
       lines,
     },
     integrations: {},
+    intake_details: inquiry.intake_details || {},
     objectives: inquiry.objectives,
+    additional_notes: inquiry.additional_notes || null,
     phlebotomy: inquiry.phlebotomy,
     metadata_desc: inquiry.metadata,
     lifecycle: [

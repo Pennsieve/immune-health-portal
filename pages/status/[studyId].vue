@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import { intakeDetailRows } from '~/utils/intakeFields'
+
 definePageMeta({ layout: false })
 
 const route = useRoute()
@@ -16,10 +19,10 @@ interface Agreement {
 
 interface Cohort {
   subjects: number
-  timepoints: number
   totalSamples: number
   processedSamples: number
   sampleType: string
+  groups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
 }
 
 interface LifecycleStep {
@@ -28,16 +31,37 @@ interface LifecycleStep {
   status: 'done' | 'active' | 'pending'
 }
 
+interface BudgetLine {
+  service: string
+  rate: number
+  planned: number
+  completed: number
+}
+
+interface BudgetSummary {
+  committed: number
+  invoiced: number
+  lines: BudgetLine[]
+}
+
 interface StudyStatus {
   name: string
   abbreviation: string
   irb: string
   piName: string
+  piEmail: string
+  studyLead: { name: string; email: string } | null
+  affiliation: string
+  affiliationOrg: string
   stage: string
   cohort: Cohort
+  budget: BudgetSummary | null
   lifecycle: LifecycleStep[]
   objectives: string
+  additionalNotes: string
   phlebotomy: string
+  metadata: string
+  intakeDetails: Record<string, unknown>
   agreements: Agreement[]
 }
 
@@ -76,6 +100,25 @@ const stageColor = computed(() => {
     default: return '#011F5B'
   }
 })
+
+const affiliationLabel = computed(() => {
+  const s = study.value
+  if (!s?.affiliation) return ''
+  return s.affiliationOrg ? `${s.affiliation} · ${s.affiliationOrg}` : s.affiliation
+})
+
+// Fixed collection-timepoint columns for the cohort sample matrix
+const TIMEPOINTS = COLLECTION_TIMEPOINTS
+const cohortGroups = computed(() => study.value?.cohort.groups ?? [])
+const groupTotal = (g: { subjects: number; samples: Record<string, number> }) =>
+  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((s, tp) => s + (Number(g.samples?.[tp.key]) || 0), 0)
+
+// Expanded intake questionnaire answers, resolved to labels via the shared schema
+const detailRows = computed(() => intakeDetailRows(study.value?.intakeDetails))
+
+// Services requested and their planned quantities (PI-facing cost summary)
+const budgetLines = computed(() => study.value?.budget?.lines ?? [])
+const currency = (n: number) => `$${(n || 0).toLocaleString()}`
 </script>
 
 <template>
@@ -201,8 +244,8 @@ const stageColor = computed(() => {
                 <div class="status-cohort-val">{{ study.cohort.subjects }}</div>
               </div>
               <div class="status-cohort-card">
-                <div class="status-cohort-lbl">Timepoints</div>
-                <div class="status-cohort-val">{{ study.cohort.timepoints }}</div>
+                <div class="status-cohort-lbl">Cohorts</div>
+                <div class="status-cohort-val">{{ study.cohort.groups?.length ?? 0 }}</div>
               </div>
               <div class="status-cohort-card">
                 <div class="status-cohort-lbl">Total samples</div>
@@ -226,16 +269,114 @@ const stageColor = computed(() => {
               <div class="status-detail-lbl">Objectives</div>
               <div class="status-detail-val">{{ study.objectives }}</div>
             </div>
+            <div v-if="study.additionalNotes">
+              <div class="status-detail-lbl">Additional notes</div>
+              <div class="status-detail-val">{{ study.additionalNotes }}</div>
+            </div>
+            <div>
+              <div class="status-detail-lbl">Principal Investigator</div>
+              <div class="status-detail-val">{{ study.piName }}<template v-if="study.piEmail"> · {{ study.piEmail }}</template></div>
+            </div>
+            <div v-if="study.studyLead">
+              <div class="status-detail-lbl">Study lead</div>
+              <div class="status-detail-val">{{ study.studyLead.name }}<template v-if="study.studyLead.email"> · {{ study.studyLead.email }}</template></div>
+            </div>
+            <div v-if="affiliationLabel">
+              <div class="status-detail-lbl">Affiliation</div>
+              <div class="status-detail-val">{{ affiliationLabel }}</div>
+            </div>
+            <div>
+              <div class="status-detail-lbl">IRB protocol</div>
+              <div class="status-detail-val">{{ study.irb || '—' }}</div>
+            </div>
             <div>
               <div class="status-detail-lbl">Cohort scope</div>
               <div class="status-detail-val">
-                {{ study.cohort.subjects }} subjects × {{ study.cohort.timepoints }} timepoints
-                = {{ study.cohort.totalSamples }} total samples ({{ study.cohort.sampleType }})
+                {{ study.cohort.subjects }} subjects · {{ study.cohort.groups?.length ?? 0 }} cohorts ·
+                {{ study.cohort.totalSamples }} total samples
               </div>
+            </div>
+            <div v-if="study.cohort.sampleType">
+              <div class="status-detail-lbl">Sample type</div>
+              <div class="status-detail-val">{{ study.cohort.sampleType }}</div>
             </div>
             <div v-if="study.phlebotomy">
               <div class="status-detail-lbl">Phlebotomy</div>
               <div class="status-detail-val">{{ study.phlebotomy }}</div>
+            </div>
+            <div v-if="study.metadata">
+              <div class="status-detail-lbl">Metadata plan</div>
+              <div class="status-detail-val">{{ study.metadata }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cohort sample matrix -->
+        <div v-if="cohortGroups.length" class="status-card">
+          <div class="status-card-head">
+            <h2>Cohort sample matrix</h2>
+            <span class="status-card-ctx">{{ study.cohort.totalSamples }} total samples</span>
+          </div>
+          <div class="status-table-wrap">
+            <table class="status-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Cohort / Group</th>
+                  <th>Subjects</th>
+                  <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                  <th>Samples</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(g, i) in cohortGroups" :key="i">
+                  <td style="text-align:left;">{{ g.name || `Cohort ${i + 1}` }}</td>
+                  <td>{{ g.subjects }}</td>
+                  <td v-for="tp in TIMEPOINTS" :key="tp.key">{{ g.samples?.[tp.key] || 0 }}</td>
+                  <td class="status-matrix-total">{{ groupTotal(g).toLocaleString() }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="status-matrix-note">Values are tubes / parent samples collected per subject at each timepoint.</p>
+        </div>
+
+        <!-- Services & estimated cost -->
+        <div v-if="budgetLines.length" class="status-card">
+          <div class="status-card-head">
+            <h2>Services &amp; estimated cost</h2>
+            <span v-if="study.budget" class="status-card-ctx">{{ currency(study.budget.committed) }} committed</span>
+          </div>
+          <div class="status-table-wrap">
+            <table class="status-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Service</th>
+                  <th>Rate</th>
+                  <th>Planned</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(l, i) in budgetLines" :key="i">
+                  <td style="text-align:left;">{{ l.service }}</td>
+                  <td>{{ currency(l.rate) }}</td>
+                  <td>{{ l.planned }}</td>
+                  <td>{{ l.completed }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Intake questionnaire -->
+        <div v-if="detailRows.length" class="status-card">
+          <div class="status-card-head">
+            <h2>Intake questionnaire</h2>
+          </div>
+          <div class="status-details-grid">
+            <div v-for="row in detailRows" :key="row.label">
+              <div class="status-detail-lbl">{{ row.label }}</div>
+              <div class="status-detail-val">{{ row.value }}</div>
             </div>
           </div>
         </div>
@@ -533,6 +674,43 @@ const stageColor = computed(() => {
   font-size: 0.87rem;
   color: #2b3a4a;
   line-height: 1.55;
+}
+
+/* ── Tables (matrix / services) ── */
+.status-table-wrap {
+  padding: 0.6rem 1.6rem 0.4rem;
+  overflow-x: auto;
+}
+.status-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.status-matrix th {
+  text-align: center;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+  font-weight: 600;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  white-space: nowrap;
+}
+.status-matrix td {
+  text-align: center;
+  padding: 0.55rem 0.6rem;
+  color: #2b3a4a;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-variant-numeric: tabular-nums;
+}
+.status-matrix tbody tr:last-child td { border-bottom: none; }
+.status-matrix-total { font-weight: 600; color: #011F5B; }
+.status-matrix-note {
+  padding: 0.3rem 1.6rem 1.1rem;
+  margin: 0;
+  font-size: 0.72rem;
+  color: #999;
 }
 
 /* ── Footer ── */

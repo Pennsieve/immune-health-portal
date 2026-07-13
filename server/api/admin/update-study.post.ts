@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, objectives, phlebotomy, metadata, cohort, budget, changeNote } = await readBody(event)
+  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, objectives, phlebotomy, metadata, cohort, budget, intakeDetails, changeNote } = await readBody(event)
 
   if (!studyId || !name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or name' })
@@ -74,6 +74,7 @@ export default defineEventHandler(async (event) => {
         metadata_desc: metadata || null,
         cohort,
         budget,
+        ...(intakeDetails !== undefined ? { intake_details: intakeDetails } : {}),
         activity: updatedActivity,
         lifecycle: updatedLifecycle,
       })

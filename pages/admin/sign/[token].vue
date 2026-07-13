@@ -47,7 +47,7 @@ const signerEmail = ref('')
 
 function openClerk() {
   const pi = study.value?.pi as { name: string; email: string } | undefined
-  signerName.value = pi?.name.replace('Dr. ', '') || ''
+  signerName.value = pi?.name || ''
   signerEmail.value = pi?.email || ''
   showClerkModal.value = true
 }
@@ -145,7 +145,7 @@ async function submitSigned() {
             <div class="r"><span class="l">Study</span><span class="v">{{ study.name }}</span></div>
             <div class="r"><span class="l">Principal Investigator</span><span class="v">{{ (study.pi as any).name }}</span></div>
             <div class="r"><span class="l">IRB Protocol</span><span class="v">{{ study.irb }}</span></div>
-            <div class="r"><span class="l">Sample scope</span><span class="v">{{ (study.cohort as any).subjects }} subjects × {{ (study.cohort as any).timepoints }} timepoints = {{ (study.cohort as any).totalSamples }} samples</span></div>
+            <div class="r"><span class="l">Sample scope</span><span class="v">{{ (study.cohort as any).subjects }} subjects · {{ (study.cohort as any).groups?.length ?? 0 }} cohorts · {{ (study.cohort as any).totalSamples }} samples</span></div>
             <div class="r"><span class="l">Sample type</span><span class="v">{{ (study.cohort as any).sampleType }}</span></div>
           </div>
 

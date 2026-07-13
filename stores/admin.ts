@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 
-export type InquiryStatus = 'New' | 'In Review' | 'Approved' | 'Declined' | 'Stale'
+export type InquiryStatus = 'New' | 'Approved' | 'Declined'
 export type StudyStage = 'Review' | 'Agreement' | 'Awaiting Signature' | 'Processing' | 'Complete'
 export type Affiliation = 'Internal' | 'External' | 'Industry'
 
@@ -11,7 +11,6 @@ export interface Inquiry {
   abbreviation: string
   submittedDate: string
   createdAt: string
-  isStale?: boolean
   objectives: string
   pi: { name: string; email: string }
   studyLead?: { name: string; email: string }
@@ -24,7 +23,6 @@ export interface Inquiry {
   contractingContact?: string
   irb: string
   cohortSubjects: number
-  cohortTimepoints: number
   services: string
   servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
   status: InquiryStatus
@@ -73,10 +71,10 @@ export interface Study {
   agreements: Agreement[]
   cohort: {
     subjects: number
-    timepoints: number
     totalSamples: number
     processedSamples: number
     sampleType: string
+    groups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
   }
   budget: {
     committed: number
@@ -92,9 +90,11 @@ export interface Study {
     lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
   }
   integrations: { redcap?: string; labvantage?: string; pennsieve?: string }
+  intakeDetails?: Record<string, unknown>
   startedDate?: string
   department?: string
   objectives?: string
+  additionalNotes?: string
   phlebotomy?: string
   metadata?: string
   activity: ActivityItem[]
@@ -112,7 +112,6 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     abbreviation: row.abbreviation as string,
     submittedDate: row.submitted_date as string,
     createdAt: row.created_at as string,
-    isStale: row.is_stale as boolean,
     objectives: row.objectives as string,
     pi: row.pi as { name: string; email: string },
     studyLead: row.study_lead as { name: string; email: string } | undefined,
@@ -125,7 +124,6 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     contractingContact: row.contracting_contact as string | undefined,
     irb: row.irb as string,
     cohortSubjects: row.cohort_subjects as number,
-    cohortTimepoints: row.cohort_timepoints as number,
     services: row.services as string,
     servicesDetail: (row.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || [],
     status: row.status as InquiryStatus,
@@ -171,9 +169,11 @@ function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study 
     cohort: row.cohort as Study['cohort'],
     budget: row.budget as Study['budget'],
     integrations: (row.integrations as Study['integrations']) || {},
+    intakeDetails: (row.intake_details as Record<string, unknown>) || {},
     startedDate: row.started_date as string | undefined,
     department: row.department as string | undefined,
     objectives: row.objectives as string | undefined,
+    additionalNotes: row.additional_notes as string | undefined,
     phlebotomy: row.phlebotomy as string | undefined,
     metadata: row.metadata_desc as string | undefined,
     activity: (row.activity as ActivityItem[]) || [],
@@ -219,7 +219,7 @@ export const useAdminStore = defineStore('admin', {
       return study.agreements.filter(a => a.status === 'Signed').length
     },
 
-    newInquiriesCount: (state) => state.inquiries.filter(i => i.status === 'New' || i.status === 'Stale').length,
+    newInquiriesCount: (state) => state.inquiries.filter(i => i.status === 'New').length,
 
     studiesByStage: (state) => (stage: StudyStage) => state.studies.filter(s => s.stage === stage),
   },
@@ -257,9 +257,12 @@ export const useAdminStore = defineStore('admin', {
 
     async loadStudies() {
       const supabase = useSupabaseClient()
+      // Select every column (+ embedded agreements). An explicit column list
+      // previously omitted intake_details / additional_notes / status_token_version,
+      // so those never reached the client — keep this as '*' to avoid that class of bug.
       const { data, error } = await supabase
         .from('studies')
-        .select('id, name, abbreviation, pi, study_lead, affiliation, affiliation_org, irb, stage, is_locked, cohort, budget, integrations, started_date, department, objectives, phlebotomy, metadata_desc, lifecycle, updated_at, quick_stats, activity, agreements(*)')
+        .select('*, agreements(*)')
         .order('updated_at', { ascending: false })
       if (error) throw error
 
@@ -376,6 +379,7 @@ export const useAdminStore = defineStore('admin', {
       metadata?: string
       cohort: Study['cohort']
       budget: Study['budget']
+      intakeDetails?: Record<string, unknown>
     }, changeNote?: string) {
       const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle'] }>('/api/admin/update-study', {
         method: 'POST',
@@ -396,6 +400,7 @@ export const useAdminStore = defineStore('admin', {
         study.metadata = fields.metadata
         Object.assign(study.cohort, fields.cohort)
         Object.assign(study.budget, fields.budget)
+        if (fields.intakeDetails !== undefined) study.intakeDetails = fields.intakeDetails
         study.lifecycle = result.lifecycle
         study.activity.unshift(result.activityItem)
       }
@@ -437,7 +442,6 @@ export const useAdminStore = defineStore('admin', {
       metadata?: string
       sampleType?: string
       cohortSubjects: number
-      cohortTimepoints: number
       servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
       budgetCode?: string
       fundingName?: string
@@ -445,6 +449,8 @@ export const useAdminStore = defineStore('admin', {
       baEmail?: string
       contractingContact?: string
       estimate?: number
+      intakeDetails?: Record<string, unknown>
+      collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
     }) {
       await $fetch('/api/admin/update-inquiry', {
         method: 'POST',
@@ -464,7 +470,6 @@ export const useAdminStore = defineStore('admin', {
         inquiry.metadata = fields.metadata
         inquiry.sampleType = fields.sampleType
         inquiry.cohortSubjects = fields.cohortSubjects
-        inquiry.cohortTimepoints = fields.cohortTimepoints
         inquiry.servicesDetail = fields.servicesDetail
         inquiry.services = fields.servicesDetail.map(s => s.name).join(', ')
         inquiry.budgetCode = fields.budgetCode
@@ -473,6 +478,8 @@ export const useAdminStore = defineStore('admin', {
         inquiry.baEmail = fields.baEmail
         inquiry.contractingContact = fields.contractingContact
         inquiry.estimate = fields.estimate
+        if (fields.intakeDetails !== undefined) inquiry.intakeDetails = fields.intakeDetails
+        if (fields.collectionGroups !== undefined) inquiry.collectionGroups = fields.collectionGroups
       }
     },
 

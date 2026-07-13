@@ -29,7 +29,7 @@ const awaitingSignatureStudiesCount = computed(() =>
 
 // Studies by stage
 const intakeReviewCount = computed(() =>
-  adminStore.inquiries.filter(i => i.status === 'New' || i.status === 'In Review').length,
+  adminStore.inquiries.filter(i => i.status === 'New').length,
 )
 const agreementsOutCount = computed(() =>
   adminStore.studies.filter(s => s.stage === 'Agreement' || s.stage === 'Awaiting Signature').length,
