@@ -75,7 +75,7 @@ const submitForm = async () => {
 const sidebarCards = [
   {
     title: 'Who we are',
-    body: 'The Institute for Immunology & Immune Health (I3H) at Penn Medicine provides end-to-end immune profiling for research studies — sample collection and processing, CyTOF and custom assays, and analysis-ready data delivery.',
+    body: 'The Institute for Immunology & Immune Health (I3H) at Penn Medicine provides end-to-end immune profiling for research studies — sample collection and processing, high-dimensional cytometry, and analysis-ready data delivery.',
     variant: 'default',
   },
   {
