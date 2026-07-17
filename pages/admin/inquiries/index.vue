@@ -49,7 +49,7 @@ function selectFilter(value: string) {
 }
 
 // Without a deep link, open on the New leads tab when any leads are waiting
-// (otherwise stay on Awaiting review). On a hard page load the store fills
+// (otherwise stay on In review). On a hard page load the store fills
 // after mount, so re-derive the default once the data arrives — unless the
 // user has already picked a tab themselves.
 watch(
@@ -69,7 +69,7 @@ const searchQuery = ref('')
 const filters = computed(() => [
   { value: 'Lead',        label: 'New leads',       count: adminStore.inquiries.filter(i => i.status === 'Lead').length },
   { value: 'Intake Sent', label: 'Intake sent',     count: adminStore.inquiries.filter(i => i.status === 'Intake Sent').length },
-  { value: 'New',         label: 'Awaiting review', count: adminStore.inquiries.filter(i => i.status === 'New').length },
+  { value: 'New',         label: 'In review',       count: adminStore.inquiries.filter(i => i.status === 'New').length },
   { value: 'Approved',    label: 'Approved',        count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
   { value: 'Declined',    label: 'Declined',        count: adminStore.inquiries.filter(i => i.status === 'Declined').length },
   { value: 'All',         label: 'All',             count: adminStore.inquiries.length },
@@ -90,7 +90,7 @@ const statusLabel = (status: string) => {
 }
 
 const statusText = (status: string) => {
-  if (status === 'New') return 'Awaiting review'
+  if (status === 'New') return 'In review'
   if (status === 'Lead') return 'New lead'
   if (status === 'Intake Sent') return 'Intake sent'
   return status

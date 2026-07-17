@@ -174,7 +174,7 @@ const editForm = reactive({
   affiliation: 'Internal' as Affiliation,
   affiliationOrg: '',
   irb: '',
-  stage: 'Review' as StudyStage,
+  stage: 'Awaiting Signature' as StudyStage,
   accountCode: '',
   fundingName: '',
   baName: '',
@@ -409,7 +409,7 @@ const stageClass = computed(() => {
   if (!study.value) return ''
   if (study.value.stage === 'Complete') return 'b-complete'
   if (study.value.stage === 'Processing') return 'b-processing'
-  if (study.value.stage === 'Awaiting Signature' || study.value.stage === 'Agreement') return 'b-agreement'
+  if (study.value.stage === 'Awaiting Signature') return 'b-agreement'
   return 'b-review'
 })
 
