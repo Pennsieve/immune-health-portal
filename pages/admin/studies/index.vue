@@ -8,9 +8,9 @@ const { relativeTime } = useRelativeTime()
 
 const adminStore = useAdminStore()
 
-// Allow deep-linking to a stage tab, e.g. /admin/studies?stage=Agreement
+// Allow deep-linking to a stage tab, e.g. /admin/studies?stage=Processing
 const route = useRoute()
-const STAGE_TAB_VALUES = ['All', 'Agreement', 'Processing', 'Complete']
+const STAGE_TAB_VALUES = ['All', 'Awaiting Signature', 'Processing', 'Complete']
 const stageFilter = ref<StudyStage | 'All'>(
   typeof route.query.stage === 'string' && STAGE_TAB_VALUES.includes(route.query.stage)
     ? route.query.stage as StudyStage | 'All'
@@ -35,7 +35,7 @@ function cycleSort() {
 
 const stageFilters: Array<{ label: string; value: StudyStage | 'All'; count: number }> = [
   { label: 'All', value: 'All', count: adminStore.studies.length },
-  { label: 'Agreement', value: 'Agreement', count: adminStore.studies.filter(s => s.stage === 'Agreement' || s.stage === 'Awaiting Signature').length },
+  { label: 'Awaiting Signature', value: 'Awaiting Signature', count: adminStore.studies.filter(s => s.stage === 'Awaiting Signature').length },
   { label: 'Processing', value: 'Processing', count: adminStore.studies.filter(s => s.stage === 'Processing').length },
   { label: 'Complete', value: 'Complete', count: adminStore.studies.filter(s => s.stage === 'Complete').length },
 ]
@@ -45,7 +45,7 @@ const affiliationFilters = ['All affiliations', 'Internal', 'External', 'Industr
 const stageClass = (stage: StudyStage) => {
   if (stage === 'Complete') return 'b-complete'
   if (stage === 'Processing') return 'b-processing'
-  if (stage === 'Agreement' || stage === 'Awaiting Signature') return 'b-agreement'
+  if (stage === 'Awaiting Signature') return 'b-agreement'
   return 'b-review'
 }
 
@@ -58,11 +58,7 @@ const affiliationClass = (aff: Affiliation) => {
 const displayedStudies = computed(() => {
   let list = adminStore.studies
   if (stageFilter.value !== 'All') {
-    list = list.filter(s =>
-      stageFilter.value === 'Agreement'
-        ? (s.stage === 'Agreement' || s.stage === 'Awaiting Signature')
-        : s.stage === stageFilter.value
-    )
+    list = list.filter(s => s.stage === stageFilter.value)
   }
   if (affiliationFilter.value !== 'All affiliations') {
     list = list.filter(s => s.affiliation === affiliationFilter.value)

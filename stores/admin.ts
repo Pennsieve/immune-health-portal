@@ -4,7 +4,10 @@ import { AGREEMENT_IDS } from '~/utils/agreements'
 // Lifecycle: 'Lead' (simple lead form submitted) → 'Intake Sent' (full-intake
 // link emailed) → 'New' (full intake received, awaiting review) → terminal.
 export type InquiryStatus = 'Lead' | 'Intake Sent' | 'New' | 'Approved' | 'Declined'
-export type StudyStage = 'Review' | 'Agreement' | 'Awaiting Signature' | 'Processing' | 'Complete'
+// A study is created at 'Awaiting Signature' (approve-inquiry), moves to
+// 'Processing' once all agreements are signed, then 'Complete'. The former
+// 'Review' and 'Agreement' stages were never assigned by any code path.
+export type StudyStage = 'Awaiting Signature' | 'Processing' | 'Complete'
 export type Affiliation = 'Internal' | 'External' | 'Industry'
 
 export interface Inquiry {

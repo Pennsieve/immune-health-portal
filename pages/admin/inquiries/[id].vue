@@ -379,7 +379,7 @@ async function saveEdit() {
             <span class="dot" /> Intake sent
           </span>
           <span v-else class="adm-badge b-review">
-            <span class="dot" /> Awaiting review
+            <span class="dot" /> In review
           </span>
         </h2>
         <div class="pi-line">

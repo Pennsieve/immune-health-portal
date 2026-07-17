@@ -1,25 +1,88 @@
 -- ============================================================
--- Seed data — run after 001_create_schema.sql
--- Populates mock studies, agreements, and inquiries
+-- Seed data — run after setup.sql
+-- Populates mock inquiries (across every lifecycle state), studies,
+-- and agreements so the admin console can be demoed end to end.
+--
+-- Inquiry lifecycle covered:
+--   Lead         → simple lead-form submission, awaiting introductory contact
+--   Intake Sent  → full-intake link emailed, awaiting the detailed form
+--   New          → full intake received, awaiting feasibility review
+--   Approved     → intake approved (also spun up as a study below)
+--   Declined     → intake declined
 -- ============================================================
 
 -- INQUIRIES
+-- Column order:
+--   id, study_name, abbreviation, status, submitted_date, submitted_relative,
+--   objectives, pi, study_lead, affiliation, affiliation_org, irb,
+--   cohort_subjects, services, services_detail, estimate, sample_type,
+--   phlebotomy, metadata, lead_details, intake_sent_date, intake_details,
+--   sample_schedule, notes, feasibility
 
-insert into inquiries (id, study_name, abbreviation, status, submitted_date, submitted_relative, objectives, pi, study_lead, affiliation, affiliation_org, irb, cohort_subjects, services, services_detail, estimate, sample_type, phlebotomy, metadata, notes, feasibility) values
+insert into inquiries (id, study_name, abbreviation, status, submitted_date, submitted_relative, objectives, pi, study_lead, affiliation, affiliation_org, irb, cohort_subjects, services, services_detail, estimate, sample_type, phlebotomy, metadata, lead_details, intake_sent_date, intake_details, sample_schedule, notes, feasibility) values
+
+-- ── Lead: fresh, awaiting introductory contact (checklist untouched) ──
 (
-  'apex-merck', 'APEX-Merck', 'APEX', 'New', 'May 12, 2026', '4 hours ago',
-  'Discovery of immune correlates of response to PD-1 checkpoint inhibitor therapy in NSCLC. Primary endpoint: CD8+ T-cell exhaustion markers at week 6 versus baseline.',
+  'glia-penn', null, null, 'Lead', 'July 16, 2026', '1 day ago',
+  null,
+  '{"name":"Dr. Priya Nguyen","email":"nguyen@pennmedicine.upenn.edu"}',
+  null,
+  'Internal', 'Perelman School of Medicine', null,
+  null, '', '[]'::jsonb, null, null, null, null,
+  '{"role":"Principal Investigator","referralSource":"colleague","callPurpose":"New study inquiry — microglia immune profiling","researchSummary":"Exploring peripheral immune correlates of neuroinflammation in early Parkinson disease, and whether CyTOF profiling could support a pilot cohort."}',
+  null, '{}'::jsonb, '[]'::jsonb,
+  '[]',
+  '[{"label":"Schedule introductory meeting","checked":false},{"label":"Introductory meeting complete","checked":false}]'
+),
+
+-- ── Lead: intro meeting complete, ready to send the full intake ──
+(
+  'atlas-jax', null, null, 'Lead', 'July 15, 2026', '2 days ago',
+  null,
+  '{"name":"Dr. Samuel Okonkwo","email":"okonkwo@jax.org"}',
+  null,
+  'External', 'The Jackson Laboratory', null,
+  null, '', '[]'::jsonb, null, null, null, null,
+  '{"role":"Associate Professor","referralSource":"conference","callPurpose":"Learning about your CyTOF services and pricing","researchSummary":"Comparative immune atlas across autoimmune translational cohorts; interested in whether the core can handle cross-site sample logistics."}',
+  null, '{}'::jsonb, '[]'::jsonb,
+  '[{"author":"Lori Guercio","date":"Jul 15 · 2:20 PM","text":"Met Dr. Okonkwo at CYTO — strong fit for cross-site work. Intro meeting done, ready to send the full intake form."}]',
+  '[{"label":"Schedule introductory meeting","checked":true},{"label":"Introductory meeting complete","checked":true}]'
+),
+
+-- ── Intake Sent: full-intake link emailed, awaiting the detailed form ──
+(
+  'lumen-genoptix', null, null, 'Intake Sent', 'July 10, 2026', '1 week ago',
+  null,
+  '{"name":"Dr. Maria Reyes","email":"mreyes@genoptix.com"}',
+  null,
+  'Industry', 'Genoptix', null,
+  null, '', '[]'::jsonb, null, null, null, null,
+  '{"role":"Director of Translational Science","referralSource":"web-search","callPurpose":"Discuss a biomarker study and turnaround times","researchSummary":"Phase I immuno-oncology candidate; need standardized immune monitoring with a defined turnaround and data delivery on Pennsieve."}',
+  'Jul 14, 2026', '{}'::jsonb, '[]'::jsonb,
+  '[{"author":"Lori Guercio","date":"Jul 14 · 10:05 AM","text":"Intro call done. Sent the full study intake form — awaiting submission."}]',
+  '[{"label":"Schedule introductory meeting","checked":true},{"label":"Introductory meeting complete","checked":true}]'
+),
+
+-- ── New: full intake received, awaiting feasibility review (industry) ──
+(
+  'apex-merck', 'APEX-Merck', 'APEX', 'New', 'May 12, 2026', '2 months ago',
+  'Discovery of immune correlates of response to PD-1 checkpoint inhibitor therapy in NSCLC. Primary endpoint: CD8+ T-cell exhaustion markers at week 24 versus baseline.',
   '{"name":"Dr. James Wilson","email":"wilson@merck.com"}',
   '{"name":"Rachel Thompson","email":"rthompson@merck.com"}',
   'Industry', 'Merck Research Laboratories', 'Pending — Merck IRB',
-  60, 'CyTOF, Tier 1 analysis',
+  60, 'PBMC processing, CyTOF, Tier 1 analysis',
   '[{"name":"PBMC processing","qty":120,"rate":"$450"},{"name":"CyTOF MDIPA","qty":120,"rate":"no quote — contact"},{"name":"Tier 1 analysis","qty":120,"rate":"$50"}]',
   58250, 'Fresh whole blood', 'Remote — collected at Merck sites, shipped overnight', 'REDCap (Merck-hosted instance)',
+  null, null,
+  '{"clinicalQuestion":"Does PD-1 blockade restore CD8 T-cell effector function in NSCLC responders versus non-responders?","collaborators":"Rachel Thompson — CRC; Merck Immuno-Oncology group","collectionSites":["Remote / off-site"],"collectionSiteOther":"Merck multi-center trial sites","participantNaming":"APEX-001, APEX-002","cohortCount":"2","cohortNames":"Responders, Non-responders","irbStatus":"pending","irbTimeline":"Merck IRB approval expected Q3 2026","pilotData":"yes","pilotDataDetail":"Pilot CyTOF on 8 subjects showed a measurable exhaustion signature","enrollmentPeriod":12,"firstSampleDate":"2026-08","statisticalJustification":"Powered at 80% to detect a 1.5-fold difference in CD8 exhaustion frequency, alpha 0.05","tubeTypes":["Sodium heparin","EDTA"],"specialHandling":["Time-sensitive processing window"],"specialHandlingNotes":"24-hour processing window from draw","customAssays":"Custom CyTOF panel — add PD-1, TIM-3, LAG-3","clinicalVariables":["Treatment arms","Clinical outcomes","Biomarkers"],"pennsieveStatus":"need-setup","dataSharing":"yes","dataSharingNotes":"12-month embargo per Merck data policy","sampleArrival":"rolling","hardDeadlines":"AACR 2027 abstract deadline Nov 2026"}',
+  '[{"name":"Responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}},{"name":"Non-responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}}]',
   '[{"author":"Lori Guercio","date":"May 12 · 11:08 AM","text":"CyTOF capacity check w/ Hannah — can absorb in early Q3 batch. Need MSA before agreement package goes out. Routing to legal."}]',
-  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":false},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval for project (if applicable)","checked":false},{"label":"Executed contract or budget account number (active) in CAMS & IH core approved to spend","checked":false},{"label":"Is PI registered in iLab? If yes, set up service request for PI/study and obtain service request ID# for iLab and LabVantage invoicing requirments. If no, get investigator account with iLab.","checked":false},{"label":"Does PI have a dedicated clinical research coordinator? Do they have a LabVantage account? Do they have a PMACS account? If no, set up account and training with the individual that will be entering visits and/or delivering samples. iLab service request ID will be required to set up study in LabVantage (IRB # is preferred as well).","checked":false},{"label":"Metadata collection plan obtained (requirement for CyTOF data analysis).","checked":false},{"label":"Pennsieve access authorization form signed (this may be incorporated into user agreement)","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop off SOP & 1-pager need to be sent to CRC and they should be added to our crc-ihpu slack channel for communication with our processing team.","checked":false},{"label":"Do they have a REDCap account for access to TRU sample drop off survey form","checked":false},{"label":"Is there a way to check to see if CyTOF and other reports promised to PIs are delivered within the prescribed timeframe?","checked":false}]'
 ),
+
+-- ── New: full intake received, awaiting review (internal) ──
 (
-  'cardia-penn', 'CARDIA-Penn', 'CARDIA', 'New', 'May 11, 2026', '1 day ago',
+  'cardia-penn', 'CARDIA-Penn', 'CARDIA', 'New', 'May 11, 2026', '2 months ago',
   'Characterization of immune cell dynamics in cardiac immunometabolism. Primary endpoint: NK cell activation state and macrophage polarization at baseline vs. post-intervention.',
   '{"name":"Dr. Adamski","email":"adamski@pennmedicine.upenn.edu"}',
   null,
@@ -27,11 +90,16 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   24, 'PBMC processing, CyTOF, banking',
   '[{"name":"PBMC processing","qty":72,"rate":"$300"},{"name":"CyTOF MDIPA","qty":72,"rate":"$325"},{"name":"Sample banking","qty":72,"rate":"$50"}]',
   47880, 'Fresh whole blood', 'IH phlebotomist on Penn campus', 'REDCap (Penn-hosted)',
+  null, null,
+  '{"clinicalQuestion":"How do NK cell activation and macrophage polarization shift with cardiac immunometabolic intervention?","collaborators":"Division of Cardiology metabolic group","collectionSites":["HUP"],"participantNaming":"CARDIA-001","cohortCount":"1","cohortNames":"CARDIA","irbStatus":"approved","pilotData":"no","enrollmentPeriod":18,"firstSampleDate":"2026-07","statisticalJustification":"Effect size from prior cohort; 24 subjects gives 80% power for the primary endpoint","tubeTypes":["Sodium heparin"],"specialHandling":[],"clinicalVariables":["Demographics","Clinical outcomes"],"ilabsId":"IL-224417","pennsieveStatus":"has-account","dataSharing":"no","sampleArrival":"rolling"}',
+  '[{"name":"CARDIA","subjects":24,"samples":{"base":1,"w24":1,"w52":1,"w104":0}}]',
   '[]',
-  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":true},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval for project (if applicable)","checked":true},{"label":"Executed contract or budget account number (active) in CAMS & IH core approved to spend","checked":false},{"label":"Is PI registered in iLab? If yes, set up service request for PI/study and obtain service request ID# for iLab and LabVantage invoicing requirments. If no, get investigator account with iLab.","checked":false},{"label":"Does PI have a dedicated clinical research coordinator? Do they have a LabVantage account? Do they have a PMACS account? If no, set up account and training with the individual that will be entering visits and/or delivering samples. iLab service request ID will be required to set up study in LabVantage (IRB # is preferred as well).","checked":false},{"label":"Metadata collection plan obtained (requirement for CyTOF data analysis).","checked":false},{"label":"Pennsieve access authorization form signed (this may be incorporated into user agreement)","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop off SOP & 1-pager need to be sent to CRC and they should be added to our crc-ihpu slack channel for communication with our processing team.","checked":false},{"label":"Do they have a REDCap account for access to TRU sample drop off survey form","checked":false},{"label":"Is there a way to check to see if CyTOF and other reports promised to PIs are delivered within the prescribed timeframe?","checked":false}]'
 ),
+
+-- ── Approved: intake approved (full onboarding checklist complete) ──
 (
-  'resolve-ibd', 'RESOLVE-IBD', 'RESOLVE', 'New', 'May 09, 2026', '3 days ago',
+  'resolve-ibd', 'RESOLVE-IBD', 'RESOLVE', 'Approved', 'May 09, 2026', '2 months ago',
   'Mapping of immune signatures associated with remission in inflammatory bowel disease. Primary endpoint: Treg and Th17 balance across 4 longitudinal timepoints.',
   '{"name":"Dr. Lakshmi","email":"lakshmi@pennmedicine.upenn.edu"}',
   null,
@@ -39,11 +107,16 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   40, 'PBMC, CyTOF, Tier 1 + Tier 2',
   '[{"name":"PBMC processing","qty":160,"rate":"$300"},{"name":"CyTOF MDIPA","qty":160,"rate":"$325"},{"name":"Tier 1 analysis","qty":160,"rate":"$50"},{"name":"Tier 2 analysis","qty":80,"rate":"$120"}]',
   117600, 'Fresh whole blood', 'IH phlebotomist on Penn campus', 'REDCap · Project ID 24-resolve-ibd',
-  '[]',
-  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":true},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
+  null, null,
+  '{"clinicalQuestion":"What immune signatures distinguish sustained remission in IBD?","collaborators":"Division of Gastroenterology; IBD program CRCs","collectionSites":["HUP","PAH"],"participantNaming":"RESOLVE-001","cohortCount":"2","cohortNames":"Remission, Active disease","irbStatus":"approved","pilotData":"yes","pilotDataDetail":"Prior flow data showed Treg/Th17 imbalance in active disease","enrollmentPeriod":24,"firstSampleDate":"2026-06","statisticalJustification":"Powered to detect a 20% difference in Treg frequency at 80% power","tubeTypes":["Sodium heparin","EDTA"],"specialHandling":["Rare or irreplaceable samples"],"specialHandlingNotes":"Some timepoints are single-draw and cannot be repeated","clinicalVariables":["Demographics","Treatment arms","Clinical outcomes","Medications"],"ilabsId":"IL-231180","pennsieveStatus":"has-account","dataSharing":"no","sampleArrival":"rolling","hardDeadlines":"R01 renewal reporting March 2027"}',
+  '[{"name":"Remission","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}},{"name":"Active disease","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}}]',
+  '[{"author":"Lori Guercio","date":"May 14 · 9:40 AM","text":"Feasibility cleared. Approved and agreement package sent to Dr. Lakshmi."}]',
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval for project (if applicable)","checked":true},{"label":"Executed contract or budget account number (active) in CAMS & IH core approved to spend","checked":true},{"label":"Is PI registered in iLab? If yes, set up service request for PI/study and obtain service request ID# for iLab and LabVantage invoicing requirments. If no, get investigator account with iLab.","checked":true},{"label":"Does PI have a dedicated clinical research coordinator? Do they have a LabVantage account? Do they have a PMACS account? If no, set up account and training with the individual that will be entering visits and/or delivering samples. iLab service request ID will be required to set up study in LabVantage (IRB # is preferred as well).","checked":true},{"label":"Metadata collection plan obtained (requirement for CyTOF data analysis).","checked":true},{"label":"Pennsieve access authorization form signed (this may be incorporated into user agreement)","checked":true},{"label":"User agreement signed","checked":true},{"label":"Sample drop off SOP & 1-pager need to be sent to CRC and they should be added to our crc-ihpu slack channel for communication with our processing team.","checked":true},{"label":"Do they have a REDCap account for access to TRU sample drop off survey form","checked":true},{"label":"Is there a way to check to see if CyTOF and other reports promised to PIs are delivered within the prescribed timeframe?","checked":true}]'
 ),
+
+-- ── Declined: full intake reviewed and declined ──
 (
-  'vector-chop', 'VECTOR-CHOP', 'VECTOR', 'New', 'May 06, 2026', '6 days ago',
+  'vector-chop', 'VECTOR-CHOP', 'VECTOR', 'Declined', 'May 06, 2026', '2 months ago',
   'Longitudinal characterization of B-cell and T-cell responses to pediatric vaccine series. Primary endpoint: germinal center B-cell expansion at days 7, 14, and 28.',
   '{"name":"Dr. Bhattacharya","email":"bhatt@email.chop.edu"}',
   null,
@@ -51,8 +124,11 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   18, 'PBMC, CyTOF',
   '[{"name":"PBMC processing","qty":90,"rate":"$375"},{"name":"CyTOF MDIPA","qty":90,"rate":"$350"}]',
   65250, 'Fresh whole blood', 'Remote — collected at CHOP, shipped overnight', 'REDCap (CHOP-hosted)',
-  '[]',
-  '[{"label":"Intake form received","checked":true},{"label":"IRB approval verified (if applicable)","checked":false},{"label":"Executed contract or active CAMS budget account confirmed","checked":false},{"label":"PI registered in iLab; service request created","checked":false},{"label":"CRC has LabVantage, PMACS & iLab accounts set up","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"Pennsieve access authorization form signed","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop-off SOP sent to CRC; added to crc-ihpu Slack; REDCap access confirmed","checked":false},{"label":"CyTOF and other reports delivered within prescribed timeframe","checked":false}]'
+  null, null,
+  '{"clinicalQuestion":"How do germinal center B-cell responses evolve across a pediatric vaccine series?","collaborators":"CHOP Vaccine Immunology group","collectionSites":["CHOP"],"participantNaming":"VECTOR-001","cohortCount":"1","cohortNames":"Vaccine series","irbStatus":"pending","irbTimeline":"CHOP IRB submission planned Q4 2026","pilotData":"no","enrollmentPeriod":6,"firstSampleDate":"2026-09","statisticalJustification":"Feasibility cohort; formal power analysis pending pilot","tubeTypes":["Sodium heparin"],"specialHandling":["Pediatric / low-volume draws"],"specialHandlingNotes":"Low-volume pediatric draws; minimize tube count","clinicalVariables":["Demographics","Biomarkers"],"pennsieveStatus":"unsure","dataSharing":"no","sampleArrival":"single-batch"}',
+  '[{"name":"Vaccine series","subjects":18,"samples":{"base":2,"w24":1,"w52":1,"w104":1}}]',
+  '[{"author":"Lori Guercio","date":"May 10 · 1:15 PM","text":"Declined — pediatric low-volume draws below our minimum viable volume for the requested panel. Offered to revisit if protocol changes."}]',
+  '[{"label":"Intake form received","checked":true},{"label":"IRB approval for project (if applicable)","checked":false},{"label":"Executed contract or budget account number (active) in CAMS & IH core approved to spend","checked":false},{"label":"Is PI registered in iLab? If yes, set up service request for PI/study and obtain service request ID# for iLab and LabVantage invoicing requirments. If no, get investigator account with iLab.","checked":false},{"label":"Does PI have a dedicated clinical research coordinator? Do they have a LabVantage account? Do they have a PMACS account? If no, set up account and training with the individual that will be entering visits and/or delivering samples. iLab service request ID will be required to set up study in LabVantage (IRB # is preferred as well).","checked":false},{"label":"Metadata collection plan obtained (requirement for CyTOF data analysis).","checked":false},{"label":"Pennsieve access authorization form signed (this may be incorporated into user agreement)","checked":false},{"label":"User agreement signed","checked":false},{"label":"Sample drop off SOP & 1-pager need to be sent to CRC and they should be added to our crc-ihpu slack channel for communication with our processing team.","checked":false},{"label":"Do they have a REDCap account for access to TRU sample drop off survey form","checked":false},{"label":"Is there a way to check to see if CyTOF and other reports promised to PIs are delivered within the prescribed timeframe?","checked":false}]'
 );
 
 
@@ -97,7 +173,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   '{"name":"Dr. Christie","email":"christie@pennmedicine.upenn.edu"}',
   null,
   'Internal', 'Perelman School of Medicine', '850991',
-  'Agreement', true,
+  'Awaiting Signature', true,
   '{"subjects":30,"totalSamples":60,"processedSamples":0,"sampleType":"Fresh whole blood"}',
   '{"committed":41000,"invoiced":0,"remaining":41000,"pctInvoiced":0,"billingContact":"billing@pennmedicine.upenn.edu","lines":[{"service":"Consultation","rate":250,"planned":1,"completed":0,"committed":250,"invoiced":0},{"service":"Blood processing (PBMC)","rate":300,"planned":60,"completed":0,"committed":18000,"invoiced":0},{"service":"CyTOF MDIPA","rate":325,"planned":60,"completed":0,"committed":19500,"invoiced":0},{"service":"Tier 1 analysis","rate":50,"planned":60,"completed":0,"committed":3000,"invoiced":0}]}',
   '{"redcap":"26-surge"}',
@@ -106,7 +182,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'IH phlebotomist on Penn campus', 'REDCap · Project ID 26-surge',
   '[{"label":"Inquiry","date":"Mar 22","status":"done"},{"label":"Review","date":"Mar 25","status":"done"},{"label":"Approved","date":"Mar 28","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Complete","date":"—","status":"pending"}]',
   'today', (now() - interval '30 minutes'), null,
-  '[{"dotClass":"g","title":"User Agreement countersigned — Dr. Christie","date":"Apr 02, 2026 · 2:15 PM"},{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via public intake form"}]'
+  '[{"dotClass":"g","title":"User Agreement countersigned — Dr. Christie","date":"Apr 02, 2026 · 2:15 PM"},{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via study intake form"}]'
 ),
 (
   'titan-harvard', 'TITAN-Harvard', 'TITAN',

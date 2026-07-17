@@ -31,7 +31,7 @@ const intakeReviewCount = computed(() =>
   adminStore.inquiries.filter(i => i.status === 'New').length,
 )
 const agreementsOutCount = computed(() =>
-  adminStore.studies.filter(s => s.stage === 'Agreement' || s.stage === 'Awaiting Signature').length,
+  adminStore.studies.filter(s => s.stage === 'Awaiting Signature').length,
 )
 const processingCount = computed(() => adminStore.studies.filter(s => s.stage === 'Processing').length)
 const completeCount = computed(() => adminStore.studies.filter(s => s.stage === 'Complete').length)
@@ -117,7 +117,7 @@ const pagedActivity = computed(() => {
         </div>
       </div>
       <div class="kpi-card" :class="{ warn: intakeReviewCount > 0 }">
-        <div class="kpi-lbl">Pending review</div>
+        <div class="kpi-lbl">In review</div>
         <div class="kpi-val">{{ intakeReviewCount }}</div>
         <div class="kpi-ctx">
           <NuxtLink to="/admin/inquiries" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Review queue</NuxtLink>
@@ -127,7 +127,7 @@ const pagedActivity = computed(() => {
         <div class="kpi-lbl">Awaiting signature</div>
         <div class="kpi-val">{{ awaitingSignatureStudiesCount }}</div>
         <div class="kpi-ctx">
-          <NuxtLink to="/admin/studies?stage=Agreement" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Studies</NuxtLink>
+          <NuxtLink to="/admin/studies?stage=Awaiting%20Signature" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Studies</NuxtLink>
         </div>
       </div>
       <div class="kpi-card">

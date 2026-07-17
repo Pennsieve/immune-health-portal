@@ -83,8 +83,6 @@ const pctProcessed = computed(() => {
 const stageLabel = computed(() => {
   switch (study.value?.stage) {
     case 'Awaiting Signature': return 'Awaiting your signature'
-    case 'Agreement': return 'Agreements in progress'
-    case 'Review': return 'Under review'
     case 'Processing': return 'Sample processing underway'
     case 'Complete': return 'Complete'
     default: return study.value?.stage ?? ''
@@ -95,8 +93,7 @@ const stageColor = computed(() => {
   switch (study.value?.stage) {
     case 'Processing':
     case 'Complete': return '#1a7a4c'
-    case 'Awaiting Signature':
-    case 'Agreement': return '#b7950b'
+    case 'Awaiting Signature': return '#b7950b'
     default: return '#011F5B'
   }
 })
