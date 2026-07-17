@@ -1,6 +1,6 @@
 /*
  * Admin Console Styles
- * Shared styles for the IH3 Admin Console.
+ * Shared styles for the I3H Admin Console.
  * Uses the same design tokens as the public site (variables.scss).
  */
 
@@ -37,6 +37,7 @@
 .b-warn       { background: rgba(192,57,43,0.10);   color: var(--warm); }
 .b-muted      { background: rgba(127,140,141,0.12); color: var(--muted); }
 .b-declined   { background: rgba(192,57,43,0.10);   color: var(--warm); }
+.b-lead       { background: rgba(41,128,185,0.10);  color: #1f6391; }
 .b-industry   { background: rgba(108,52,131,0.10);  color: #6c3483; }
 .b-external   { background: rgba(41,128,185,0.10);  color: #1f6391; }
 .b-internal   { background: rgba(1,31,91,0.08);     color: var(--accent); }

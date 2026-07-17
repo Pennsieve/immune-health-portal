@@ -115,6 +115,21 @@ export type YesNo = 'yes' | 'no'
 export type PennsieveStatus = 'has-account' | 'need-setup' | 'unsure'
 export type SampleArrival = 'single-batch' | 'rolling'
 
+// Simple public lead form — first contact, before I3H has met the lead.
+// The full IntakeFormData questionnaire is only sent (via emailed token
+// link) after that conversation.
+export interface LeadFormData {
+  name: string
+  email: string
+  role?: string
+  affiliation: AffiliationType
+  organization?: string
+  referralSource?: string
+  referralSourceOther?: string
+  callPurpose?: string
+  researchSummary?: string
+}
+
 export interface IntakeFormData {
   projectName: string
   acronym?: string

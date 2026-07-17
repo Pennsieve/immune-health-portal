@@ -60,7 +60,7 @@ onMounted(() => {
         </NuxtLink>
 
         <NuxtLink to="/intake" class="dropdown-item" @click="closeMenu">
-          Start New Project
+          Get in Touch
         </NuxtLink>
 
         <div class="dropdown-divider" />

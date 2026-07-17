@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 
-export type InquiryStatus = 'New' | 'Approved' | 'Declined'
+// Lifecycle: 'Lead' (simple lead form submitted) → 'Intake Sent' (full-intake
+// link emailed) → 'New' (full intake received, awaiting review) → terminal.
+export type InquiryStatus = 'Lead' | 'Intake Sent' | 'New' | 'Approved' | 'Declined'
 export type StudyStage = 'Review' | 'Agreement' | 'Awaiting Signature' | 'Processing' | 'Complete'
 export type Affiliation = 'Internal' | 'External' | 'Industry'
 
@@ -32,6 +34,8 @@ export interface Inquiry {
   metadata?: string
   additionalNotes?: string
   intakeDetails?: Record<string, unknown>
+  leadDetails?: Record<string, unknown>
+  intakeSentDate?: string
   collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
   notes: Array<{ author: string; date: string; text: string }>
   feasibility: Array<{ label: string; checked: boolean }>
@@ -108,7 +112,8 @@ export interface Study {
 function mapInquiry(row: Record<string, unknown>): Inquiry {
   return {
     id: row.id as string,
-    studyName: row.study_name as string,
+    // Leads have no study name until the full intake is submitted
+    studyName: (row.study_name as string) || '',
     abbreviation: row.abbreviation as string,
     submittedDate: row.submitted_date as string,
     createdAt: row.created_at as string,
@@ -122,9 +127,9 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     baName: row.ba_name as string | undefined,
     baEmail: row.ba_email as string | undefined,
     contractingContact: row.contracting_contact as string | undefined,
-    irb: row.irb as string,
-    cohortSubjects: row.cohort_subjects as number,
-    services: row.services as string,
+    irb: (row.irb as string) || '',
+    cohortSubjects: (row.cohort_subjects as number) || 0,
+    services: (row.services as string) || '',
     servicesDetail: (row.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || [],
     status: row.status as InquiryStatus,
     estimate: row.estimate as number | undefined,
@@ -133,6 +138,8 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     metadata: row.metadata as string | undefined,
     additionalNotes: row.additional_notes as string | undefined,
     intakeDetails: (row.intake_details as Record<string, unknown>) || {},
+    leadDetails: (row.lead_details as Record<string, unknown>) || {},
+    intakeSentDate: row.intake_sent_date as string | undefined,
     collectionGroups: (row.sample_schedule as Array<{ name: string; subjects: number; samples: Record<string, number> }>) || [],
     notes: (row.notes as Array<{ author: string; date: string; text: string }>) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
@@ -219,7 +226,8 @@ export const useAdminStore = defineStore('admin', {
       return study.agreements.filter(a => a.status === 'Signed').length
     },
 
-    newInquiriesCount: (state) => state.inquiries.filter(i => i.status === 'New').length,
+    // Everything that needs admin attention: fresh leads + full intakes awaiting review
+    newInquiriesCount: (state) => state.inquiries.filter(i => i.status === 'New' || i.status === 'Lead').length,
 
     studiesByStage: (state) => (stage: StudyStage) => state.studies.filter(s => s.stage === stage),
   },
@@ -481,6 +489,20 @@ export const useAdminStore = defineStore('admin', {
         if (fields.intakeDetails !== undefined) inquiry.intakeDetails = fields.intakeDetails
         if (fields.collectionGroups !== undefined) inquiry.collectionGroups = fields.collectionGroups
       }
+    },
+
+    // Email the tokenized full-intake link to a lead (or re-send it)
+    async sendIntakeLink(inquiryId: string) {
+      const { sentDate } = await $fetch<{ success: boolean; sentDate: string }>('/api/admin/send-intake-link', {
+        method: 'POST',
+        body: { inquiryId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      })
+      const inquiry = this.inquiries.find(i => i.id === inquiryId)
+      if (inquiry) {
+        inquiry.status = 'Intake Sent'
+        inquiry.intakeSentDate = sentDate
+      }
+      return sentDate
     },
 
     async logout() {

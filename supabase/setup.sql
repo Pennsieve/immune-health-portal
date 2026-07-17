@@ -11,10 +11,13 @@
 
 -- ── Tables ──────────────────────────────────────────────────
 
--- Inquiries: one row per PI intake submission
+-- Inquiries: one row per lead / PI intake submission.
+-- A row starts as a bare lead (status 'Lead', no study fields) and is
+-- upgraded in place when the full intake form is submitted via the
+-- emailed token link (status 'New').
 create table if not exists inquiries (
   id                 text primary key,
-  study_name         text not null,
+  study_name         text,            -- null until the full intake is submitted
   abbreviation       text,
   status             text not null default 'New',
   submitted_date     text,
@@ -42,6 +45,8 @@ create table if not exists inquiries (
   feasibility        jsonb default '[]'::jsonb,
   intake_details     jsonb default '{}'::jsonb,   -- expanded intake answers (migration 003)
   sample_schedule    jsonb default '[]'::jsonb,   -- cohort sample matrix (migration 003)
+  lead_details       jsonb default '{}'::jsonb,   -- lead-form answers (role, referral source, …)
+  intake_sent_date   text,                        -- when the full-intake link was emailed
   created_at         timestamptz default now(),
   updated_at         timestamptz default now()
 );
@@ -96,6 +101,10 @@ create table if not exists agreements (
 -- (in case the tables above already existed before those migrations)
 alter table inquiries add column if not exists intake_details  jsonb default '{}'::jsonb;
 alter table inquiries add column if not exists sample_schedule jsonb default '[]'::jsonb;
+alter table inquiries add column if not exists lead_details    jsonb default '{}'::jsonb;
+alter table inquiries add column if not exists intake_sent_date text;
+-- Leads have no study name until the full intake is submitted
+alter table inquiries alter column study_name drop not null;
 alter table studies   add column if not exists intake_details  jsonb default '{}'::jsonb;
 alter table studies   add column if not exists status_token_version integer not null default 1;
 alter table studies   add column if not exists additional_notes text;

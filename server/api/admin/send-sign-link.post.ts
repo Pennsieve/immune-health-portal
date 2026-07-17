@@ -36,18 +36,10 @@ export default defineEventHandler(async (event) => {
   const signUrl = `${origin}/admin/sign/${studyId}-${agreementId}?token=${token}`
   const agreementName = AGREEMENT_NAMES[agreementId] ?? 'Agreement'
 
-  await $fetch('https://api.mailersend.com/v1/email', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.mailersendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: {
-      from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-      to: [{ email: pi.email, name: pi.name }],
-      subject: `Action required: Please sign the ${study.name} ${agreementName}`,
-      html: buildEmail(pi.name, study.name, study.abbreviation as string, agreementName, signUrl),
-    },
+  await sendEmail({
+    to: [{ email: pi.email, name: pi.name }],
+    subject: `Action required: Please sign the ${study.name} ${agreementName}`,
+    html: buildEmail(pi.name, study.name, study.abbreviation as string, agreementName, signUrl),
   })
 
   const tz = timezone || DEFAULT_TIMEZONE

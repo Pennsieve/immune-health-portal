@@ -7,7 +7,15 @@ definePageMeta({ layout: 'admin' })
 const { relativeTime } = useRelativeTime()
 
 const adminStore = useAdminStore()
-const stageFilter = ref<StudyStage | 'All'>('All')
+
+// Allow deep-linking to a stage tab, e.g. /admin/studies?stage=Agreement
+const route = useRoute()
+const STAGE_TAB_VALUES = ['All', 'Agreement', 'Processing', 'Complete']
+const stageFilter = ref<StudyStage | 'All'>(
+  typeof route.query.stage === 'string' && STAGE_TAB_VALUES.includes(route.query.stage)
+    ? route.query.stage as StudyStage | 'All'
+    : 'All',
+)
 const affiliationFilter = ref<Affiliation | 'All affiliations'>('All affiliations')
 const searchQuery = ref('')
 

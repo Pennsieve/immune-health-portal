@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { cleanIntakeDetails } from '~/utils/intakeFields'
+import { verifyIntakeToken } from '~/server/utils/signing'
 
 const SAMPLE_TYPE_LABELS: Record<string, string> = {
   'fresh-blood': 'Fresh whole blood',
@@ -28,13 +29,29 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
-  if (!config.mailersendApiKey) {
+  if (!config.emailsDisabled && !config.mailersendApiKey) {
     console.error('MAILERSEND_API_KEY is not configured')
     throw createError({ statusCode: 500, statusMessage: 'Email service configuration error' })
   }
 
-  const { form, estimatedTotal, totalSamples, servicesText, servicesDetail, timezone } = body
+  const { form, estimatedTotal, totalSamples, servicesText, servicesDetail, timezone, inquiryId, token } = body
   const tz = timezone || DEFAULT_TIMEZONE
+
+  // The full intake is token-gated: the link is emailed by I3H staff after
+  // the introductory conversation (see /api/admin/send-intake-link).
+  if (!inquiryId || !token || typeof token !== 'string') {
+    throw createError({ statusCode: 401, statusMessage: 'Missing or invalid intake link' })
+  }
+  try {
+    const payload = verifyIntakeToken(token, config.signingSecret)
+    if (payload.inquiryId !== inquiryId) throw new Error('inquiry mismatch')
+  }
+  catch (err: unknown) {
+    const message = (err as Error).message === 'token expired'
+      ? 'This intake link has expired — contact the I3H team for a new one'
+      : 'This intake link is invalid'
+    throw createError({ statusCode: 401, statusMessage: message })
+  }
 
   // Cohort scope is derived from the sample matrix (subjects + cohort count),
   // consistent with the study/inquiry displays. "timepoints" is no longer shown.
@@ -64,13 +81,6 @@ export default defineEventHandler(async (event) => {
       statusCode: 400,
       statusMessage: 'Missing required form data',
     })
-  }
-
-  const mailersendUrl = 'https://api.mailersend.com/v1/email'
-  const commonHeaders = {
-    Authorization: `Bearer ${config.mailersendApiKey}`,
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
   }
 
   // 1. Send confirmation email to user (PI and Project Lead)
@@ -124,7 +134,21 @@ export default defineEventHandler(async (event) => {
 
   // 1. Save to Supabase first — if this fails the whole request fails before emails are sent
   const supabase = serverSupabaseServiceRole(event)
-  const inquiryId = crypto.randomUUID()
+
+  // The lead row must exist and still be awaiting its full intake
+  const { data: existing, error: fetchErr } = await supabase
+    .from('inquiries')
+    .select('id, status, submitted_date, feasibility')
+    .eq('id', inquiryId)
+    .single()
+
+  if (fetchErr || !existing) {
+    throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
+  }
+  if (existing.status !== 'Lead' && existing.status !== 'Intake Sent') {
+    throw createError({ statusCode: 409, statusMessage: 'The intake form for this inquiry has already been submitted' })
+  }
+
   const submittedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' })
   const affiliationOrg = form.affiliation === 'internal'
     ? 'University of Pennsylvania'
@@ -146,8 +170,8 @@ export default defineEventHandler(async (event) => {
       }))
     : []
 
-  const { error: dbError } = await supabase.from('inquiries').insert({
-    id: inquiryId,
+  // Upgrade the lead row in place — the full intake fills in the study fields
+  const { error: dbError } = await supabase.from('inquiries').update({
     study_name: form.projectName,
     abbreviation: form.acronym || null,
     status: 'New',
@@ -174,9 +198,10 @@ export default defineEventHandler(async (event) => {
     intake_details: intakeDetails,
     sample_schedule: sampleSchedule,
     additional_notes: form.notes || null,
-    notes: [],
+    // The lead-phase meeting checklist is replaced by the full onboarding
+    // feasibility checklist now that the intake form is in
     feasibility: ONBOARDING_CHECKLIST.map((label, i) => ({ label, checked: i === 0 })),
-  })
+  }).eq('id', inquiryId)
 
   if (dbError) {
     console.error('Supabase insert error:', dbError)
@@ -192,15 +217,10 @@ export default defineEventHandler(async (event) => {
       recipients.push({ email: form.leadEmail, name: form.projectLead })
     }
 
-    await $fetch(mailersendUrl, {
-      method: 'POST',
-      headers: commonHeaders,
-      body: {
-        from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-        to: recipients,
-        subject: `We've received your I3H study inquiry — ${form.projectName}`,
-        html: confirmationHtml,
-      },
+    await sendEmail({
+      to: recipients,
+      subject: `We've received your I3H study inquiry — ${form.projectName}`,
+      html: confirmationHtml,
     })
 
     const submittedAt = new Date().toLocaleString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -255,23 +275,20 @@ export default defineEventHandler(async (event) => {
       </div>
     `
 
-    await $fetch(mailersendUrl, {
-      method: 'POST',
-      headers: commonHeaders,
-      body: {
-        from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-        to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
-        subject: `🆕 New inquiry — ${form.projectName} · ${form.principalInvestigator} · ${AFFILIATION_LABELS[form.affiliation] || form.affiliation}`,
-        html: staffHtml,
-      },
+    await sendEmail({
+      to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
+      subject: `🆕 New inquiry — ${form.projectName} · ${form.principalInvestigator} · ${AFFILIATION_LABELS[form.affiliation] || form.affiliation}`,
+      html: staffHtml,
     })
   }
   catch (error: unknown) {
     const err = error as { data?: { message?: string; errors?: Record<string, string[]> }; message?: string }
     console.error('Error sending email via MailerSend:', err.data || err.message)
 
-    // Roll back the DB insert so there's no orphan record
-    await supabase.from('inquiries').delete().eq('id', inquiryId)
+    // Roll back to the lead state so the form can be resubmitted
+    await supabase.from('inquiries')
+      .update({ status: existing.status, submitted_date: existing.submitted_date, feasibility: existing.feasibility })
+      .eq('id', inquiryId)
 
     // Surface the first specific MailerSend validation error if available
     const firstMailerError = err.data?.errors

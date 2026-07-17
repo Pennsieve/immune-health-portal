@@ -2,14 +2,10 @@
 /**
  * Home Page
  */
-import { useAuthStore } from '~/stores/auth'
-import { useLoginModal } from '~/composables/useLoginModal'
 import { useContentful } from '~/composables/useContentful'
 import type { HomePageContent } from '~/types/index'
 
-const authStore = useAuthStore()
-const { openLoginModal } = useLoginModal()
-const { fetchSingleton, fetchEntries } = useContentful()
+const { fetchSingleton } = useContentful()
 
 const { data: homePage } = await useAsyncData('homePage', () =>
     fetchSingleton<HomePageContent>('homePage'),
@@ -18,6 +14,12 @@ const { data: homePage } = await useAsyncData('homePage', () =>
 const handleStartProject = () => {
   navigateTo('/intake')
 }
+
+// Journey steps come straight from Contentful. Renumber by position so the
+// displayed sequence stays correct even if the CMS `number` values drift.
+const journeySteps = computed(() =>
+  (homePage.value?.journeySteps ?? []).map((s, i) => ({ ...s, number: i + 1 })),
+)
 </script>
 
 <template>
@@ -62,13 +64,13 @@ const handleStartProject = () => {
     </section>
 
     <div class="pipeline-flow">
-      <div v-for="(step, idx) in homePage.journeySteps" :key="step.number" class="pipe-step">
+      <div v-for="(step, idx) in journeySteps" :key="step.number" class="pipe-step">
         <div class="pipe-num" :style="{ background: step.color }">
           {{ step.number }}
         </div>
         <h4>{{ step.title }}</h4>
         <p>{{ step.description }}</p>
-        <span v-if="idx < homePage.journeySteps.length - 1" class="arrow">→</span>
+        <span v-if="idx < journeySteps.length - 1" class="arrow">→</span>
       </div>
     </div>
 
@@ -270,7 +272,7 @@ const handleStartProject = () => {
 
 .pipeline-flow {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
   padding: 0 2rem 4rem;
   max-width: 1080px;

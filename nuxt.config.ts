@@ -45,7 +45,9 @@ export default defineNuxtConfig({
     mailersendApiKey: process.env.MAILERSEND_API_TOKEN || '',
     mailersendFromEmail: process.env.MAILERSEND_FROM_EMAIL || 'noreply@test-q3enl6k3n8042vwr.mlsender.net',
     mailersendFromName: process.env.MAILERSEND_FROM_NAME || 'Immune Health Portal',
-    adminEmail: process.env.ADMIN_EMAIL || 'immune.health.admin@gmail.com',
+    adminEmail: process.env.ADMIN_EMAIL || 'support@immunehealth.science',
+    // Dev bypass: log emails to the server console instead of calling MailerSend
+    emailsDisabled: process.env.DISABLE_EMAILS === 'true',
 
     public: {
       // Pennsieve API Configuration
