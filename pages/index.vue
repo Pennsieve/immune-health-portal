@@ -114,7 +114,6 @@ const journeySteps = computed(() =>
         <div class="team-blurb">
           {{ member.bio }}
         </div>
-        <span class="team-email">{{ member.email }}</span>
       </div>
     </div>
 
