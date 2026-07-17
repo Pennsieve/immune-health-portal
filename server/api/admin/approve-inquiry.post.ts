@@ -30,6 +30,10 @@ export default defineEventHandler(async (event) => {
   if (inquiry.status === 'Approved' || inquiry.status === 'Declined') {
     throw createError({ statusCode: 409, statusMessage: 'Inquiry already processed' })
   }
+  // Leads can't be approved — the study record is built from the full intake
+  if (inquiry.status !== 'New') {
+    throw createError({ statusCode: 409, statusMessage: 'The full intake form has not been submitted yet' })
+  }
 
   const tz = timezone || DEFAULT_TIMEZONE
   const approvedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
@@ -157,18 +161,10 @@ export default defineEventHandler(async (event) => {
   const statusUrl = `${origin}/status/${studyId}?token=${statusToken}`
 
   // 4. Email the PI
-  await $fetch('https://api.mailersend.com/v1/email', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.mailersendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: {
-      from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-      to: [{ email: pi.email, name: pi.name }],
-      subject: `Action required: Agreement package for ${inquiry.study_name as string}`,
-      html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links, statusUrl),
-    },
+  await sendEmail({
+    to: [{ email: pi.email, name: pi.name }],
+    subject: `Action required: Agreement package for ${inquiry.study_name as string}`,
+    html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links, statusUrl),
   })
 
   // 5. Update inquiry status

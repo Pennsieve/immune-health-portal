@@ -265,7 +265,7 @@ const progressSteps = [
             <h3>Select a Cohort</h3>
             <p>Choose a cohort from the sidebar to view its details, or start a new project.</p>
             <NuxtLink to="/intake" class="btn btn-primary">
-              Start New Project
+              Get in Touch
             </NuxtLink>
           </div>
         </template>

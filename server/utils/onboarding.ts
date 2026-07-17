@@ -1,3 +1,11 @@
+// Checklist for a fresh lead, before the full intake form has been sent.
+// Both items must be checked before the admin can send the full intake form.
+// Replaced by ONBOARDING_CHECKLIST when the full intake is submitted.
+export const LEAD_CHECKLIST = [
+  'Schedule introductory meeting',
+  'Introductory meeting complete',
+] as const
+
 export const ONBOARDING_CHECKLIST = [
   'Intake form received',
   'IRB approval for project (if applicable)',

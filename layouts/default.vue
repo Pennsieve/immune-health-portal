@@ -6,7 +6,7 @@ import type { FooterContent } from '~/types/index'
 
 const authStore = useAuthStore()
 const route = useRoute()
-const { isLoginModalOpen, openLoginModal, closeLoginModal } = useLoginModal()
+const { isLoginModalOpen, closeLoginModal } = useLoginModal()
 const { fetchSingleton } = useContentful()
 
 const { data: footerContent } = await useAsyncData('footerContent', () =>
@@ -60,7 +60,7 @@ const handleStartProject = () => {
         </template>
         <template v-else>
           <button class="nav-cta" @click="handleStartProject">
-            Start a Project
+            Get in Touch
           </button>
         </template>
       </div>
@@ -75,6 +75,7 @@ const handleStartProject = () => {
     <footer class="footer">
       <strong>{{ footerContent.organizationName }}</strong> · {{ footerContent.organizationAddress }}<br>
       Billing: {{ footerContent.billingEmail }} · Partnerships: {{ footerContent.partnershipEmail }}
+      · <NuxtLink to="/admin" class="footer-admin">I3H Staff</NuxtLink>
     </footer>
 
     <!-- Login Modal -->
@@ -200,6 +201,17 @@ const handleStartProject = () => {
   strong {
     color: rgba(255, 255, 255, 0.8);
     font-weight: 500;
+  }
+}
+
+// Low-key admin console entry — blends into the footer text
+.footer-admin {
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  transition: color 0.2s;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.75);
   }
 }
 

@@ -39,18 +39,10 @@ export default defineEventHandler(async (event) => {
   const origin = config.siteUrl
   const statusUrl = `${origin}/status/${studyId}?token=${token}`
 
-  await $fetch('https://api.mailersend.com/v1/email', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.mailersendApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: {
-      from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-      to: [{ email: pi.email, name: pi.name }],
-      subject: `Your updated study status link — ${study.name as string}`,
-      html: buildEmail(pi.name, study.name as string, statusUrl),
-    },
+  await sendEmail({
+    to: [{ email: pi.email, name: pi.name }],
+    subject: `Your updated study status link — ${study.name as string}`,
+    html: buildEmail(pi.name, study.name as string, statusUrl),
   })
 
   return { statusUrl }

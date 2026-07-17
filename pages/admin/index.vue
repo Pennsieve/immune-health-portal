@@ -21,8 +21,7 @@ const today = computed(() =>
 // KPIs
 const activeStudiesCount = computed(() => adminStore.studies.length)
 const pendingInquiriesCount = computed(() => adminStore.newInquiriesCount)
-const allAgreements = computed(() => adminStore.studies.flatMap(s => s.agreements))
-const awaitingSignatureCount = computed(() => allAgreements.value.filter(a => a.status === 'Pending').length)
+const newLeadsCount = computed(() => adminStore.inquiries.filter(i => i.status === 'Lead').length)
 const awaitingSignatureStudiesCount = computed(() =>
   adminStore.studies.filter(s => s.agreements.some(a => a.status === 'Pending')).length,
 )
@@ -110,27 +109,33 @@ const pagedActivity = computed(() => {
 
     <!-- KPI tiles -->
     <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-lbl">Active studies</div>
-        <div class="kpi-val">{{ activeStudiesCount }}</div>
-        <div class="kpi-ctx">across all pipeline stages</div>
+      <div class="kpi-card" :class="{ warn: newLeadsCount > 0 }">
+        <div class="kpi-lbl">New leads</div>
+        <div class="kpi-val">{{ newLeadsCount }}</div>
+        <div class="kpi-ctx">
+          <NuxtLink to="/admin/inquiries?filter=Lead" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Awaiting contact</NuxtLink>
+        </div>
       </div>
-      <div class="kpi-card" :class="{ warn: pendingInquiriesCount > 0 }">
+      <div class="kpi-card" :class="{ warn: intakeReviewCount > 0 }">
         <div class="kpi-lbl">Pending review</div>
-        <div class="kpi-val">{{ pendingInquiriesCount }}</div>
+        <div class="kpi-val">{{ intakeReviewCount }}</div>
         <div class="kpi-ctx">
           <NuxtLink to="/admin/inquiries" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Review queue</NuxtLink>
         </div>
       </div>
-      <div class="kpi-card" :class="{ warn: awaitingSignatureCount > 0 }">
+      <div class="kpi-card" :class="{ warn: awaitingSignatureStudiesCount > 0 }">
         <div class="kpi-lbl">Awaiting signature</div>
-        <div class="kpi-val">{{ awaitingSignatureCount }}</div>
-        <div class="kpi-ctx">across {{ awaitingSignatureStudiesCount }} {{ awaitingSignatureStudiesCount === 1 ? 'study' : 'studies' }}</div>
+        <div class="kpi-val">{{ awaitingSignatureStudiesCount }}</div>
+        <div class="kpi-ctx">
+          <NuxtLink to="/admin/studies?stage=Agreement" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Studies</NuxtLink>
+        </div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-lbl">Active processing</div>
-        <div class="kpi-val">{{ processingCount }}</div>
-        <div class="kpi-ctx">samples currently being run</div>
+        <div class="kpi-lbl">Active studies</div>
+        <div class="kpi-val">{{ activeStudiesCount }}</div>
+        <div class="kpi-ctx">
+          <NuxtLink to="/admin/studies" class="alert-act" style="font-size:0.74rem; color:var(--penn-blue); font-weight:600; text-decoration:none;">Across all pipeline stages</NuxtLink>
+        </div>
       </div>
     </div>
 
@@ -146,11 +151,17 @@ const pagedActivity = computed(() => {
         <span class="alert-meta">{{ study.agreements.find(a => a.status === 'Pending')?.sentDate || '' }}</span>
         <NuxtLink :to="'/admin/studies/' + study.id" class="alert-act">Open study →</NuxtLink>
       </div>
-      <div v-if="pendingInquiriesCount > 0" class="alert-row">
+      <div v-if="intakeReviewCount > 0" class="alert-row">
         <span class="adm-badge b-review"><span class="dot" /> Needs Action</span>
-        <span>{{ pendingInquiriesCount }} intake {{ pendingInquiriesCount === 1 ? 'submission' : 'submissions' }} awaiting feasibility review.</span>
+        <span>{{ intakeReviewCount }} intake {{ intakeReviewCount === 1 ? 'submission' : 'submissions' }} awaiting feasibility review.</span>
         <span class="alert-meta">today</span>
         <NuxtLink to="/admin/inquiries" class="alert-act">Open queue →</NuxtLink>
+      </div>
+      <div v-if="newLeadsCount > 0" class="alert-row">
+        <span class="adm-badge b-lead"><span class="dot" /> New Lead</span>
+        <span>{{ newLeadsCount }} new {{ newLeadsCount === 1 ? 'lead' : 'leads' }} awaiting contact.</span>
+        <span class="alert-meta">today</span>
+        <NuxtLink to="/admin/inquiries?filter=Lead" class="alert-act">Open queue →</NuxtLink>
       </div>
     </div>
 

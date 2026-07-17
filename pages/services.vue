@@ -6,7 +6,7 @@
  * Page-level content fetched from Contentful
  */
 import { useContentful } from '~/composables/useContentful'
-import type { ServicesPageContent } from '~/types/index'
+import type { ServicesPageContent, Service } from '~/types/index'
 const { fetchSingleton } = useContentful()
 
 const servicesStore = await useServicesData()
@@ -19,7 +19,7 @@ const setRateView = (view: 'internal' | 'external') => {
   servicesStore.setRateView(view)
 }
 
-const formatRate = (service: any): string => {
+const formatRate = (service: Service): string => {
   // Handle services with rate ranges
   const rateRanges: Record<string, { internal: string; external: string }> = {
     'blood-draw': { internal: '$65–$175', external: '$100–$263' },
@@ -185,6 +185,15 @@ const getBadgeClass = (isActive: boolean): string => {
 
   tr:hover td {
     background: rgba(13, 115, 119, 0.02);
+  }
+
+  // Reserve a stable width for the Rate column so the table doesn't
+  // reflow when toggling internal/external rates (the strings differ
+  // in length, and auto layout resizes every column around them).
+  th:nth-child(4),
+  td.srv-rate {
+    width: 120px;
+    white-space: nowrap;
   }
 }
 

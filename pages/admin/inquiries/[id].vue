@@ -4,6 +4,7 @@ import type { Affiliation } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
 import { COLLECTION_TIMEPOINTS } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
+import { leadDetailRows } from '~/utils/leadFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -27,6 +28,13 @@ const affiliationClass = computed(() => {
 const feasibilityComplete = computed(() =>
   !!inquiry.value?.feasibility.length && inquiry.value.feasibility.every(i => i.checked),
 )
+
+// Lead phase: the full intake form hasn't been submitted yet
+const isLead = computed(() =>
+  inquiry.value?.status === 'Lead' || inquiry.value?.status === 'Intake Sent',
+)
+// Lead-form answers (role, referral source, …) — shown for the whole lifecycle
+const leadRows = computed(() => leadDetailRows(inquiry.value?.leadDetails))
 
 // Read-only rows for the expanded intake answers (schema-driven: raw value -> label)
 const detailRows = computed(() => intakeDetailRows(inquiry.value?.intakeDetails))
@@ -103,6 +111,25 @@ async function approveAndSend() {
   }
 }
 
+const isSendingIntake = ref(false)
+const intakeSentMessage = ref('')
+
+async function sendIntakeForm() {
+  if (!inquiry.value) return
+  isSendingIntake.value = true
+  intakeSentMessage.value = ''
+  try {
+    const sentDate = await adminStore.sendIntakeLink(inquiry.value.id)
+    intakeSentMessage.value = `Intake form emailed to ${inquiry.value.pi.email} on ${sentDate}`
+  }
+  catch {
+    alert('Failed to send the intake form. Please try again.')
+  }
+  finally {
+    isSendingIntake.value = false
+  }
+}
+
 async function confirmDecline() {
   if (!inquiry.value) return
   isDeclining.value = true
@@ -132,10 +159,9 @@ const editOpen = ref(false)
 const isSaving = ref(false)
 const newServiceId = ref('')
 
-// Approved / declined inquiries are terminal and can no longer be edited.
-const isEditable = computed(() =>
-  !!inquiry.value && inquiry.value.status !== 'Approved' && inquiry.value.status !== 'Declined',
-)
+// Only full intakes awaiting review are editable: leads have no study fields
+// yet, and approved / declined inquiries are terminal.
+const isEditable = computed(() => inquiry.value?.status === 'New')
 
 type ServiceLine = { name: string; qty: number; rate: string | number }
 
@@ -328,15 +354,15 @@ async function saveEdit() {
     <div class="crumbs">
       <NuxtLink to="/admin/inquiries" class="crumb-link">Inquiries</NuxtLink>
       <span class="sep">›</span>
-      <span>{{ inquiry.studyName }} · {{ inquiry.pi.name }}</span>
+      <span>{{ inquiry.studyName ? `${inquiry.studyName} · ` : '' }}{{ inquiry.pi.name }}</span>
     </div>
 
     <!-- Hero -->
     <div class="detail-hero">
       <div>
         <h2>
-          {{ inquiry.studyName }}
-          <span class="acronym">{{ inquiry.abbreviation }}</span>
+          {{ inquiry.studyName || inquiry.pi.name }}
+          <span v-if="inquiry.abbreviation" class="acronym">{{ inquiry.abbreviation }}</span>
           <span class="adm-badge" :class="affiliationClass">
             <span class="dot" /> {{ inquiry.affiliation }}
           </span>
@@ -345,6 +371,12 @@ async function saveEdit() {
           </span>
           <span v-else-if="inquiry.status === 'Approved'" class="adm-badge b-complete">
             <span class="dot" /> Approved
+          </span>
+          <span v-else-if="inquiry.status === 'Lead'" class="adm-badge b-lead">
+            <span class="dot" /> New lead
+          </span>
+          <span v-else-if="inquiry.status === 'Intake Sent'" class="adm-badge b-agreement">
+            <span class="dot" /> Intake sent
           </span>
           <span v-else class="adm-badge b-review">
             <span class="dot" /> Awaiting review
@@ -359,13 +391,17 @@ async function saveEdit() {
             <span class="meta-label">Submitted</span>
             <span class="meta-val">{{ inquiry.submittedDate }} · {{ relativeTime(inquiry.createdAt) }}</span>
           </div>
-          <div class="meta-item">
+          <div v-if="inquiry.irb" class="meta-item">
             <span class="meta-label">IRB</span>
             <span class="meta-val">{{ inquiry.irb }}</span>
           </div>
-          <div class="meta-item">
+          <div v-if="!isLead" class="meta-item">
             <span class="meta-label">Cohort scope</span>
             <span class="meta-val">{{ inquiry.cohortSubjects }} subjects · {{ matrixGrandTotal.toLocaleString() }} samples</span>
+          </div>
+          <div v-if="inquiry.status === 'Intake Sent' && inquiry.intakeSentDate" class="meta-item">
+            <span class="meta-label">Intake sent</span>
+            <span class="meta-val">{{ inquiry.intakeSentDate }}</span>
           </div>
           <div v-if="inquiry.estimate" class="meta-item">
             <span class="meta-label">Estimate</span>
@@ -378,7 +414,24 @@ async function saveEdit() {
         </div>
       </div>
       <div class="hero-actions">
-        <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
+        <template v-if="isLead">
+          <span
+            class="tip-left"
+            style="width:100%"
+            :data-tip="!feasibilityComplete ? 'Complete the lead checklist below before sending the intake form' : undefined"
+          >
+            <button
+              class="btn btn-primary"
+              style="width:100%"
+              :disabled="isSendingIntake || isDeclining || !feasibilityComplete"
+              @click="sendIntakeForm"
+            >
+              {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Intake Sent' ? 'Re-send full intake form ✉' : 'Send full intake form ✉') }}
+            </button>
+          </span>
+          <div v-if="intakeSentMessage" style="font-size:0.78rem; color:var(--green); text-align:center;">{{ intakeSentMessage }}</div>
+        </template>
+        <template v-if="inquiry.status === 'New'">
           <span
             class="tip-left"
             style="width:100%"
@@ -394,10 +447,12 @@ async function saveEdit() {
             </button>
           </span>
         </template>
+        <!-- Approved / declined inquiries are terminal — no Edit button at all -->
         <span
+          v-if="inquiry.status !== 'Approved' && inquiry.status !== 'Declined'"
           class="tip-left"
           style="width:100%"
-          :data-tip="!isEditable ? 'This inquiry has been processed and can no longer be edited' : undefined"
+          :data-tip="!isEditable ? 'Editing is available once the full intake form has been submitted' : undefined"
         >
           <button class="btn btn-secondary btn-sm" style="width:100%" :disabled="!isEditable" @click="openEdit">Edit ✎</button>
         </span>
@@ -416,15 +471,48 @@ async function saveEdit() {
 
     <!-- Two-column -->
     <div class="dt-grid">
-      <!-- Intake snapshot -->
-      <div class="panel">
-        <div class="panel-head">
-          <h3>Intake submission</h3>
-          <span class="ctx">submitted via /intake</span>
+      <div style="display:flex; flex-direction:column; gap:1.2rem; min-width:0;">
+        <!-- Lead inquiry (the simple public form answers) -->
+        <div v-if="isLead || leadRows.length" class="panel">
+          <div class="panel-head">
+            <h3>Lead inquiry</h3>
+            <span class="ctx">submitted via public inquiry form</span>
+          </div>
+          <div class="study-info-grid">
+            <div class="info-lbl">Contact</div>
+            <div>{{ inquiry.pi.name }} · <span class="mono">{{ inquiry.pi.email }}</span></div>
+
+            <div class="info-lbl">Affiliation</div>
+            <div>{{ inquiry.affiliation }}<template v-if="inquiry.affiliationOrg"> — {{ inquiry.affiliationOrg }}</template></div>
+
+            <template v-for="row in leadRows" :key="row.label">
+              <div class="info-lbl">{{ row.label }}</div>
+              <div>{{ row.value }}</div>
+            </template>
+
+            <template v-if="isLead">
+              <div class="info-lbl">Full intake</div>
+              <div>
+                <template v-if="inquiry.status === 'Intake Sent'">
+                  Form sent {{ inquiry.intakeSentDate }} — awaiting submission.
+                </template>
+                <template v-else>
+                  Not sent yet. After your conversation with the lead, use “Send full intake form” to email them the study questionnaire.
+                </template>
+              </div>
+            </template>
+          </div>
         </div>
-        <div class="study-info-grid">
-          <div class="info-lbl">Study objectives</div>
-          <div>{{ inquiry.objectives }}</div>
+
+        <!-- Intake snapshot (full study questionnaire) -->
+        <div v-if="!isLead" class="panel">
+          <div class="panel-head">
+            <h3>Intake submission</h3>
+            <span class="ctx">submitted via the emailed intake form</span>
+          </div>
+          <div class="study-info-grid">
+            <div class="info-lbl">Study objectives</div>
+            <div>{{ inquiry.objectives || '—' }}</div>
 
           <template v-if="inquiry.studyLead">
             <div class="info-lbl">Project lead</div>
@@ -509,13 +597,14 @@ async function saveEdit() {
               </table>
             </div>
           </template>
+          </div>
         </div>
       </div>
 
       <!-- Right column -->
       <div style="display:flex; flex-direction:column; gap:1.2rem;">
         <div class="panel">
-          <div class="panel-head"><h3>Feasibility checklist</h3></div>
+          <div class="panel-head"><h3>{{ isLead ? 'Lead checklist' : 'Feasibility checklist' }}</h3></div>
           <div style="padding:0.4rem 1.4rem 1.2rem; font-size:0.86rem;">
             <div
               v-for="item in inquiry.feasibility"
@@ -787,7 +876,7 @@ async function saveEdit() {
       </div>
       <div class="em-body">
         <p style="margin:0 0 0.4rem; font-size:0.88rem;">
-          Are you sure you want to decline the inquiry from <strong>{{ inquiry.pi.name }}</strong> for <strong>{{ inquiry.studyName }}</strong>?
+          Are you sure you want to decline the inquiry from <strong>{{ inquiry?.pi.name }}</strong><template v-if="inquiry?.studyName"> for <strong>{{ inquiry?.studyName }}</strong></template>?
         </p>
         <p style="margin:0; font-size:0.82rem; color:var(--muted);">
           A notification email will be sent to the submitter. This action cannot be undone.

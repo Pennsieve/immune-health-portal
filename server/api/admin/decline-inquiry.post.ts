@@ -33,8 +33,13 @@ export default defineEventHandler(async (event) => {
   try {
     const pi = inquiry.pi as { name: string; email: string }
     const studyLead = inquiry.study_lead as { name: string; email: string } | null
-    const studyName = inquiry.study_name as string
+    // Leads declined before the full intake have no study name
+    const studyName = inquiry.study_name as string | null
     const abbreviation = inquiry.abbreviation as string | null
+    const subjectLine = `Update on your I3H inquiry${studyName ? ` — ${studyName}` : ''}`
+    const inquiryPhrase = studyName
+      ? `your inquiry for <strong>${studyName}${abbreviation ? ` (${abbreviation})` : ''}</strong>`
+      : 'your inquiry'
 
     const declinedHtml = `
       <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#2d3640;line-height:1.75;font-size:0.92rem;font-weight:300;">
@@ -45,11 +50,11 @@ export default defineEventHandler(async (event) => {
             <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;"><font color="#011f5b">Immune Health</font></span>
           </div>
 
-          <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Update on your I3H study inquiry — ${studyName}</font></h3>
+          <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">${subjectLine}</font></h3>
 
           <p style="margin:0 0 0.8rem;">Dear ${pi.name},</p>
 
-          <p style="margin:0 0 0.8rem;">Thank you for submitting your inquiry for <strong>${studyName}${abbreviation ? ` (${abbreviation})` : ''}</strong> to the Institute for Immunology &amp; Immune Health. After careful review of feasibility and current capacity, we are unable to move forward with this study at this time.</p>
+          <p style="margin:0 0 0.8rem;">Thank you for submitting ${inquiryPhrase} to the Institute for Immunology &amp; Immune Health. After careful review of feasibility and current capacity, we are unable to move forward at this time.</p>
 
           <p style="margin:0 0 1rem;">We understand this may be disappointing, and we appreciate the time you invested in preparing your submission. If your study requirements change, or if you would like to discuss alternative approaches, we encourage you to reach out directly.</p>
 
@@ -71,19 +76,10 @@ export default defineEventHandler(async (event) => {
       recipients.push({ email: studyLead.email, name: studyLead.name })
     }
 
-    await $fetch('https://api.mailersend.com/v1/email', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.mailersendApiKey}`,
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: {
-        from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
-        to: recipients,
-        subject: `Update on your I3H study inquiry — ${studyName}`,
-        html: declinedHtml,
-      },
+    await sendEmail({
+      to: recipients,
+      subject: subjectLine,
+      html: declinedHtml,
     })
   }
   catch (err) {
