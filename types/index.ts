@@ -234,6 +234,7 @@ export interface HomePageContent {
   teamOverline: string
   teamHeading: string
   teamDescription: string
+  teamMembers: Array<{ name: string; role: string; initials: string; color: string; bio: string; email: string }>
   contactPills: Array<{ role: string; name: string; email: string }>
 }
 

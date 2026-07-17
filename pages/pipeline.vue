@@ -5,10 +5,14 @@
  * Detailed view of the I3H processing pipeline with expandable steps.
  * Content is fetched from Contentful.
  */
-import type { PipelinePageContent } from '~/types'
+import type { PipelinePageContent, PipelineStepEntry } from '~/types'
 import { useContentful } from '~/composables/useContentful'
 
 const { fetchSingleton } = useContentful()
+
+// Temporarily hide the expandable step detail ("dropdown") — the bubble copy
+// needs a rewrite. Flip back to true to restore the expand/collapse behavior.
+const stepsExpandable = false
 
 const openSteps = ref<string[]>([])
 
@@ -34,7 +38,7 @@ const { data: pipelinePage } = await useAsyncData('pipelinePage', async () =>
 
     return {
       ...raw,
-      pipelineSteps: raw.pipelineSteps?.map((step: any) => ({
+      pipelineSteps: raw.pipelineSteps?.map((step: PipelineStepEntry) => ({
         ...step.fields
       })) ?? []
     }
@@ -81,7 +85,7 @@ onMounted(async () => {
         </div>
 
         <div class="step-card" :class="{ open: isStepOpen(step.id) }">
-          <div class="step-header" @click="toggleStep(step.id)">
+          <div class="step-header" :class="{ static: !stepsExpandable }" @click="stepsExpandable && toggleStep(step.id)">
             <div class="step-icon">
               {{ step.icon }}
             </div>
@@ -92,14 +96,14 @@ onMounted(async () => {
                 {{ step.description }}
               </p>
             </div>
-            <div class="step-toggle">
+            <div v-if="stepsExpandable" class="step-toggle">
               <svg viewBox="0 0 12 12">
                 <polyline points="2,4 6,8 10,4" />
               </svg>
             </div>
           </div>
 
-          <div class="step-detail">
+          <div v-if="stepsExpandable" class="step-detail">
             <div class="step-detail-inner">
               <div v-if="step.qcMetrics" class="qc-grid">
                 <div v-for="metric in step.qcMetrics" :key="metric.label" class="qc-card">
@@ -246,6 +250,15 @@ onMounted(async () => {
 
   &:hover {
     background: rgba(0, 0, 0, 0.015);
+  }
+
+  // When step detail is hidden the header isn't interactive
+  &.static {
+    cursor: default;
+
+    &:hover {
+      background: transparent;
+    }
   }
 
   @media (max-width: 700px) {
