@@ -11,6 +11,16 @@ const AFFILIATION_LABELS: Record<string, string> = {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
+
+  // Hard stop while the form is disabled (no bot protection yet) — reject
+  // before any DB write or billable email is sent, even for direct API hits.
+  if (!config.public.leadFormEnabled) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Our inquiry form is temporarily unavailable. Please email support@immunehealth.science.',
+    })
+  }
+
   const body = await readBody(event)
 
   if (!config.emailsDisabled && !config.mailersendApiKey) {

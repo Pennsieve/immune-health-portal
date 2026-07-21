@@ -10,6 +10,10 @@
  */
 import type { LeadFormData, AffiliationType } from '~/types/index'
 
+// Submissions are gated off until bot protection is added (see nuxt.config).
+// The API enforces this too; the UI just reflects it.
+const leadFormEnabled = useRuntimeConfig().public.leadFormEnabled as boolean
+
 const form = reactive<LeadFormData>({
   name: '',
   email: '',
@@ -32,6 +36,7 @@ const submitSuccess = ref(false)
 const isSubmitting = ref(false)
 
 const submitForm = async () => {
+  if (!leadFormEnabled) return
   if (!form.name || !form.email) {
     submitMessage.value = '⚠ Please fill in your name and email.'
     submitSuccess.value = false
@@ -106,6 +111,12 @@ const sidebarCards = [
           </div>
 
           <template v-else>
+            <div v-if="!leadFormEnabled" class="form-disabled-note">
+              Our inquiry form is temporarily unavailable. In the meantime, please email us at
+              <a href="mailto:support@immunehealth.science">support@immunehealth.science</a>
+              and a member of the I3H team will be in touch.
+            </div>
+
             <div class="form-section-label">
               About you
             </div>
@@ -193,7 +204,7 @@ const sidebarCards = [
             </div>
 
             <div class="submit-section">
-              <button class="btn btn-primary" :disabled="isSubmitting" @click="submitForm">
+              <button class="btn btn-primary" :disabled="isSubmitting || !leadFormEnabled" @click="submitForm">
                 {{ isSubmitting ? 'Submitting...' : 'Submit Inquiry' }}
               </button>
               <span
@@ -334,6 +345,24 @@ const sidebarCards = [
       color: var(--ink);
       font-weight: 600;
     }
+  }
+}
+
+.form-disabled-note {
+  background: rgba(183, 149, 11, 0.08);
+  border: 1px solid rgba(183, 149, 11, 0.3);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.6rem;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--ink);
+  font-weight: 400;
+
+  a {
+    color: var(--penn-blue);
+    font-weight: 600;
+    text-decoration: underline;
   }
 }
 
