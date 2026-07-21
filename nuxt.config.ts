@@ -74,6 +74,11 @@ export default defineNuxtConfig({
       appDomain: process.env.APP_DOMAIN || 'localhost',
       deployEnv: process.env.DEPLOY_ENV || 'development',
 
+      // Public lead form. Disabled by default until bot protection (reCAPTCHA)
+      // is in place — every submission triggers billable emails. Re-enable by
+      // setting LEAD_FORM_ENABLED=true. Enforced on both the page and the API.
+      leadFormEnabled: process.env.LEAD_FORM_ENABLED === 'true',
+
       // ORCID Configuration (for federated login)
       orcidClientId: process.env.ORCID_CLIENT_ID || '',
       orcidApiHost: process.env.ORCID_API_HOST || 'https://sandbox.orcid.org',
