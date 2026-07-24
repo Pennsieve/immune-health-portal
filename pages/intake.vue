@@ -10,9 +10,35 @@
  */
 import type { LeadFormData, AffiliationType } from '~/types/index'
 
-// Submissions are gated off until bot protection is added (see nuxt.config).
-// The API enforces this too; the UI just reflects it.
-const leadFormEnabled = useRuntimeConfig().public.leadFormEnabled as boolean
+// Minimal shape of the global reCAPTCHA v2 API we use
+interface GrecaptchaApi {
+  render: (el: HTMLElement, opts: { sitekey: string }) => number
+  getResponse: (widgetId?: number) => string
+  reset: (widgetId?: number) => void
+}
+declare global {
+  interface Window { grecaptcha?: GrecaptchaApi }
+}
+
+const recaptchaSiteKey = useRuntimeConfig().public.recaptchaSiteKey as string
+const recaptchaEl = ref<HTMLElement | null>(null)
+const recaptchaWidgetId = ref<number | null>(null)
+
+// Load the reCAPTCHA script once, then render the widget into our container.
+useHead({
+  script: [{ src: 'https://www.google.com/recaptcha/api.js', async: true, defer: true }],
+})
+
+let recaptchaTimer: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  recaptchaTimer = setInterval(() => {
+    if (window.grecaptcha?.render && recaptchaEl.value && recaptchaWidgetId.value === null) {
+      recaptchaWidgetId.value = window.grecaptcha.render(recaptchaEl.value, { sitekey: recaptchaSiteKey })
+      clearInterval(recaptchaTimer)
+    }
+  }, 200)
+})
+onBeforeUnmount(() => clearInterval(recaptchaTimer))
 
 const form = reactive<LeadFormData>({
   name: '',
@@ -36,7 +62,6 @@ const submitSuccess = ref(false)
 const isSubmitting = ref(false)
 
 const submitForm = async () => {
-  if (!leadFormEnabled) return
   if (!form.name || !form.email) {
     submitMessage.value = '⚠ Please fill in your name and email.'
     submitSuccess.value = false
@@ -45,6 +70,12 @@ const submitForm = async () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(form.email)) {
     submitMessage.value = '⚠ Please enter a valid email address.'
+    submitSuccess.value = false
+    return
+  }
+  const recaptchaToken = window.grecaptcha?.getResponse(recaptchaWidgetId.value ?? undefined) ?? ''
+  if (!recaptchaToken) {
+    submitMessage.value = '⚠ Please complete the reCAPTCHA.'
     submitSuccess.value = false
     return
   }
@@ -57,6 +88,7 @@ const submitForm = async () => {
       method: 'POST',
       body: {
         form,
+        recaptchaToken,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     })
@@ -68,6 +100,8 @@ const submitForm = async () => {
     const reason = err.data?.statusMessage || 'Failed to submit. Please try again or contact us directly.'
     submitMessage.value = `❌ ${reason}`
     submitSuccess.value = false
+    // Reset so the user gets a fresh challenge before retrying
+    if (recaptchaWidgetId.value !== null) window.grecaptcha?.reset(recaptchaWidgetId.value)
   }
   finally {
     isSubmitting.value = false
@@ -111,12 +145,6 @@ const sidebarCards = [
           </div>
 
           <template v-else>
-            <div v-if="!leadFormEnabled" class="form-disabled-note">
-              Our inquiry form is temporarily unavailable. In the meantime, please email us at
-              <a href="mailto:support@immunehealth.science">support@immunehealth.science</a>
-              and a member of the I3H team will be in touch.
-            </div>
-
             <div class="form-section-label">
               About you
             </div>
@@ -203,8 +231,10 @@ const sidebarCards = [
               <textarea v-model="form.researchSummary" rows="4" placeholder="A few sentences about your research, the idea you're exploring, or anything you'd like to ask" />
             </div>
 
+            <div ref="recaptchaEl" class="recaptcha-box" />
+
             <div class="submit-section">
-              <button class="btn btn-primary" :disabled="isSubmitting || !leadFormEnabled" @click="submitForm">
+              <button class="btn btn-primary" :disabled="isSubmitting" @click="submitForm">
                 {{ isSubmitting ? 'Submitting...' : 'Submit Inquiry' }}
               </button>
               <span
@@ -348,22 +378,8 @@ const sidebarCards = [
   }
 }
 
-.form-disabled-note {
-  background: rgba(183, 149, 11, 0.08);
-  border: 1px solid rgba(183, 149, 11, 0.3);
-  border-radius: var(--radius);
-  padding: 0.85rem 1.1rem;
-  margin-bottom: 1.6rem;
-  font-size: 0.86rem;
-  line-height: 1.6;
-  color: var(--ink);
-  font-weight: 400;
-
-  a {
-    color: var(--penn-blue);
-    font-weight: 600;
-    text-decoration: underline;
-  }
+.recaptcha-box {
+  margin-top: 1.5rem;
 }
 
 .submit-section {
