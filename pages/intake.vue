@@ -31,6 +31,10 @@ useHead({
 
 let recaptchaTimer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
+  if (!recaptchaSiteKey) {
+    console.warn('[intake] RECAPTCHA_SITE_KEY is not set — restart the dev server after adding it to .env.')
+    return
+  }
   recaptchaTimer = setInterval(() => {
     if (window.grecaptcha?.render && recaptchaEl.value && recaptchaWidgetId.value === null) {
       recaptchaWidgetId.value = window.grecaptcha.render(recaptchaEl.value, { sitekey: recaptchaSiteKey })
@@ -231,12 +235,11 @@ const sidebarCards = [
               <textarea v-model="form.researchSummary" rows="4" placeholder="A few sentences about your research, the idea you're exploring, or anything you'd like to ask" />
             </div>
 
-            <div ref="recaptchaEl" class="recaptcha-box" />
-
             <div class="submit-section">
               <button class="btn btn-primary" :disabled="isSubmitting" @click="submitForm">
                 {{ isSubmitting ? 'Submitting...' : 'Submit Inquiry' }}
               </button>
+              <div ref="recaptchaEl" class="recaptcha-box" />
               <span
                 v-if="submitMessage"
                 class="submit-msg"
@@ -378,15 +381,19 @@ const sidebarCards = [
   }
 }
 
-.recaptcha-box {
-  margin-top: 1.5rem;
-}
-
 .submit-section {
   display: flex;
   align-items: center;
   gap: 1rem;
   margin-top: 1rem;
+  flex-wrap: wrap;
+
+  // Push the reCAPTCHA to the right edge of the row and center the widget in it
+  .recaptcha-box {
+    margin-left: auto;
+    display: flex;
+    justify-content: center;
+  }
 
   .submit-msg {
     font-size: 0.85rem;
