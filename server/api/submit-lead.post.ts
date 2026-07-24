@@ -11,17 +11,19 @@ const AFFILIATION_LABELS: Record<string, string> = {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-
-  // Hard stop while the form is disabled (no bot protection yet) — reject
-  // before any DB write or billable email is sent, even for direct API hits.
-  if (!config.public.leadFormEnabled) {
-    throw createError({
-      statusCode: 503,
-      statusMessage: 'Our inquiry form is temporarily unavailable. Please email support@immunehealth.science.',
-    })
-  }
-
   const body = await readBody(event)
+
+  // Bot protection: verify the reCAPTCHA token with Google before any DB
+  // write or billable email — this also blocks bots posting directly to the API.
+  const recaptchaToken = typeof body?.recaptchaToken === 'string' ? body.recaptchaToken : ''
+  const verify = await $fetch<{ success: boolean }>('https://www.google.com/recaptcha/api/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ secret: config.recaptchaSecretKey, response: recaptchaToken }).toString(),
+  }).catch(() => ({ success: false }))
+  if (!verify.success) {
+    throw createError({ statusCode: 400, statusMessage: 'reCAPTCHA verification failed. Please try again.' })
+  }
 
   if (!config.emailsDisabled && !config.mailersendApiKey) {
     console.error('MAILERSEND_API_KEY is not configured')

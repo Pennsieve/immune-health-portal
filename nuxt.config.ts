@@ -48,6 +48,9 @@ export default defineNuxtConfig({
     adminEmail: process.env.ADMIN_EMAIL || 'support@immunehealth.science',
     // Dev bypass: log emails to the server console instead of calling MailerSend
     emailsDisabled: process.env.DISABLE_EMAILS === 'true',
+    // reCAPTCHA v2 secret — verifies the lead form's token server-side.
+    // Defaults to Google's public test secret (always passes); set a real one in prod.
+    recaptchaSecretKey: process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe',
 
     public: {
       // Pennsieve API Configuration
@@ -74,10 +77,9 @@ export default defineNuxtConfig({
       appDomain: process.env.APP_DOMAIN || 'localhost',
       deployEnv: process.env.DEPLOY_ENV || 'development',
 
-      // Public lead form. Disabled by default until bot protection (reCAPTCHA)
-      // is in place — every submission triggers billable emails. Re-enable by
-      // setting LEAD_FORM_ENABLED=true. Enforced on both the page and the API.
-      leadFormEnabled: process.env.LEAD_FORM_ENABLED === 'true',
+      // reCAPTCHA v2 site key for the lead form widget.
+      // Defaults to Google's public test key (always passes); set a real one in prod.
+      recaptchaSiteKey: process.env.RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
 
       // ORCID Configuration (for federated login)
       orcidClientId: process.env.ORCID_CLIENT_ID || '',
