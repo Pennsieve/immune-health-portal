@@ -332,14 +332,97 @@ const getServiceSubtotal = (serviceId: string): string => {
   return `= $${(rate * qty).toLocaleString()}`
 }
 
-// Verify the emailed token and pre-fill the lead's contact details.
-// An invalid/expired/used link renders a friendly error state instead of the form.
+// Verify the emailed token and pre-fill everything captured so far. Anything
+// the admin entered with the PI during the introductory meeting comes back here
+// so the PI doesn't re-enter it. An invalid/expired/used link shows an error.
 interface IntakePrefill {
-  lead: { name: string; email: string }
+  pi: { name: string; email: string }
+  studyLead: { name: string; email: string } | null
+  studyName: string
+  abbreviation: string
+  objectives: string
   affiliation: AffiliationType
   organization: string
+  irb: string
+  sampleType: string
+  phlebotomy: string
+  metadata: string
+  budgetCode: string
+  fundingName: string
+  baName: string
+  baEmail: string
+  contractingContact: string
+  servicesDetail: Array<{ name: string; qty: number }>
+  intakeDetails: Record<string, unknown>
+  collectionGroups: Array<{ name: string; subjects: number; samples: Record<string, number> }>
   researchSummary: string
 }
+
+// Stored sample/phlebotomy/metadata values are human labels — map them back to
+// the form's value codes (inverse of the labels used when saving).
+const SAMPLE_TYPE_VALUES: Record<string, string> = {
+  'Fresh whole blood': 'fresh-blood',
+  'Stored PBMCs (cryopreserved)': 'stored-pbmc',
+  'Tissue': 'tissue',
+  'Other': 'other',
+}
+const PHLEBOTOMY_VALUES: Record<string, string> = {
+  'IH phlebotomist on campus': 'ih-campus',
+  'Remote phlebotomy needed': 'remote',
+  'Study team will collect and transfer': 'self-collect',
+  'N/A – using stored samples': 'stored',
+}
+const METADATA_VALUES: Record<string, string> = {
+  'REDCap': 'redcap',
+  'Other system': 'other',
+  'To be discussed': 'tbd',
+}
+
+function hydrateForm(p: IntakePrefill) {
+  // Expanded questionnaire answers map 1:1 onto form fields
+  for (const [k, v] of Object.entries(p.intakeDetails)) {
+    if (k in form) (form as Record<string, unknown>)[k] = v
+  }
+  // Contact + study identity
+  if (p.pi?.name) form.principalInvestigator = p.pi.name
+  if (p.pi?.email) form.piEmail = p.pi.email
+  if (p.studyLead?.name) form.projectLead = p.studyLead.name
+  if (p.studyLead?.email) form.leadEmail = p.studyLead.email
+  if (p.studyName) form.projectName = p.studyName
+  if (p.abbreviation) form.acronym = p.abbreviation
+  if (p.objectives) form.objectives = p.objectives
+  // Affiliation + funding
+  setAffiliation(p.affiliation)
+  if (p.affiliation !== 'internal' && p.organization) form.externalInstitution = p.organization
+  if (p.irb) form.irbNumber = p.irb
+  if (p.budgetCode) form.budgetCode = p.budgetCode
+  if (p.fundingName) form.fundingName = p.fundingName
+  if (p.baName) form.baName = p.baName
+  if (p.baEmail) form.baEmail = p.baEmail
+  if (p.contractingContact) form.externalContact = p.contractingContact
+  // Label → value selects
+  if (SAMPLE_TYPE_VALUES[p.sampleType]) form.sampleType = SAMPLE_TYPE_VALUES[p.sampleType] as IntakeFormData['sampleType']
+  if (PHLEBOTOMY_VALUES[p.phlebotomy]) form.phlebotomyNeeds = PHLEBOTOMY_VALUES[p.phlebotomy] as IntakeFormData['phlebotomyNeeds']
+  if (METADATA_VALUES[p.metadata]) form.metadataPlan = METADATA_VALUES[p.metadata]
+  // Cohort sample matrix
+  if (p.collectionGroups.length) {
+    form.collectionGroups = p.collectionGroups.map(g => ({
+      name: g.name || '',
+      subjects: Number(g.subjects) || 0,
+      samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, Number(g.samples?.[tp.key]) || 0])),
+    }))
+  }
+  // Services were stored by name — resolve back to service ids
+  for (const svc of p.servicesDetail) {
+    const match = servicesStore.services.find(s => s.name === svc.name)
+    if (match) {
+      selectedServices.value.add(match.id)
+      serviceQuantities.value[match.id] = Number(svc.qty) || 0
+    }
+  }
+  updateServiceRequests()
+}
+
 const tokenError = ref('')
 const { data: prefill, error: prefillError } = await useAsyncData(
   `intake-prefill-${inquiryId}`,
@@ -350,12 +433,7 @@ if (prefillError.value) {
   tokenError.value = err.data?.statusMessage || 'This intake link is invalid'
 }
 else if (prefill.value) {
-  form.projectLead = prefill.value.lead.name
-  form.leadEmail = prefill.value.lead.email
-  setAffiliation(prefill.value.affiliation)
-  if (prefill.value.affiliation !== 'internal' && prefill.value.organization) {
-    form.externalInstitution = prefill.value.organization
-  }
+  hydrateForm(prefill.value)
 }
 
 const { data: intakePageData } = await useAsyncData('intakePage', () =>

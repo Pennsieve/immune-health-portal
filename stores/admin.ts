@@ -40,7 +40,8 @@ export interface Inquiry {
   leadDetails?: Record<string, unknown>
   intakeSentDate?: string
   collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
-  notes: Array<{ author: string; date: string; text: string }>
+  notes: Array<{ author: string; date: string; text: string; ts?: number }>
+  activity: ActivityItem[]
   feasibility: Array<{ label: string; checked: boolean }>
 }
 
@@ -144,7 +145,8 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
     leadDetails: (row.lead_details as Record<string, unknown>) || {},
     intakeSentDate: row.intake_sent_date as string | undefined,
     collectionGroups: (row.sample_schedule as Array<{ name: string; subjects: number; samples: Record<string, number> }>) || [],
-    notes: (row.notes as Array<{ author: string; date: string; text: string }>) || [],
+    notes: (row.notes as Array<{ author: string; date: string; text: string; ts?: number }>) || [],
+    activity: (row.activity as ActivityItem[]) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
   }
 }
@@ -462,10 +464,10 @@ export const useAdminStore = defineStore('admin', {
       estimate?: number
       intakeDetails?: Record<string, unknown>
       collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
-    }) {
-      await $fetch('/api/admin/update-inquiry', {
+    }, changeNote?: string) {
+      const { activityItem } = await $fetch<{ success: boolean; activityItem: ActivityItem }>('/api/admin/update-inquiry', {
         method: 'POST',
-        body: { inquiryId, ...fields },
+        body: { inquiryId, ...fields, changeNote, author: this.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const inquiry = this.inquiries.find(i => i.id === inquiryId)
       if (inquiry) {
@@ -491,12 +493,13 @@ export const useAdminStore = defineStore('admin', {
         inquiry.estimate = fields.estimate
         if (fields.intakeDetails !== undefined) inquiry.intakeDetails = fields.intakeDetails
         if (fields.collectionGroups !== undefined) inquiry.collectionGroups = fields.collectionGroups
+        if (activityItem) inquiry.activity.unshift(activityItem)
       }
     },
 
     // Email the tokenized full-intake link to a lead (or re-send it)
     async sendIntakeLink(inquiryId: string) {
-      const { sentDate } = await $fetch<{ success: boolean; sentDate: string }>('/api/admin/send-intake-link', {
+      const { sentDate, activityItem } = await $fetch<{ success: boolean; sentDate: string; activityItem: ActivityItem }>('/api/admin/send-intake-link', {
         method: 'POST',
         body: { inquiryId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
@@ -504,6 +507,7 @@ export const useAdminStore = defineStore('admin', {
       if (inquiry) {
         inquiry.status = 'Intake Sent'
         inquiry.intakeSentDate = sentDate
+        if (activityItem) inquiry.activity.unshift(activityItem)
       }
       return sentDate
     },

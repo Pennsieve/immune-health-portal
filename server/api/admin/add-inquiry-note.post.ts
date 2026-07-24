@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const tz = timezone || DEFAULT_TIMEZONE
   const date = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' })
 
-  const newNote = { author, date, text: text.trim() }
+  const newNote = { author, date, text: text.trim(), ts: Date.now() }
   const updatedNotes = [newNote, ...((inquiry.notes as unknown[]) || [])]
 
   const { error } = await supabase

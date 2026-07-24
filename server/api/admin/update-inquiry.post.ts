@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
     affiliation, affiliationOrg, irb, objectives, phlebotomy,
     metadata, sampleType, cohortSubjects,
     servicesDetail, budgetCode, fundingName, baName, baEmail, contractingContact, estimate,
-    intakeDetails, collectionGroups,
+    intakeDetails, collectionGroups, changeNote, author, timezone,
   } = await readBody(event)
 
   if (!inquiryId || !studyName?.trim()) {
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   // A processed inquiry (approved or declined) is terminal and can no longer be edited.
   const { data: existing, error: fetchErr } = await supabase
     .from('inquiries')
-    .select('status')
+    .select('status, activity')
     .eq('id', inquiryId)
     .single()
   if (fetchErr || !existing) {
@@ -28,6 +28,21 @@ export default defineEventHandler(async (event) => {
   if (currentStatus === 'Approved' || currentStatus === 'Declined') {
     throw createError({ statusCode: 409, statusMessage: 'This inquiry has already been processed and can no longer be edited' })
   }
+
+  // Record the edit in the inquiry's activity log so admins can see what changed
+  const tz = timezone || DEFAULT_TIMEZONE
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
+    + ' · ' + now.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
+  const activityItem = {
+    dotClass: '',
+    title: 'Inquiry details edited',
+    date: dateStr,
+    ts: Date.now(),
+    ...(author ? { author } : {}),
+    ...(changeNote ? { note: changeNote } : {}),
+  }
+  const updatedActivity = [activityItem, ...(((existing as Record<string, unknown>).activity as unknown[]) || [])]
 
   const services = (servicesDetail as Array<{ name: string }>).map(s => s.name).join(', ')
 
@@ -56,6 +71,7 @@ export default defineEventHandler(async (event) => {
   // Expanded intake answers + cohort matrix (only overwrite when provided)
   if (intakeDetails !== undefined) updateData.intake_details = intakeDetails ?? {}
   if (collectionGroups !== undefined) updateData.sample_schedule = collectionGroups ?? []
+  updateData.activity = updatedActivity
 
   const { error } = await supabase
     .from('inquiries')
@@ -67,5 +83,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  return { success: true }
+  return { success: true, activityItem }
 })

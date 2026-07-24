@@ -167,8 +167,12 @@ export default defineEventHandler(async (event) => {
     html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links, statusUrl),
   })
 
-  // 5. Update inquiry status
-  await supabase.from('inquiries').update({ status: 'Approved' }).eq('id', inquiryId)
+  // 5. Update inquiry status + log the approval in its activity
+  const approvedActivity = [
+    { dotClass: 'g', title: 'Inquiry approved — study created', date: approvedDate, ts: Date.now() },
+    ...((inquiry.activity as unknown[]) || []),
+  ]
+  await supabase.from('inquiries').update({ status: 'Approved', activity: approvedActivity }).eq('id', inquiryId)
 
   return { success: true, studyId }
 })

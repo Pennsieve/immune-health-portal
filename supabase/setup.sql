@@ -47,6 +47,7 @@ create table if not exists inquiries (
   sample_schedule    jsonb default '[]'::jsonb,   -- cohort sample matrix (migration 003)
   lead_details       jsonb default '{}'::jsonb,   -- lead-form answers (role, referral source, …)
   intake_sent_date   text,                        -- when the full-intake link was emailed
+  activity           jsonb default '[]'::jsonb,   -- audit log: field edits, status changes, …
   created_at         timestamptz default now(),
   updated_at         timestamptz default now()
 );
@@ -103,6 +104,7 @@ alter table inquiries add column if not exists intake_details  jsonb default '{}
 alter table inquiries add column if not exists sample_schedule jsonb default '[]'::jsonb;
 alter table inquiries add column if not exists lead_details    jsonb default '{}'::jsonb;
 alter table inquiries add column if not exists intake_sent_date text;
+alter table inquiries add column if not exists activity        jsonb default '[]'::jsonb;
 -- Leads have no study name until the full intake is submitted
 alter table inquiries alter column study_name drop not null;
 alter table studies   add column if not exists intake_details  jsonb default '{}'::jsonb;
