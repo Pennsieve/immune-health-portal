@@ -20,9 +20,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
   }
 
+  const declinedAt = new Date().toLocaleDateString('en-US', { timeZone: DEFAULT_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })
+  const activityItem = {
+    dotClass: 'w',
+    title: 'Inquiry declined',
+    date: declinedAt,
+    ts: Date.now(),
+  }
+  const updatedActivity = [activityItem, ...((inquiry.activity as unknown[]) || [])]
+
   const { error } = await supabase
     .from('inquiries')
-    .update({ status: 'Declined' })
+    .update({ status: 'Declined', activity: updatedActivity })
     .eq('id', inquiryId)
 
   if (error) {

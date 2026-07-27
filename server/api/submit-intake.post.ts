@@ -138,7 +138,7 @@ export default defineEventHandler(async (event) => {
   // The lead row must exist and still be awaiting its full intake
   const { data: existing, error: fetchErr } = await supabase
     .from('inquiries')
-    .select('id, status, submitted_date, feasibility')
+    .select('id, status, submitted_date, feasibility, activity')
     .eq('id', inquiryId)
     .single()
 
@@ -201,6 +201,11 @@ export default defineEventHandler(async (event) => {
     // The lead-phase meeting checklist is replaced by the full onboarding
     // feasibility checklist now that the intake form is in
     feasibility: ONBOARDING_CHECKLIST.map((label, i) => ({ label, checked: i === 0 })),
+    // Log the submission in the inquiry's activity history
+    activity: [
+      { dotClass: 'g', title: 'Full intake form submitted', date: `${submittedDate} · by ${form.principalInvestigator}`, ts: Date.now() },
+      ...((existing.activity as unknown[]) || []),
+    ],
   }).eq('id', inquiryId)
 
   if (dbError) {
@@ -287,7 +292,7 @@ export default defineEventHandler(async (event) => {
 
     // Roll back to the lead state so the form can be resubmitted
     await supabase.from('inquiries')
-      .update({ status: existing.status, submitted_date: existing.submitted_date, feasibility: existing.feasibility })
+      .update({ status: existing.status, submitted_date: existing.submitted_date, feasibility: existing.feasibility, activity: existing.activity })
       .eq('id', inquiryId)
 
     // Surface the first specific MailerSend validation error if available

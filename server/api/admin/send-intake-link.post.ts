@@ -74,14 +74,23 @@ export default defineEventHandler(async (event) => {
     html,
   })
 
+  const resent = inquiry.status === 'Intake Sent'
+  const activityItem = {
+    dotClass: '',
+    title: resent ? 'Full intake form re-sent to lead' : 'Full intake form sent to lead',
+    date: `${sentDate} · ${lead.email}`,
+    ts: Date.now(),
+  }
+  const updatedActivity = [activityItem, ...((inquiry.activity as unknown[]) || [])]
+
   const { error: updateErr } = await supabase
     .from('inquiries')
-    .update({ status: 'Intake Sent', intake_sent_date: sentDate })
+    .update({ status: 'Intake Sent', intake_sent_date: sentDate, activity: updatedActivity })
     .eq('id', inquiryId)
 
   if (updateErr) {
     throw createError({ statusCode: 500, statusMessage: 'Email sent but failed to update inquiry status' })
   }
 
-  return { success: true, sentDate }
+  return { success: true, sentDate, activityItem }
 })

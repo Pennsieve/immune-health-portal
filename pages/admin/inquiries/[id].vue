@@ -38,6 +38,28 @@ const leadRows = computed(() => leadDetailRows(inquiry.value?.leadDetails))
 
 // Read-only rows for the expanded intake answers (schema-driven: raw value -> label)
 const detailRows = computed(() => intakeDetailRows(inquiry.value?.intakeDetails))
+
+// Unified, newest-first feed of activity events (field edits, status changes)
+// and reviewer notes — mirrors how studies track history.
+const activityFeed = computed(() => {
+  const inq = inquiry.value
+  if (!inq) return []
+  const events = (inq.activity || []).map(a => ({
+    dot: a.dotClass || '',
+    title: a.title,
+    meta: [a.author, a.date].filter(Boolean).join(' · '),
+    note: a.note || '',
+    ts: a.ts || 0,
+  }))
+  const notes = (inq.notes || []).map(n => ({
+    dot: 'm',
+    title: n.author,
+    meta: n.date,
+    note: n.text,
+    ts: n.ts || 0,
+  }))
+  return [...events, ...notes].sort((a, b) => b.ts - a.ts)
+})
 // Fields the edit modal shows, grouped by section (from the shared schema)
 const fieldsBySection = INTAKE_SECTIONS.map(section => ({
   section,
@@ -159,9 +181,19 @@ const editOpen = ref(false)
 const isSaving = ref(false)
 const newServiceId = ref('')
 
-// Only full intakes awaiting review are editable: leads have no study fields
-// yet, and approved / declined inquiries are terminal.
-const isEditable = computed(() => inquiry.value?.status === 'New')
+// Editable through the whole pre-decision lifecycle: leads and intake-sent
+// inquiries can be filled out with the PI during the introductory meeting, so
+// the entered fields pre-fill the emailed full intake form. Approved / declined
+// inquiries are terminal.
+const isEditable = computed(() =>
+  !!inquiry.value && inquiry.value.status !== 'Approved' && inquiry.value.status !== 'Declined',
+)
+
+// Whether any study-shaped data has been captured yet (used to reveal the
+// read-only intake snapshot for a lead once the admin has started filling it in)
+const hasStudyData = computed(() =>
+  !!inquiry.value?.studyName || detailRows.value.length > 0 || collectionGroups.value.length > 0,
+)
 
 type ServiceLine = { name: string; qty: number; rate: string | number }
 
@@ -298,10 +330,39 @@ function openEdit() {
   editOpen.value = true
 }
 
+// Human-readable summary of which fields changed, for the activity log
+function buildChangeNote(): string | undefined {
+  const q = inquiry.value
+  if (!q) return undefined
+  const changes: string[] = []
+  if (editForm.studyName.trim() !== (q.studyName ?? '')) changes.push('study name')
+  if (editForm.abbreviation.trim() !== (q.abbreviation ?? '')) changes.push('abbreviation')
+  if (editForm.piName.trim() !== q.pi.name || editForm.piEmail.trim() !== q.pi.email) changes.push('PI')
+  if (editForm.studyLeadName.trim() !== (q.studyLead?.name ?? '') || editForm.studyLeadEmail.trim() !== (q.studyLead?.email ?? '')) changes.push('study lead')
+  if (editForm.affiliation !== q.affiliation) changes.push('affiliation')
+  if (editForm.affiliationOrg.trim() !== (q.affiliationOrg ?? '')) changes.push('institution')
+  if (editForm.irb.trim() !== (q.irb ?? '')) changes.push('IRB')
+  if (editForm.objectives.trim() !== (q.objectives ?? '')) changes.push('objectives')
+  if (editForm.phlebotomy !== (q.phlebotomy ?? '')) changes.push('phlebotomy')
+  if (editForm.metadata !== (q.metadata ?? '')) changes.push('metadata plan')
+  if (editForm.cohortSampleType !== (q.sampleType ?? '')) changes.push('sample type')
+  if (editForm.budgetCode.trim() !== (q.budgetCode ?? '')) changes.push('budget code')
+  if (editForm.fundingName.trim() !== (q.fundingName ?? '')) changes.push('funding source')
+  if (editForm.baName.trim() !== (q.baName ?? '') || editForm.baEmail.trim() !== (q.baEmail ?? '')) changes.push('business administrator')
+  if (editForm.contractingContact.trim() !== (q.contractingContact ?? '')) changes.push('contracting contact')
+  const svcChanged = editForm.servicesDetail.length !== q.servicesDetail.length
+    || editForm.servicesDetail.some((l, i) => l.name !== q.servicesDetail[i]?.name || l.qty !== q.servicesDetail[i]?.qty)
+  if (svcChanged) changes.push('services')
+  if (JSON.stringify(cleanIntakeDetails(editForm.intakeDetails)) !== JSON.stringify(cleanIntakeDetails(q.intakeDetails ?? {}))) changes.push('intake questionnaire')
+  if (JSON.stringify(normalizeGroups(editForm.collectionGroups)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? []))) changes.push('cohort matrix')
+  return changes.length ? `Updated: ${changes.join(', ')}` : undefined
+}
+
 async function saveEdit() {
   if (!inquiry.value || !editForm.studyName.trim()) return
   isSaving.value = true
   try {
+    const changeNote = buildChangeNote()
     const servicesDetail = editForm.servicesDetail.map(s => ({ ...s, qty: Math.max(0, s.qty as number) }))
     const estimate = servicesDetail.reduce((sum, s) => {
       const rate = typeof s.rate === 'number' ? s.rate : 0
@@ -331,7 +392,7 @@ async function saveEdit() {
       estimate: estimate > 0 ? estimate : undefined,
       intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
       collectionGroups: normalizeGroups(editForm.collectionGroups),
-    })
+    }, changeNote)
     editOpen.value = false
   }
   catch (err: unknown) {
@@ -447,15 +508,16 @@ async function saveEdit() {
             </button>
           </span>
         </template>
-        <!-- Approved / declined inquiries are terminal — no Edit button at all -->
-        <span
-          v-if="inquiry.status !== 'Approved' && inquiry.status !== 'Declined'"
-          class="tip-left"
+        <!-- Editable until the inquiry is approved/declined. For a lead this is
+             where the admin fills the intake with the PI during the meeting. -->
+        <button
+          v-if="isEditable"
+          class="btn btn-secondary btn-sm"
           style="width:100%"
-          :data-tip="!isEditable ? 'Editing is available once the full intake form has been submitted' : undefined"
+          @click="openEdit"
         >
-          <button class="btn btn-secondary btn-sm" style="width:100%" :disabled="!isEditable" @click="openEdit">Edit ✎</button>
-        </span>
+          {{ isLead ? 'Fill intake form ✎' : 'Edit ✎' }}
+        </button>
         <template v-if="inquiry.status !== 'Declined' && inquiry.status !== 'Approved'">
           <button
             class="btn btn-danger btn-sm"
@@ -504,11 +566,12 @@ async function saveEdit() {
           </div>
         </div>
 
-        <!-- Intake snapshot (full study questionnaire) -->
-        <div v-if="!isLead" class="panel">
+        <!-- Intake snapshot (full study questionnaire). Shown once submitted, or
+             for a lead once the admin has started capturing study details. -->
+        <div v-if="!isLead || hasStudyData" class="panel">
           <div class="panel-head">
             <h3>Intake submission</h3>
-            <span class="ctx">submitted via the emailed intake form</span>
+            <span class="ctx">{{ isLead ? 'captured during intake — sends with the form link' : 'submitted via the emailed intake form' }}</span>
           </div>
           <div class="study-info-grid">
             <div class="info-lbl">Study objectives</div>
@@ -618,19 +681,19 @@ async function saveEdit() {
         </div>
 
         <div class="panel">
-          <div class="panel-head"><h3>Reviewer notes</h3></div>
-          <div v-if="inquiry.notes.length" class="activity-timeline" style="max-height:260px; overflow-y:auto;">
-            <div v-for="note in inquiry.notes" :key="note.date" class="t-item">
-              <div class="t-dot m" />
+          <div class="panel-head"><h3>Activity &amp; notes</h3></div>
+          <div v-if="activityFeed.length" class="activity-timeline" style="max-height:320px; overflow-y:auto;">
+            <div v-for="(item, i) in activityFeed" :key="i" class="t-item">
+              <div class="t-dot" :class="item.dot" />
               <div class="t-body">
-                <div class="t-title">{{ note.author }}</div>
-                <div class="t-meta">{{ note.date }}</div>
-                <div class="t-note">{{ note.text }}</div>
+                <div class="t-title">{{ item.title }}</div>
+                <div class="t-meta">{{ item.meta }}</div>
+                <div v-if="item.note" class="t-note">{{ item.note }}</div>
               </div>
             </div>
           </div>
           <div v-else style="padding:0.8rem 1.4rem; font-size:0.84rem; color:var(--muted)">
-            No notes yet.
+            No activity yet.
           </div>
           <div class="note-composer">
             <textarea v-model="noteText" placeholder="Add an internal note (visible only to I3H staff)…" />
