@@ -1,16 +1,32 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const { user, signIn } = useAuth()
+const { user, signIn, sendPasswordReset } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const isLoading = ref(false)
+const resetMessage = ref('')
 
 onMounted(() => {
   if (user.value) navigateTo('/admin')
 })
+
+async function handleForgotPassword() {
+  errorMessage.value = ''
+  resetMessage.value = ''
+  if (!email.value) {
+    errorMessage.value = 'Enter your work email above, then click “Forgot password?”.'
+    return
+  }
+  const { error } = await sendPasswordReset(email.value)
+  if (error) {
+    errorMessage.value = error.message
+    return
+  }
+  resetMessage.value = 'Check your email for a link to reset your password.'
+}
 
 async function handleSignIn() {
   errorMessage.value = ''
@@ -72,10 +88,11 @@ async function handleSignIn() {
 
         <div class="form-helper">
           <label><input type="checkbox" checked> Keep me signed in</label>
-          <a href="#" @click.prevent>Forgot password?</a>
+          <a href="#" @click.prevent="handleForgotPassword">Forgot password?</a>
         </div>
 
         <div v-if="errorMessage" class="login-error">{{ errorMessage }}</div>
+        <div v-if="resetMessage" class="login-notice">{{ resetMessage }}</div>
 
         <button class="btn btn-primary" type="submit" :disabled="isLoading">
           {{ isLoading ? 'Signing in…' : 'Sign in to Admin Console' }}
