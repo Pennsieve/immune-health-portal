@@ -2,19 +2,34 @@
 /**
  * Set / reset password (admin)
  *
- * Landing page for Supabase invite and password-recovery email links. The
- * verify endpoint redirects here with the session tokens in the URL, which
- * the Supabase client picks up (detectSessionInUrl). Once a session exists
- * the user chooses a password via updateUser(); on success they're signed
- * in and sent to the console.
+ * Landing page for Supabase invite and password-recovery email links, which
+ * arrive as ?token_hash=&type=. The one-time token is redeemed via verifyOtp()
+ * — but only when the user clicks "continue", never automatically on load.
+ *
+ * Why the click gate: these tokens are single-use, and corporate mail security
+ * (e.g. Microsoft Defender Safe Links) "detonates" links in a sandbox that
+ * executes page JavaScript. Redeeming on mount lets that scan consume the token
+ * before the real recipient clicks, leaving them a bogus "expired link" (and a
+ * confirmed account they can't finish setting up). Scanners render pages but
+ * don't press buttons, so gating verifyOtp() behind an explicit click keeps the
+ * token intact until a real human acts. Once redeemed, a session exists and the
+ * user sets a password via updateUser().
  */
 definePageMeta({ layout: false })
 
 const supabase = useSupabaseClient()
 
-type View = 'checking' | 'ready' | 'error' | 'done'
+type View = 'checking' | 'confirm' | 'ready' | 'error' | 'done'
 const view = ref<View>('checking')
 const linkError = ref('')
+
+// Redemption inputs captured on load but only used on click (see verifyLink).
+type OtpType = 'invite' | 'recovery' | 'signup' | 'email'
+const pendingTokenHash = ref('')
+const pendingType = ref<OtpType | null>(null)
+const pendingCode = ref('')
+const isVerifying = ref(false)
+const isRecovery = computed(() => pendingType.value === 'recovery')
 
 const password = ref('')
 const confirmPassword = ref('')
@@ -32,32 +47,27 @@ onMounted(async () => {
     return
   }
 
-  // Preferred: token_hash links verify in-page via verifyOtp(). Because
-  // verification only happens when the real browser loads this page, a mail
-  // scanner that pre-fetches the link (e.g. Outlook Safe Links) can't consume
-  // the one-time token first — the usual cause of a bogus "otp_expired".
+  // token_hash links (invite / recovery): stash the token and wait for a click.
+  // We deliberately do NOT call verifyOtp() here — see the header comment.
   const tokenHash = query.get('token_hash') || hash.get('token_hash')
-  const otpType = (query.get('type') || hash.get('type')) as
-    'invite' | 'recovery' | 'signup' | 'email' | null
+  const otpType = (query.get('type') || hash.get('type')) as OtpType | null
   if (tokenHash && otpType) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
-    if (error) {
-      linkError.value = error.message
-      view.value = 'error'
-      return
-    }
-    view.value = 'ready'
+    pendingTokenHash.value = tokenHash
+    pendingType.value = otpType
+    view.value = 'confirm'
     return
   }
 
-  // PKCE links deliver a ?code= to exchange; implicit links (invite/recovery)
-  // deliver tokens in the hash, which the client detects automatically.
+  // PKCE links deliver a ?code= to exchange — also gated behind the click.
   const code = query.get('code')
   if (code) {
-    try { await supabase.auth.exchangeCodeForSession(code) }
-    catch { /* fall through to the session check below */ }
+    pendingCode.value = code
+    view.value = 'confirm'
+    return
   }
 
+  // Implicit links deliver tokens in the hash, which the client consumes
+  // automatically on load; if that produced a session, go straight in.
   if (await hasSession()) {
     view.value = 'ready'
     return
@@ -72,6 +82,41 @@ onMounted(async () => {
     view.value = 'error'
   }
 })
+
+// Redeems the one-time link. Triggered only by a real user click so an
+// automated email scan can't consume the token first.
+async function verifyLink() {
+  isVerifying.value = true
+  view.value = 'checking'
+  try {
+    if (pendingTokenHash.value && pendingType.value) {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: pendingTokenHash.value,
+        type: pendingType.value,
+      })
+      if (error) {
+        linkError.value = error.message
+        view.value = 'error'
+        return
+      }
+    }
+    else if (pendingCode.value) {
+      try { await supabase.auth.exchangeCodeForSession(pendingCode.value) }
+      catch { /* fall through to the session check below */ }
+    }
+
+    if (await hasSession()) {
+      view.value = 'ready'
+    }
+    else {
+      linkError.value = 'This link is invalid or has expired.'
+      view.value = 'error'
+    }
+  }
+  finally {
+    isVerifying.value = false
+  }
+}
 
 async function hasSession(): Promise<boolean> {
   const { data } = await supabase.auth.getSession()
@@ -116,6 +161,21 @@ async function savePassword() {
       <template v-if="view === 'checking'">
         <h2>Verifying your link…</h2>
         <p class="sp-lead">One moment while we confirm your invitation.</p>
+      </template>
+
+      <!-- Confirm: the token is redeemed only on this click, so an automated
+           email scan (e.g. Safe Links) can't consume it before the recipient. -->
+      <template v-else-if="view === 'confirm'">
+        <span class="form-overline">Admin Console</span>
+        <h2>{{ isRecovery ? 'Reset your password' : 'Set up your account' }}</h2>
+        <p class="sp-lead">
+          {{ isRecovery
+            ? 'Confirm below to continue resetting your I3H staff password.'
+            : 'Welcome to the I3H admin console. Confirm below to finish setting up your staff account.' }}
+        </p>
+        <button class="btn btn-primary" :disabled="isVerifying" @click="verifyLink">
+          {{ isVerifying ? 'Verifying…' : (isRecovery ? 'Continue' : 'Set up your account') }}
+        </button>
       </template>
 
       <!-- Invalid / expired link -->
