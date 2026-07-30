@@ -12,7 +12,9 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@contentful/rich-text-html-renderer": "^16.6.9",
@@ -34,6 +36,7 @@
     "eslint": "^9.14.0",
     "sass": "^1.81.0",
     "typescript": "^5.6.3",
+    "vitest": "^2.1.9",
     "vue-tsc": "^2.1.10"
   },
   "engines": {
