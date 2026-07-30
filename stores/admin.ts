@@ -113,7 +113,7 @@ export interface Study {
   quickStats?: { samplesReceived: number; samplesTotal: number; cytofAcquired: number; cytofTotal: number; qcPassed: number; qcTotal: number; invoicedYtd: number }
 }
 
-function mapInquiry(row: Record<string, unknown>): Inquiry {
+export function mapInquiry(row: Record<string, unknown>): Inquiry {
   return {
     id: row.id as string,
     // Leads have no study name until the full intake is submitted
@@ -151,7 +151,7 @@ function mapInquiry(row: Record<string, unknown>): Inquiry {
   }
 }
 
-function normalizeLifecycle(steps: Study['lifecycle']): Study['lifecycle'] {
+export function normalizeLifecycle(steps: Study['lifecycle']): Study['lifecycle'] {
   return steps.map((step, i) => {
     const laterStepIsDone = steps.slice(i + 1).some(s => s.status === 'done')
     if (laterStepIsDone && step.status !== 'done') {
@@ -164,7 +164,7 @@ function normalizeLifecycle(steps: Study['lifecycle']): Study['lifecycle'] {
   })
 }
 
-function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study {
+export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study {
   return {
     id: row.id as string,
     name: row.name as string,
@@ -195,7 +195,7 @@ function mapStudy(row: Record<string, unknown>, agreements: Agreement[]): Study 
   }
 }
 
-function mapAgreement(row: Record<string, unknown>): Agreement {
+export function mapAgreement(row: Record<string, unknown>): Agreement {
   return {
     id: row.id as string,
     name: row.name as string,
