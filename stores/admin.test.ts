@@ -66,6 +66,19 @@ describe('mapInquiry', () => {
     const inq = mapInquiry({ id: 'inq-3', status: 'New', sample_schedule: groups })
     expect(inq.collectionGroups).toEqual(groups)
   })
+
+  it('maps the lead go/no-go fields (lead_decision, hold_until)', () => {
+    const inq = mapInquiry({ id: 'lead-3', status: 'On Hold', lead_decision: 'hold', hold_until: '2026-09-15' })
+    expect(inq.status).toBe('On Hold')
+    expect(inq.leadDecision).toBe('hold')
+    expect(inq.holdUntil).toBe('2026-09-15')
+  })
+
+  it('leaves the go/no-go fields undefined when absent', () => {
+    const inq = mapInquiry({ id: 'lead-4', status: 'Lead' })
+    expect(inq.leadDecision).toBeUndefined()
+    expect(inq.holdUntil).toBeUndefined()
+  })
 })
 
 describe('normalizeLifecycle', () => {

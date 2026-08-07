@@ -35,6 +35,7 @@ function inquiry(overrides: Record<string, unknown> = {}) {
   return {
     id: 'inq-1',
     status: 'Lead',
+    lead_decision: 'proceed',
     pi: { name: 'Dr. Lee', email: 'lee@example.com' },
     feasibility: [
       { label: 'Schedule introductory meeting', checked: true },
@@ -107,6 +108,22 @@ describe('send-intake-link — gating', () => {
   it('rejects when the checklist is empty with 409', async () => {
     const { result } = run(inquiry({ feasibility: [] }))
     await expect(result).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('rejects a Lead not yet cleared to proceed with 409', async () => {
+    const { result } = run(inquiry({ lead_decision: null }))
+    await expect(result).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('rejects a paused (On Hold) lead with 409', async () => {
+    const { result } = run(inquiry({ status: 'On Hold', lead_decision: 'hold' }))
+    await expect(result).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  it('allows a re-send (Intake Sent) even without an explicit proceed flag', async () => {
+    const { result } = run(inquiry({ status: 'Intake Sent', lead_decision: null }))
+    const res = await result as { success: boolean }
+    expect(res.success).toBe(true)
   })
 
   it('rejects when the inquiry has no contact email with 400', async () => {

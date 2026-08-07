@@ -33,6 +33,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'Complete the lead checklist before sending the intake form' })
   }
 
+  // A fresh lead must be explicitly cleared to proceed (vs. paused/undecided).
+  // Re-sends (status 'Intake Sent') are already past this gate.
+  if (inquiry.status === 'Lead' && inquiry.lead_decision !== 'proceed') {
+    throw createError({ statusCode: 409, statusMessage: 'Select "Proceed to next step" before sending the intake form' })
+  }
+
   const lead = inquiry.pi as { name: string; email: string }
   if (!lead?.email) {
     throw createError({ statusCode: 400, statusMessage: 'Inquiry has no contact email' })

@@ -37,3 +37,6 @@ logs
 
 # Claude
 .claude
+
+# Unrelated nested repo, not part of this project
+SparcDashWidgets/
