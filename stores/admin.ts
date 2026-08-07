@@ -3,7 +3,10 @@ import { AGREEMENT_IDS } from '~/utils/agreements'
 
 // Lifecycle: 'Lead' (simple lead form submitted) → 'Intake Sent' (full-intake
 // link emailed) → 'New' (full intake received, awaiting review) → terminal.
-export type InquiryStatus = 'Lead' | 'Intake Sent' | 'New' | 'Approved' | 'Declined'
+// 'On Hold' is a paused lead: after the intro meeting the investigator needs
+// time (funding, etc.), so it drops out of the active queue with a follow-up
+// date until an admin resumes it (see leadDecision / holdUntil).
+export type InquiryStatus = 'Lead' | 'Intake Sent' | 'On Hold' | 'New' | 'Approved' | 'Declined'
 // A study is created at 'Awaiting Signature' (approve-inquiry), moves to
 // 'Processing' once all agreements are signed, then 'Complete'. The former
 // 'Review' and 'Agreement' stages were never assigned by any code path.
@@ -39,6 +42,10 @@ export interface Inquiry {
   intakeDetails?: Record<string, unknown>
   leadDetails?: Record<string, unknown>
   intakeSentDate?: string
+  // Go/no-go after the intro meeting. 'proceed' unlocks the full-intake send;
+  // 'hold' parks the lead ('On Hold') until holdUntil. Undefined = undecided.
+  leadDecision?: 'proceed' | 'hold'
+  holdUntil?: string
   collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
   notes: Array<{ author: string; date: string; text: string; ts?: number }>
   activity: ActivityItem[]
@@ -144,6 +151,8 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     intakeDetails: (row.intake_details as Record<string, unknown>) || {},
     leadDetails: (row.lead_details as Record<string, unknown>) || {},
     intakeSentDate: row.intake_sent_date as string | undefined,
+    leadDecision: row.lead_decision as 'proceed' | 'hold' | undefined,
+    holdUntil: row.hold_until as string | undefined,
     collectionGroups: (row.sample_schedule as Array<{ name: string; subjects: number; samples: Record<string, number> }>) || [],
     notes: (row.notes as Array<{ author: string; date: string; text: string; ts?: number }>) || [],
     activity: (row.activity as ActivityItem[]) || [],
@@ -510,6 +519,24 @@ export const useAdminStore = defineStore('admin', {
         if (activityItem) inquiry.activity.unshift(activityItem)
       }
       return sentDate
+    },
+
+    // Record the intro-meeting go/no-go. 'proceed' resumes/advances the lead so
+    // the full-intake form can be sent; 'hold' parks it ('On Hold') with a
+    // follow-up date until an admin resumes it.
+    async setLeadDecision(inquiryId: string, decision: 'proceed' | 'hold', holdUntil?: string) {
+      const { status, activityItem } = await $fetch<{ success: boolean; status: InquiryStatus; holdUntil: string | null; activityItem: ActivityItem }>('/api/admin/set-lead-decision', {
+        method: 'POST',
+        body: { inquiryId, decision, holdUntil, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      })
+      const inquiry = this.inquiries.find(i => i.id === inquiryId)
+      if (inquiry) {
+        inquiry.status = status
+        inquiry.leadDecision = decision
+        inquiry.holdUntil = decision === 'hold' ? (holdUntil || undefined) : undefined
+        if (activityItem) inquiry.activity.unshift(activityItem)
+      }
+      return status
     },
 
     async logout() {

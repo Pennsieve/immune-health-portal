@@ -29,10 +29,77 @@ const feasibilityComplete = computed(() =>
   !!inquiry.value?.feasibility.length && inquiry.value.feasibility.every(i => i.checked),
 )
 
-// Lead phase: the full intake form hasn't been submitted yet
+// Lead phase: the full intake form hasn't been submitted yet ('On Hold' is a
+// paused lead — still pre-intake, so it shows the lead panel and checklist).
 const isLead = computed(() =>
-  inquiry.value?.status === 'Lead' || inquiry.value?.status === 'Intake Sent',
+  inquiry.value?.status === 'Lead'
+  || inquiry.value?.status === 'Intake Sent'
+  || inquiry.value?.status === 'On Hold',
 )
+
+// The full-intake form may only be sent once the checklist is complete AND the
+// lead was explicitly cleared to proceed (a re-send is already past that gate).
+const canSendIntake = computed(() => {
+  if (!feasibilityComplete.value) return false
+  if (inquiry.value?.status === 'Intake Sent') return true
+  return inquiry.value?.leadDecision === 'proceed'
+})
+const sendIntakeTip = computed(() => {
+  if (canSendIntake.value) return undefined
+  if (!feasibilityComplete.value) return 'Complete the lead checklist below before sending the intake form'
+  return 'Select “Proceed to next step” below before sending the intake form'
+})
+
+// Intro-meeting go/no-go decision (radio + follow-up date), see verifyLink panel
+const todayIso = new Date().toISOString().slice(0, 10)
+const decisionChoice = ref<'proceed' | 'hold' | ''>('')
+const holdDateInput = ref('')
+const isSavingDecision = ref(false)
+// Keep the local controls in sync as the inquiry loads / updates. The radio
+// reflects the *persisted* decision, and only while the checklist is complete:
+//  - an incomplete (or newly-unchecked) checklist unsets the selection, and
+//  - navigating away and back re-derives from persisted state, so a "pause"
+//    that was picked but never committed with a date doesn't linger.
+watchEffect(() => {
+  decisionChoice.value = feasibilityComplete.value ? (inquiry.value?.leadDecision ?? '') : ''
+  holdDateInput.value = inquiry.value?.holdUntil ?? ''
+})
+const holdDue = computed(() =>
+  !!inquiry.value?.holdUntil && inquiry.value.holdUntil <= todayIso,
+)
+function formatHoldDate(iso?: string) {
+  if (!iso) return ''
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+async function chooseProceed() {
+  if (!inquiry.value || isSavingDecision.value) return
+  isSavingDecision.value = true
+  try {
+    await adminStore.setLeadDecision(inquiry.value.id, 'proceed')
+  }
+  catch {
+    alert('Failed to update the lead decision. Please try again.')
+    decisionChoice.value = inquiry.value.leadDecision ?? ''
+  }
+  finally {
+    isSavingDecision.value = false
+  }
+}
+
+async function pauseLead() {
+  if (!inquiry.value || isSavingDecision.value || !holdDateInput.value) return
+  isSavingDecision.value = true
+  try {
+    await adminStore.setLeadDecision(inquiry.value.id, 'hold', holdDateInput.value)
+  }
+  catch {
+    alert('Failed to pause the lead. Please try again.')
+  }
+  finally {
+    isSavingDecision.value = false
+  }
+}
 // Lead-form answers (role, referral source, …) — shown for the whole lifecycle
 const leadRows = computed(() => leadDetailRows(inquiry.value?.leadDetails))
 
@@ -439,6 +506,9 @@ async function saveEdit() {
           <span v-else-if="inquiry.status === 'Intake Sent'" class="adm-badge b-agreement">
             <span class="dot" /> Intake sent
           </span>
+          <span v-else-if="inquiry.status === 'On Hold'" class="adm-badge b-hold">
+            <span class="dot" /> On hold
+          </span>
           <span v-else class="adm-badge b-review">
             <span class="dot" /> In review
           </span>
@@ -464,6 +534,10 @@ async function saveEdit() {
             <span class="meta-label">Intake sent</span>
             <span class="meta-val">{{ inquiry.intakeSentDate }}</span>
           </div>
+          <div v-if="inquiry.status === 'On Hold' && inquiry.holdUntil" class="meta-item">
+            <span class="meta-label">{{ holdDue ? 'Follow-up due' : 'Follow up' }}</span>
+            <span class="meta-val" :class="{ 'meta-due': holdDue }">{{ formatHoldDate(inquiry.holdUntil) }}</span>
+          </div>
           <div v-if="inquiry.estimate" class="meta-item">
             <span class="meta-label">Estimate</span>
             <span class="meta-val">${{ inquiry.estimate.toLocaleString() }}</span>
@@ -479,12 +553,12 @@ async function saveEdit() {
           <span
             class="tip-left"
             style="width:100%"
-            :data-tip="!feasibilityComplete ? 'Complete the lead checklist below before sending the intake form' : undefined"
+            :data-tip="sendIntakeTip"
           >
             <button
               class="btn btn-primary"
               style="width:100%"
-              :disabled="isSendingIntake || isDeclining || !feasibilityComplete"
+              :disabled="isSendingIntake || isDeclining || !canSendIntake"
               @click="sendIntakeForm"
             >
               {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Intake Sent' ? 'Re-send full intake form ✉' : 'Send full intake form ✉') }}
@@ -557,6 +631,9 @@ async function saveEdit() {
               <div>
                 <template v-if="inquiry.status === 'Intake Sent'">
                   Form sent {{ inquiry.intakeSentDate }} — awaiting submission.
+                </template>
+                <template v-else-if="inquiry.status === 'On Hold'">
+                  Paused — following up {{ formatHoldDate(inquiry.holdUntil) }} while the investigator sorts out funding / next steps.
                 </template>
                 <template v-else>
                   Not sent yet. After your conversation with the lead, use “Send full intake form” to email them the study questionnaire.
@@ -676,6 +753,31 @@ async function saveEdit() {
             >
               <input type="checkbox" :checked="item.checked" @change="toggleFeasibility(item)">
               <span>{{ item.label }}</span>
+            </div>
+
+            <!-- Go/no-go after the intro meeting: either proceed to the full
+                 intake, or pause the lead with a follow-up date. -->
+            <div v-if="inquiry.status === 'Lead' || inquiry.status === 'On Hold'" class="decision-block">
+              <div class="decision-label">After the introductory meeting</div>
+              <label class="decision-opt" :class="{ 'is-disabled': !feasibilityComplete }">
+                <input v-model="decisionChoice" type="radio" value="proceed" :disabled="isSavingDecision || !feasibilityComplete" @change="chooseProceed">
+                <span>Proceed to next step with operational team</span>
+              </label>
+              <label class="decision-opt" :class="{ 'is-disabled': !feasibilityComplete }">
+                <input v-model="decisionChoice" type="radio" value="hold" :disabled="isSavingDecision || !feasibilityComplete">
+                <span>Pause — investigator needs time (funding, etc.)</span>
+              </label>
+              <div v-if="!feasibilityComplete" class="decision-hint">Complete the checklist above to choose the next step.</div>
+              <div v-if="feasibilityComplete && decisionChoice === 'hold'" class="hold-row">
+                <label class="hold-lbl">Follow up on</label>
+                <input v-model="holdDateInput" type="date" :min="todayIso">
+                <button class="btn btn-primary btn-sm" :disabled="!holdDateInput || isSavingDecision" @click="pauseLead">
+                  {{ inquiry.status === 'On Hold' ? 'Update' : 'Pause lead' }}
+                </button>
+              </div>
+              <div v-if="inquiry.status === 'On Hold' && inquiry.holdUntil" class="hold-note" :class="{ due: holdDue }">
+                {{ holdDue ? 'Follow-up due' : 'On hold' }} · follow up {{ formatHoldDate(inquiry.holdUntil) }}
+              </div>
             </div>
           </div>
         </div>
@@ -954,3 +1056,75 @@ async function saveEdit() {
     </div>
   </div>
 </template>
+
+<style scoped lang="scss">
+.meta-due { color: var(--warm); font-weight: 600; }
+
+.decision-block {
+  margin-top: 0.4rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.decision-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.decision-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  cursor: pointer;
+  line-height: 1.4;
+
+  input { margin-top: 0.15rem; flex-shrink: 0; }
+
+  &.is-disabled {
+    cursor: not-allowed;
+    color: var(--muted);
+    input { cursor: not-allowed; }
+  }
+}
+
+.decision-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 0.35rem;
+}
+
+.hold-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.2rem 1.5rem;
+
+  .hold-lbl { font-size: 0.8rem; color: var(--muted); }
+
+  input[type='date'] {
+    padding: 0.3rem 0.5rem;
+    border: 1.5px solid var(--line);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.82rem;
+    background: var(--card);
+    color: var(--ink);
+  }
+}
+
+.hold-note {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+
+  &.due { color: var(--warm); font-weight: 600; }
+}
+</style>

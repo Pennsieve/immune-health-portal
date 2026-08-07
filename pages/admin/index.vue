@@ -41,6 +41,15 @@ const pendingSignatureStudies = computed(() =>
   adminStore.studies.filter(s => s.agreements.some(a => a.status === 'Pending' && a.sentDate)),
 )
 
+// Alerts — paused ('On Hold') leads whose follow-up date has arrived or passed.
+const todayIso = new Date().toISOString().slice(0, 10)
+const followUpDueInquiries = computed(() =>
+  adminStore.inquiries.filter(i => i.status === 'On Hold' && !!i.holdUntil && i.holdUntil <= todayIso),
+)
+const isOverdue = (iso?: string) => !!iso && iso < todayIso
+const formatHoldDate = (iso?: string) =>
+  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+
 const activityPage = ref(0)
 const ACTIVITY_PAGE_SIZE = 4
 
@@ -140,7 +149,18 @@ const pagedActivity = computed(() => {
     </div>
 
     <!-- Alerts -->
-    <div v-if="pendingSignatureStudies.length > 0 || pendingInquiriesCount > 0" class="alerts-strip">
+    <div v-if="pendingSignatureStudies.length > 0 || pendingInquiriesCount > 0 || followUpDueInquiries.length > 0" class="alerts-strip">
+      <div
+        v-for="inq in followUpDueInquiries"
+        :key="'followup-' + inq.id"
+        class="alert-row"
+        :class="{ error: isOverdue(inq.holdUntil) }"
+      >
+        <span class="adm-badge b-warn"><span class="dot" /> Needs Follow Up</span>
+        <span><strong>{{ inq.pi.name }}</strong> — paused lead, follow-up {{ isOverdue(inq.holdUntil) ? 'overdue since' : 'due' }} {{ formatHoldDate(inq.holdUntil) }}.</span>
+        <span class="alert-meta">{{ isOverdue(inq.holdUntil) ? 'overdue' : 'due today' }}</span>
+        <NuxtLink :to="'/admin/inquiries/' + inq.id" class="alert-act">Open lead →</NuxtLink>
+      </div>
       <div
         v-for="study in pendingSignatureStudies"
         :key="study.id"

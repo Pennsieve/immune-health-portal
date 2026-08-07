@@ -35,7 +35,15 @@ const adminStore = useAdminStore()
 
 // Allow deep-linking to a tab, e.g. /admin/inquiries?filter=Lead
 const route = useRoute()
-const FILTER_VALUES = ['Lead', 'Intake Sent', 'New', 'Approved', 'Declined', 'All']
+const FILTER_VALUES = ['Lead', 'Intake Sent', 'On Hold', 'New', 'Approved', 'Declined', 'All']
+
+// Follow-up reminder for paused ('On Hold') leads. A lead whose follow-up date
+// has arrived is flagged so it "pops back up" for the admin to act on.
+const todayIso = new Date().toISOString().slice(0, 10)
+const dueForFollowUp = (inquiry: Inquiry) =>
+  inquiry.status === 'On Hold' && !!inquiry.holdUntil && inquiry.holdUntil <= todayIso
+const formatHoldDate = (iso?: string) =>
+  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 const explicitFilter = typeof route.query.filter === 'string' && FILTER_VALUES.includes(route.query.filter)
   ? route.query.filter
   : null
@@ -69,6 +77,7 @@ const searchQuery = ref('')
 const filters = computed(() => [
   { value: 'Lead',        label: 'New leads',       count: adminStore.inquiries.filter(i => i.status === 'Lead').length },
   { value: 'Intake Sent', label: 'Intake sent',     count: adminStore.inquiries.filter(i => i.status === 'Intake Sent').length },
+  { value: 'On Hold',     label: 'On hold',         count: adminStore.inquiries.filter(i => i.status === 'On Hold').length },
   { value: 'New',         label: 'In review',       count: adminStore.inquiries.filter(i => i.status === 'New').length },
   { value: 'Approved',    label: 'Approved',        count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
   { value: 'Declined',    label: 'Declined',        count: adminStore.inquiries.filter(i => i.status === 'Declined').length },
@@ -86,6 +95,7 @@ const statusLabel = (status: string) => {
   if (status === 'Declined') return 'b-declined'
   if (status === 'Lead') return 'b-lead'
   if (status === 'Intake Sent') return 'b-agreement'
+  if (status === 'On Hold') return 'b-hold'
   return 'b-review'
 }
 
@@ -93,6 +103,7 @@ const statusText = (status: string) => {
   if (status === 'New') return 'In review'
   if (status === 'Lead') return 'New lead'
   if (status === 'Intake Sent') return 'Intake sent'
+  if (status === 'On Hold') return 'On hold'
   return status
 }
 
@@ -188,6 +199,9 @@ const displayedInquiries = computed(() => {
               <span class="adm-badge" :class="statusLabel(inquiry.status)">
                 <span class="dot" /> {{ statusText(inquiry.status) }}
               </span>
+              <div v-if="inquiry.status === 'On Hold' && inquiry.holdUntil" class="follow-up" :class="{ due: dueForFollowUp(inquiry) }">
+                {{ dueForFollowUp(inquiry) ? 'Follow-up due' : 'Follow up' }} {{ formatHoldDate(inquiry.holdUntil) }}
+              </div>
             </td>
             <td style="text-align:right">
               <span class="mono" style="color:var(--muted)">→</span>
@@ -206,3 +220,14 @@ const displayedInquiries = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped lang="scss">
+.follow-up {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+
+  &.due { color: var(--warm); font-weight: 700; }
+}
+</style>
