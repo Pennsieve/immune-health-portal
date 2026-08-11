@@ -7,15 +7,15 @@ export const LEAD_CHECKLIST = [
 ] as const
 
 export const ONBOARDING_CHECKLIST = [
-  'Intake form received',
-  'IRB approval for project (if applicable)',
-  'Executed contract or budget account number (active) in CAMS & IH core approved to spend',
-  'Is PI registered in iLab? If yes, set up service request for PI/study and obtain service request ID# for iLab and LabVantage invoicing requirments. If no, get investigator account with iLab.',
-  'Does PI have a dedicated clinical research coordinator? Do they have a LabVantage account? Do they have a PMACS account? If no, set up account and training with the individual that will be entering visits and/or delivering samples. iLab service request ID will be required to set up study in LabVantage (IRB # is preferred as well).',
-  'Metadata collection plan obtained (requirement for CyTOF data analysis).',
-  'Pennsieve access authorization form signed (this may be incorporated into user agreement)',
+  'Completed intake form received',
+  'IRB is approved and IRB# has been provided (if applicable)',
+  'Contract or active budget account number is executed in CAMS; IH core approved to spend',
+  'iLabs service request ID# received',
+  'Investigator team member responsible for entering visits and delivering samples has account access and completed training',
+  'Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team',
+  'Sample drop off SOP & 1 pager sent to investigator’s team',
+  'Investigator team member added to crc-ihpu slack channel',
+  'Investigator team member has REDcap access',
+  'Metadata collection plan obtained',
   'User agreement signed',
-  'Sample drop off SOP & 1-pager need to be sent to CRC and they should be added to our crc-ihpu slack channel for communication with our processing team.',
-  'Do they have a REDCap account for access to TRU sample drop off survey form',
-  'Is there a way to check to see if CyTOF and other reports promised to PIs are delivered within the prescribed timeframe?',
 ] as const
