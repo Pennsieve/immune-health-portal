@@ -266,6 +266,13 @@ export interface PipelinePageContent {
   pipelineSteps: PipelineStepEntry[]
 }
 
+// Agreement Form content model (i3hAgreementForm content type, e.g. the User Agreement)
+export interface AgreementFormContent {
+  title: string
+  subtext?: string
+  agreementText: Record<string, unknown> // Contentful rich text document
+}
+
 // Services Page content model
 export interface ServicesPageContent {
   headerOverline: string
