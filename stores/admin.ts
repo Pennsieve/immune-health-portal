@@ -117,7 +117,6 @@ export interface Study {
   updatedAt: string
   isLocked: boolean
   statusTokenVersion: number
-  quickStats?: { samplesReceived: number; samplesTotal: number; cytofAcquired: number; cytofTotal: number; qcPassed: number; qcTotal: number; invoicedYtd: number }
 }
 
 export function mapInquiry(row: Record<string, unknown>): Inquiry {
@@ -200,7 +199,6 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     activity: (row.activity as ActivityItem[]) || [],
     lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
     updatedAt: row.updated_at as string,
-    quickStats: row.quick_stats as Study['quickStats'],
   }
 }
 

@@ -77,7 +77,6 @@ create table if not exists studies (
   metadata_desc    text,
   lifecycle        jsonb default '[]'::jsonb,
   updated_relative text,
-  quick_stats      jsonb,
   activity         jsonb default '[]'::jsonb,
   intake_details   jsonb default '{}'::jsonb,        -- expanded intake answers carried from the inquiry
   status_token_version integer not null default 1,   -- migration 002
@@ -123,6 +122,9 @@ alter table studies   add column if not exists additional_notes text;
 alter table inquiries drop column if exists cohort_timepoints;
 -- The "Stale" inquiry state was removed; drop its backing flag.
 alter table inquiries drop column if exists is_stale;
+-- The overview tab's "Quick stats" panel was removed; it was hand-authored
+-- demo data, not derived from real sample/processing state.
+alter table studies drop column if exists quick_stats;
 
 -- ── Row Level Security ──────────────────────────────────────
 alter table inquiries  enable row level security;

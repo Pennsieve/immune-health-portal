@@ -31,7 +31,7 @@ expected_cols(tbl, col) as (
     ('studies','budget'),('studies','integrations'),('studies','started_date'),
     ('studies','department'),('studies','objectives'),('studies','phlebotomy'),
     ('studies','metadata_desc'),('studies','lifecycle'),('studies','updated_relative'),
-    ('studies','quick_stats'),('studies','activity'),('studies','status_token_version'),
+    ('studies','activity'),('studies','status_token_version'),
     ('studies','intake_details'),('studies','additional_notes'),('studies','created_at'),('studies','updated_at'),
     -- agreements
     ('agreements','id'),('agreements','study_id'),('agreements','name'),
