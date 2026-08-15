@@ -1676,37 +1676,6 @@ table.budget-table {
 }
 
 /* =========================================================
-   Quick stats grid (overview tab)
-   ========================================================= */
-.quick-stats {
-  padding: 0.6rem 1.4rem 1.4rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}
-
-.qs-card {
-  padding: 0.7rem 0.9rem;
-  background: var(--cream);
-  border-radius: var(--radius);
-
-  .qs-lbl {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    font-weight: 600;
-    margin-bottom: 0.2rem;
-  }
-
-  .qs-val {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.15rem;
-    font-weight: 500;
-  }
-}
-
-/* =========================================================
    Login page
    ========================================================= */
 .login-shell {

@@ -542,7 +542,7 @@ const affiliationClass = computed(() => {
     </div>
 
     <!-- OVERVIEW -->
-    <div v-if="activeTab === 'overview'" class="dt-grid">
+    <div v-if="activeTab === 'overview'">
       <div class="panel">
         <div class="panel-head"><h3>Study summary</h3></div>
         <div class="study-info-grid">
@@ -627,31 +627,6 @@ const affiliationClass = computed(() => {
             <div class="info-lbl">{{ row.label }}</div>
             <div>{{ row.value }}</div>
           </template>
-        </div>
-      </div>
-
-      <div>
-
-        <div v-if="study.quickStats" class="panel">
-          <div class="panel-head"><h3>Quick stats</h3></div>
-          <div class="quick-stats">
-            <div class="qs-card">
-              <div class="qs-lbl">Samples received</div>
-              <div class="qs-val" style="color:var(--green)">{{ study.quickStats.samplesReceived }} / {{ study.quickStats.samplesTotal }}</div>
-            </div>
-            <div class="qs-card">
-              <div class="qs-lbl">CyTOF acquired</div>
-              <div class="qs-val" style="color:var(--gold)">{{ study.quickStats.cytofAcquired }} / {{ study.quickStats.cytofTotal }}</div>
-            </div>
-            <div class="qs-card">
-              <div class="qs-lbl">QC passed</div>
-              <div class="qs-val" style="color:var(--accent)">{{ study.quickStats.qcPassed }} / {{ study.quickStats.qcTotal }}</div>
-            </div>
-            <div class="qs-card">
-              <div class="qs-lbl">Invoiced YTD</div>
-              <div class="qs-val" style="color:var(--warm)">${{ study.quickStats.invoicedYtd.toLocaleString() }}</div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
