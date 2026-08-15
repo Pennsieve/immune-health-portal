@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { useContentful } from '~/composables/useContentful'
+import { USER_AGREEMENT_CONTENTFUL_ENTRY_ID } from '~/utils/agreements'
+import type { AgreementFormContent } from '~/types/index'
+
 definePageMeta({ layout: false })
 
 const route = useRoute()
 
-// URL path segment: {studyId}-{agreementId}  e.g. "bhb-colcan-psa"
+// URL path segment: {studyId}-{agreementId}  e.g. "bhb-colcan-ua"
 const token = computed(() => route.params.token as string)
 // JWT from query string — present when PI arrives via emailed link
 const signToken = computed(() => route.query.token as string | undefined)
@@ -27,6 +31,12 @@ const { data: studyRow, error: studyError } = await useAsyncData(
 
 const study = computed(() => studyRow.value)
 
+const { fetchById } = useContentful()
+const { data: uaContent, error: uaError } = await useAsyncData(
+  'sign-user-agreement-content',
+  () => fetchById<AgreementFormContent>(USER_AGREEMENT_CONTENTFUL_ENTRY_ID),
+)
+
 const agreement = computed(() => {
   if (!study.value) return null
   const agr = (study.value.agreements as Array<Record<string, unknown>>)
@@ -38,7 +48,7 @@ const agreement = computed(() => {
 const showClerkModal = ref(false)
 // User Agreement requires the PI to confirm they've reviewed pricing before signing
 const pricingAcknowledged = ref(false)
-const canSign = computed(() => agreementId.value !== 'ua' || pricingAcknowledged.value)
+const canSign = computed(() => pricingAcknowledged.value)
 const isSigned = ref(false)
 const isSubmitted = ref(false)
 const isSubmitting = ref(false)
@@ -113,6 +123,11 @@ async function submitSigned() {
       <p style="font-size:0.85rem;color:#666;margin-top:0.5rem;">This link may be invalid or the study could not be found. Please contact your I3H representative.</p>
     </div>
 
+    <div v-else-if="uaError || !uaContent" style="max-width:480px;margin:4rem auto;text-align:center;padding:2rem;">
+      <p style="font-size:1rem;font-weight:600;color:#c0392b;">Unable to load agreement text</p>
+      <p style="font-size:0.85rem;color:#666;margin-top:0.5rem;">The agreement content could not be loaded. Please contact your I3H representative and try again later.</p>
+    </div>
+
     <div class="sign-wrap" v-else-if="study && agreement">
       <!-- Success confirmation (after submit) -->
       <div v-if="isSubmitted" class="sign-confirm-card">
@@ -125,17 +140,19 @@ async function submitSigned() {
 
       <div class="sign-hero">
         <div class="crumbs">Institute for Immunology &amp; Immune Health · {{ study.name }}</div>
-        <h1>{{ (agreement as any).name }}</h1>
+        <h1>{{ uaContent.title }}</h1>
         <p>Please review the terms below carefully. Your signature records your acknowledgment of these terms and your intent to proceed. This is not a final contract — I3H will follow up to formalize the agreement through your institution's contracting process before work begins.</p>
       </div>
 
       <div class="sign-doc">
         <div class="sign-doc-head">
-          <h2>{{ (agreement as any).name }}</h2>
+          <h2>{{ uaContent.title }}</h2>
           <div class="doc-meta">Ref: {{ study.abbreviation }}-{{ String((agreement as any).id).toUpperCase() }}-{{ new Date().getFullYear() }} · I3H/{{ study.irb }}</div>
         </div>
 
         <div class="sign-doc-body">
+          <p v-if="uaContent.subtext">{{ uaContent.subtext }}</p>
+
           <p>
             This agreement is entered into between the <strong>University of Pennsylvania, Institute for Immunology &amp; Immune Health (I3H)</strong>
             and <strong>{{ (study as any).affiliation_org }}</strong>, represented by {{ (study.pi as any).name }}.
@@ -149,106 +166,31 @@ async function submitSigned() {
             <div class="r"><span class="l">Sample type</span><span class="v">{{ (study.cohort as any).sampleType }}</span></div>
           </div>
 
-          <!-- User Agreement -->
-          <template v-if="agreementId === 'ua'">
-            <h3>1. Scope of Services</h3>
-            <p>
-              I3H agrees to provide the following services in accordance with the study protocol approved
-              under the above IRB number. All services will be performed using standardized I3H protocols
-              unless prior written deviation is approved.
-            </p>
-            <ol>
-              <li v-for="line in (study.budget as any).lines" :key="(line as any).service">
-                {{ (line as any).service }} — {{ (line as any).planned }} units at ${{ (line as any).rate }}/unit (est. ${{ Number((line as any).committed).toLocaleString() }})
-              </li>
-            </ol>
+          <h3>1. Scope of Services</h3>
+          <p>
+            I3H agrees to provide the following services in accordance with the study protocol approved
+            under the above IRB number. All services will be performed using standardized I3H protocols
+            unless prior written deviation is approved.
+          </p>
+          <ol>
+            <li v-for="line in (study.budget as any).lines" :key="(line as any).service">
+              {{ (line as any).service }} — {{ (line as any).planned }} units at ${{ (line as any).rate }}/unit (est. ${{ Number((line as any).committed).toLocaleString() }})
+            </li>
+          </ol>
+          <p><strong>Estimated grand total: ${{ Number((study.budget as any).committed).toLocaleString() }}</strong></p>
 
-            <h3>2. Data Ownership &amp; Access</h3>
-            <p>
-              All raw data, processed outputs, and analysis results generated by I3H are the property of the
-              PI's institution. I3H retains rights to de-identified aggregate metrics for internal quality
-              benchmarking only. Data will be delivered via the Pennsieve platform.
-            </p>
+          <SharedRichTextRenderer :content="uaContent.agreementText" />
 
-            <h3>3. Confidentiality</h3>
-            <p>
-              Both parties agree to maintain strict confidentiality of all research data, protocols, and
-              results. I3H staff are bound by Penn confidentiality policies and HIPAA-compliant handling procedures.
-            </p>
-
-            <h3>4. Pricing &amp; Payment Terms</h3>
-            <p>
-              Services are billed at the rates published on the I3H services page. Invoices are issued on a
-              per-batch basis through the iLabs Solutions platform against the account code on file. Payment
-              is due within 30 days of invoice.
-            </p>
-
-            <div class="pricing-ack" :class="{ unchecked: !pricingAcknowledged }">
-              <label>
-                <input v-model="pricingAcknowledged" type="checkbox">
-                <span>
-                  I have reviewed and am aware of the pricing outlined on the
-                  <a href="/services" target="_blank" rel="noopener">I3H services page</a>.
-                  <span class="req-mark">*</span>
-                </span>
-              </label>
-            </div>
-          </template>
-
-          <!-- LabVantage Sample Intake Form -->
-          <template v-else-if="agreementId === 'lv'">
-            <h3>1. Sample Registration &amp; Identification</h3>
-            <p>
-              This form authorizes I3H to register the study's biospecimens in the LabVantage LIMS and to
-              assign unique, immutable sample identifiers under the project ID <strong>{{ study.abbreviation }}</strong>.
-              Parent and child sample IDs are generated at accession and cannot be altered after assignment.
-            </p>
-
-            <h3>2. Chain of Custody</h3>
-            <p>
-              All samples are logged at receipt with date, time, condition, and originating site. Custody
-              transfers between collection, processing, and storage are recorded in LabVantage to maintain a
-              complete audit trail across the sample scope above.
-            </p>
-
-            <h3>3. Handling &amp; Storage</h3>
-            <p>
-              Samples are processed and stored under standardized I3H protocols appropriate to the declared
-              sample type. Any special handling requirements provided at intake are attached to the sample
-              records and honored where feasible.
-            </p>
-          </template>
-
-          <!-- Pennsieve Data Sharing Agreement -->
-          <template v-else>
-            <h3>1. Data Hosting &amp; Workspace</h3>
-            <p>
-              Final datasets generated for this study are delivered to a dedicated Pennsieve workspace
-              provisioned for <strong>{{ (study as any).affiliation_org }}</strong>. The PI's institution is
-              the data owner of record.
-            </p>
-
-            <h3>2. Access Controls</h3>
-            <p>
-              Access to the workspace is granted only to individuals designated by the PI. I3H administers the
-              workspace on the PI's behalf and may retain access solely for delivery, support, and
-              de-identified quality benchmarking.
-            </p>
-
-            <h3>3. Data Retention &amp; Deletion</h3>
-            <p>
-              Data remains available in the Pennsieve workspace for the duration of the study and any agreed
-              retention period. Upon written request, I3H will transfer ownership or remove I3H administrative
-              access.
-            </p>
-
-            <h3>4. Compliance</h3>
-            <p>
-              Data hosting and sharing are conducted in accordance with Penn data governance policies and
-              applicable HIPAA de-identification standards. Both parties agree to promptly report any suspected
-              data incident.
-            </p>
-          </template>
+          <div class="pricing-ack" :class="{ unchecked: !pricingAcknowledged }">
+            <label>
+              <input v-model="pricingAcknowledged" type="checkbox">
+              <span>
+                I have reviewed and am aware of the pricing outlined on the
+                <a href="/services" target="_blank" rel="noopener">I3H services page</a>.
+                <span class="req-mark">*</span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="sign-doc-foot">
@@ -287,7 +229,7 @@ async function submitSigned() {
               By signing, you confirm that you have read these terms and intend to proceed. This
               acknowledgment is not a final contract — I3H will formalize the agreement through your
               institution's contracting process before work begins.
-              <template v-if="agreementId === 'ua' && !pricingAcknowledged && !isSigned">
+              <template v-if="!pricingAcknowledged && !isSigned">
                 <br><strong style="color:#b7950b;">Please confirm the pricing acknowledgment above before signing.</strong>
               </template>
             </p>

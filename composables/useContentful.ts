@@ -11,6 +11,7 @@ interface UseContentfulReturn {
   fetchEntry: <T>(contentType: string, slug?: string) => Promise<T | null>
   fetchEntries: <T>(contentType: string, options?: Record<string, unknown>) => Promise<T[]>
   fetchSingleton: <T>(contentType: string) => Promise<T | null>
+  fetchById: <T>(entryId: string) => Promise<T | null>
 }
 
 export function useContentful(): UseContentfulReturn {
@@ -72,10 +73,27 @@ export function useContentful(): UseContentfulReturn {
     return fetchEntry<T>(contentType)
   }
 
+  /**
+   * Fetch a single entry directly by its Contentful entry id
+   */
+  async function fetchById<T>(entryId: string): Promise<T | null> {
+    if (!$contentful) return null
+
+    try {
+      const entry = await $contentful.getEntry(entryId)
+      return entry.fields as T
+    }
+    catch (error) {
+      console.warn(`[Contentful] Failed to fetch entry ${entryId}:`, error)
+      return null
+    }
+  }
+
   return {
     isAvailable,
     fetchEntry,
     fetchEntries,
     fetchSingleton,
+    fetchById,
   }
 }

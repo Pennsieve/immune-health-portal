@@ -85,15 +85,14 @@ describe('status — successful read', () => {
     expect(res.budget.lines[0]).toEqual({ service: 'CyTOF', rate: 1200, planned: 3, completed: 1 })
   })
 
-  it('includes sign URLs for pending agreements only, and filters unknown ids', async () => {
+  it('includes sign URLs for pending agreements only, and filters ids no longer in AGREEMENT_IDS', async () => {
     const res = await run(study(), validToken()) as {
       agreements: Array<{ id: string; status: string; signUrl: string | null }>
     }
-    expect(res.agreements).toHaveLength(2) // zz filtered out
+    // 'lv' and 'zz' are both filtered out — only 'ua' remains a recognized agreement id
+    expect(res.agreements).toHaveLength(1)
     const ua = res.agreements.find(a => a.id === 'ua')!
-    const lv = res.agreements.find(a => a.id === 'lv')!
     expect(ua.signUrl).toContain(`/admin/sign/${STUDY_ID}-ua`)
-    expect(lv.signUrl).toBeNull()
   })
 
   it('normalizes lifecycle (promotes an earlier step to done, keeping its date)', async () => {
