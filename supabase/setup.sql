@@ -96,6 +96,7 @@ create table if not exists agreements (
   signed_email   text,
   sent_date      text,
   reminder_date  text,
+  snapshot       jsonb,               -- resolved document field values, frozen at generation time (migration 004)
   primary key (study_id, id)
 );
 
@@ -115,6 +116,10 @@ alter table inquiries alter column study_name drop not null;
 alter table studies   add column if not exists intake_details  jsonb default '{}'::jsonb;
 alter table studies   add column if not exists status_token_version integer not null default 1;
 alter table studies   add column if not exists additional_notes text;
+-- Resolved document field values, frozen at agreement-generation time so a
+-- signed User Agreement stays a true record even if the study's live values
+-- (budget, cohort size, etc.) change afterward.
+alter table agreements add column if not exists snapshot jsonb;
 
 -- ── Removed columns ─────────────────────────────────────────
 -- The legacy scalar "timepoints" metric was replaced by the cohort sample

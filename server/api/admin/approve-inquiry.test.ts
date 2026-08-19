@@ -144,12 +144,12 @@ describe('approve-inquiry — sample matrix total', () => {
 })
 
 describe('approve-inquiry — side effects & status gating', () => {
-  it('creates 3 agreements, emails the PI, and marks the inquiry Approved', async () => {
+  it('creates 1 agreement, emails the PI, and marks the inquiry Approved', async () => {
     const { db, result } = invoke(baseInquiry())
     const res = await result as { success: boolean; studyId: string }
     expect(res.success).toBe(true)
     expect(res.studyId).toMatch(/^ima-/)
-    expect(db.inserts.agreements[0]).toHaveLength(3)
+    expect(db.inserts.agreements[0]).toHaveLength(1)
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
     const approvedUpdate = db.updates.find(u => u.table === 'inquiries')
     expect((approvedUpdate?.payload as { status: string }).status).toBe('Approved')

@@ -1985,11 +1985,41 @@ table.budget-table {
     font-family: 'DM Serif Display', serif;
     font-weight: 400;
     font-size: 1.1rem;
-    margin: 1.2rem 0 0.4rem;
+    margin: 1.6rem 0 0.4rem;
     color: var(--ink);
   }
 
+  h3:first-of-type { margin-top: 1.2rem; }
+
   p + p { margin-top: 0.8rem; }
+
+  a { color: var(--accent); text-decoration: underline; }
+
+  .subtitle {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: -0.4rem;
+  }
+
+  .quote-block {
+    background: var(--cream);
+    border-left: 3px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 0.86rem;
+    font-style: italic;
+    color: var(--muted);
+  }
+
+  .contact-list {
+    margin: 0.6rem 0 0.6rem 1.4rem;
+    list-style: disc;
+
+    li { padding: 0.2rem 0; }
+    a { color: var(--accent); }
+  }
 
   .key-terms {
     background: var(--cream);
@@ -2009,7 +2039,8 @@ table.budget-table {
     }
   }
 
-  ol { margin: 0.6rem 0 0.6rem 1.4rem; li { padding: 0.15rem 0; } }
+  ol, ul { margin: 0.6rem 0 0.6rem 1.4rem; li { padding: 0.15rem 0; } }
+  ul:not(.contact-list) { list-style: disc; }
 
   .pricing-ack {
     margin-top: 1.5rem;
