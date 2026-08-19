@@ -1,6 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createSignToken, createStatusToken } from '~/server/utils/signing'
 import { AGREEMENTS } from '~/utils/agreements'
+import { buildAgreementFields } from '~/utils/agreementFields'
 
 function parseRate(rateVal: string | number): number {
   if (typeof rateVal === 'number') return rateVal
@@ -74,6 +75,26 @@ export default defineEventHandler(async (event) => {
   )
   const totalSamples = matrixTotal
 
+  const cohort = {
+    subjects: inquiry.cohort_subjects,
+    totalSamples,
+    processedSamples: 0,
+    sampleType: inquiry.sample_type || 'TBD',
+    groups: cohortGroups,
+  }
+  const budget = {
+    committed,
+    invoiced: 0,
+    remaining: committed,
+    pctInvoiced: 0,
+    accountCode: (inquiry.budget_code as string) || null,
+    fundingName: (inquiry.funding_name as string) || null,
+    baName: (inquiry.ba_name as string) || null,
+    baEmail: (inquiry.ba_email as string) || null,
+    contractingContact: (inquiry.contracting_contact as string) || null,
+    lines,
+  }
+
   // 1. Create study
   const { error: studyErr } = await supabase.from('studies').insert({
     id: studyId,
@@ -86,25 +107,8 @@ export default defineEventHandler(async (event) => {
     irb: inquiry.irb,
     stage: 'Awaiting Signature',
     is_locked: true,
-    cohort: {
-      subjects: inquiry.cohort_subjects,
-      totalSamples,
-      processedSamples: 0,
-      sampleType: inquiry.sample_type || 'TBD',
-      groups: cohortGroups,
-    },
-    budget: {
-      committed,
-      invoiced: 0,
-      remaining: committed,
-      pctInvoiced: 0,
-      accountCode: (inquiry.budget_code as string) || null,
-      fundingName: (inquiry.funding_name as string) || null,
-      baName: (inquiry.ba_name as string) || null,
-      baEmail: (inquiry.ba_email as string) || null,
-      contractingContact: (inquiry.contracting_contact as string) || null,
-      lines,
-    },
+    cohort,
+    budget,
     integrations: {},
     intake_details: inquiry.intake_details || {},
     objectives: inquiry.objectives,
@@ -132,7 +136,24 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create study record' })
   }
 
-  // 2. Create all agreements
+  // 2. Create all agreements — the document's field values are resolved and
+  // frozen onto `snapshot` now, so the signed document stays a true record
+  // even if the study's live values (budget, cohort size, etc.) change later.
+  const agreementSnapshot = buildAgreementFields({
+    name: inquiry.study_name as string,
+    abbreviation: inquiry.abbreviation as string,
+    irb: inquiry.irb as string,
+    affiliation_org: inquiry.affiliation_org as string,
+    pi: inquiry.pi as { name: string; email: string },
+    study_lead: inquiry.study_lead as { name: string; email: string } | null,
+    cohort,
+    budget,
+    objectives: inquiry.objectives as string,
+    phlebotomy: inquiry.phlebotomy as string,
+    metadata_desc: inquiry.metadata as string,
+    intake_details: inquiry.intake_details as Record<string, unknown>,
+  }, approvedDate)
+
   const { error: agrErr } = await supabase.from('agreements').insert(
     AGREEMENTS.map(a => ({
       id: a.id,
@@ -141,6 +162,7 @@ export default defineEventHandler(async (event) => {
       description: a.description,
       status: 'Pending',
       sent_date: approvedDate,
+      snapshot: agreementSnapshot,
     })),
   )
 

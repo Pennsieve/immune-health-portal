@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const supabase = serverSupabaseServiceRole(event)
   const { data, error } = await supabase
     .from('studies')
-    .select('name, abbreviation, irb, pi, affiliation_org, cohort, budget, agreements(*)')
+    .select('name, abbreviation, irb, pi, study_lead, affiliation, affiliation_org, cohort, budget, objectives, phlebotomy, metadata_desc, intake_details, agreements(*)')
     .eq('id', studyId)
     .single()
 
