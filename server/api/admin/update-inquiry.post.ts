@@ -6,11 +6,11 @@ export default defineEventHandler(async (event) => {
     affiliation, affiliationOrg, irb, objectives, phlebotomy,
     metadata, sampleType, cohortSubjects,
     servicesDetail, budgetCode, fundingName, baName, baEmail, contractingContact, estimate,
-    intakeDetails, collectionGroups, changeNote, author, timezone,
+    intakeDetails, collectionGroups, collectionVisits, keyPersonnel, changeNote, author, timezone,
   } = await readBody(event)
 
-  if (!inquiryId || !studyName?.trim()) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId or studyName' })
+  if (!inquiryId) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId' })
   }
 
   const supabase = serverSupabaseServiceRole(event)
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   const services = (servicesDetail as Array<{ name: string }>).map(s => s.name).join(', ')
 
   const updateData: Record<string, unknown> = {
-    study_name: studyName.trim(),
+    study_name: studyName?.trim() || null,
     abbreviation: abbreviation?.trim() ?? null,
     pi,
     study_lead: studyLead ?? null,
@@ -71,6 +71,8 @@ export default defineEventHandler(async (event) => {
   // Expanded intake answers + cohort matrix (only overwrite when provided)
   if (intakeDetails !== undefined) updateData.intake_details = intakeDetails ?? {}
   if (collectionGroups !== undefined) updateData.sample_schedule = collectionGroups ?? []
+  if (collectionVisits !== undefined) updateData.collection_visits = collectionVisits ?? []
+  if (keyPersonnel !== undefined) updateData.key_personnel = keyPersonnel ?? []
   updateData.activity = updatedActivity
 
   const { error } = await supabase

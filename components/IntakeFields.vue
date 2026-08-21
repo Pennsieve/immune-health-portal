@@ -28,6 +28,13 @@ const maxMonth = computed(() => {
 })
 
 function isVisible(f: IntakeField): boolean {
+  // Sibling-field gating (e.g. tube count only if that tube type is
+  // selected) is always enforced — the field is genuinely inapplicable
+  // otherwise, regardless of showAll.
+  if (f.requiresKey && f.requiresValue) {
+    const v = props.model[f.requiresKey]
+    if (!(Array.isArray(v) && v.includes(f.requiresValue))) return false
+  }
   if (props.showAll || !f.showIfKey) return true
   return props.context?.[f.showIfKey] === f.showIfEquals
 }
@@ -63,6 +70,14 @@ function onMonthsInput(key: string, e: Event) {
   el.value = digits
   props.model[key] = digits === '' ? '' : Number(digits)
 }
+// number: non-negative integers only — strip everything else so a minus
+// sign or decimal point can't be entered
+function onNumberInput(key: string, e: Event) {
+  const el = e.target as HTMLInputElement
+  const digits = el.value.replace(/\D/g, '')
+  el.value = digits
+  props.model[key] = digits === '' ? '' : Number(digits)
+}
 // month picker: snap to the [current, +10y] window
 function onMonthInput(key: string, e: Event) {
   const el = e.target as HTMLInputElement
@@ -84,6 +99,17 @@ function onMonthInput(key: string, e: Event) {
 
         <!-- textarea -->
         <textarea v-else-if="f.type === 'textarea'" v-model="model[f.key] as string" rows="2" :placeholder="f.placeholder" />
+
+        <!-- number (non-negative integer) -->
+        <input
+          v-else-if="f.type === 'number'"
+          :value="model[f.key]"
+          type="number"
+          min="0"
+          inputmode="numeric"
+          :placeholder="f.placeholder"
+          @input="onNumberInput(f.key, $event)"
+        >
 
         <!-- months -->
         <div v-else-if="f.type === 'months'" class="if-num-suffix">

@@ -26,18 +26,14 @@ function inquiry(overrides: Record<string, unknown> = {}) {
   return {
     id: INQUIRY_ID,
     status: 'Intake Sent',
-    study_name: 'Immune Aging',
-    abbreviation: 'IMA',
-    objectives: 'obj',
-    pi: { name: 'Dr. Lee', email: 'lee@example.com' },
-    study_lead: null,
     affiliation: 'Internal',
     affiliation_org: 'Penn',
-    irb: 'IRB-1',
-    services_detail: [],
-    intake_details: {},
-    sample_schedule: [],
-    lead_details: { researchSummary: 'immune aging in irAE patients' },
+    budget_code: '400-1234-5-678901-2345-6789-0123',
+    funding_name: 'R01 Immune Aging',
+    ba_name: 'Jane BA',
+    ba_email: 'ba@pennmedicine.upenn.edu',
+    contracting_contact: null,
+    intake_details: { ilabsId: 'IL-123456' },
     ...overrides,
   }
 }
@@ -50,28 +46,33 @@ function run(data: Record<string, unknown> | null, token: string | undefined, in
 }
 
 describe('intake-prefill — successful read', () => {
-  it('returns prefill data with affiliation mapped and researchSummary surfaced', async () => {
+  it('returns billing-only prefill data with affiliation mapped', async () => {
     const res = await run(inquiry(), validToken()) as {
-      studyName: string
       affiliation: string
-      researchSummary: string
-      pi: { email: string }
+      organization: string
+      budgetCode: string
+      fundingName: string
+      baName: string
+      baEmail: string
+      ilabsId: string
     }
-    expect(res.studyName).toBe('Immune Aging')
     expect(res.affiliation).toBe('internal') // 'Internal' → 'internal'
-    expect(res.researchSummary).toBe('immune aging in irAE patients')
-    expect(res.pi.email).toBe('lee@example.com')
+    expect(res.organization).toBe('Penn')
+    expect(res.budgetCode).toBe('400-1234-5-678901-2345-6789-0123')
+    expect(res.fundingName).toBe('R01 Immune Aging')
+    expect(res.baName).toBe('Jane BA')
+    expect(res.baEmail).toBe('ba@pennmedicine.upenn.edu')
+    expect(res.ilabsId).toBe('IL-123456')
   })
 
   it('applies safe defaults when optional fields are absent', async () => {
     const res = await run(
-      inquiry({ study_name: null, lead_details: null, affiliation: null, pi: null }),
+      inquiry({ affiliation: null, budget_code: null, intake_details: null }),
       validToken(),
-    ) as { studyName: string; researchSummary: string; affiliation: string; pi: { name: string; email: string } }
-    expect(res.studyName).toBe('')
-    expect(res.researchSummary).toBe('')
+    ) as { affiliation: string; budgetCode: string; ilabsId: string }
     expect(res.affiliation).toBe('internal') // unmapped falls back to internal
-    expect(res.pi).toEqual({ name: '', email: '' })
+    expect(res.budgetCode).toBe('')
+    expect(res.ilabsId).toBe('')
   })
 })
 

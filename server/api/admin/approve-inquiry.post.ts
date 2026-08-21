@@ -61,13 +61,17 @@ export default defineEventHandler(async (event) => {
   })
   const committed = lines.reduce((sum, l) => sum + l.committed, 0)
 
-  // True projected sample total from the cohort matrix (sample_schedule).
-  const TIMEPOINT_KEYS = ['base', 'w24', 'w52', 'w104']
-  const sampleSchedule = (inquiry.sample_schedule as Array<{ name?: string; subjects?: number; samples?: Record<string, number> }>) || []
+  // True projected sample total from the cohort matrix (sample_schedule),
+  // keyed by the study-defined visit schedule (collection_visits) rather
+  // than a fixed set of timepoints.
+  const visits = (inquiry.collection_visits as Array<{ id: string; label: string; description?: string }>) || []
+  const visitIds = visits.map(v => v.id)
+  const sampleSchedule = (inquiry.sample_schedule as Array<{ name?: string; description?: string; subjects?: number; samples?: Record<string, number> }>) || []
   const cohortGroups = sampleSchedule.map(g => ({
     name: g.name || '',
+    description: g.description || '',
     subjects: Number(g.subjects) || 0,
-    samples: Object.fromEntries(TIMEPOINT_KEYS.map(k => [k, Number(g.samples?.[k]) || 0])),
+    samples: Object.fromEntries(visitIds.map(id => [id, Number(g.samples?.[id]) || 0])),
   }))
   const matrixTotal = cohortGroups.reduce(
     (sum, g) => sum + g.subjects * Object.values(g.samples).reduce((a, b) => a + b, 0),
@@ -81,6 +85,7 @@ export default defineEventHandler(async (event) => {
     processedSamples: 0,
     sampleType: inquiry.sample_type || 'TBD',
     groups: cohortGroups,
+    visits,
   }
   const budget = {
     committed,
@@ -115,6 +120,7 @@ export default defineEventHandler(async (event) => {
     additional_notes: inquiry.additional_notes || null,
     phlebotomy: inquiry.phlebotomy,
     metadata_desc: inquiry.metadata,
+    key_personnel: inquiry.key_personnel || [],
     lifecycle: [
       { label: 'Inquiry',    date: inquiry.submitted_date, status: 'done' },
       { label: 'Review',     date: approvedDate,           status: 'done' },

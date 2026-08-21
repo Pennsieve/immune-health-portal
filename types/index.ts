@@ -91,33 +91,28 @@ export interface ServiceRequest {
 
 // Intake Form Types
 
-// Fixed collection timepoints for the cohort sample matrix.
-// Each entry is a column in the estimator grid.
-export const COLLECTION_TIMEPOINTS = [
-  { key: 'base', label: 'Base (Day 0)', short: 'Base', weekOffset: 0 },
-  { key: 'w24', label: 'Week 24', short: 'W24', weekOffset: 24 },
-  { key: 'w52', label: 'Week 52', short: 'W52', weekOffset: 52 },
-  { key: 'w104', label: 'Week 104', short: 'W104', weekOffset: 104 },
-] as const
-
-export type CollectionTimepointKey = typeof COLLECTION_TIMEPOINTS[number]['key']
+// A study-defined visit/timepoint column in the cohort sample matrix. Admins
+// define these per study (see "Defining Visits" in the admin edit modals) —
+// there's no longer a fixed set of timepoints shared across every study.
+export interface CollectionVisit {
+  id: string
+  label: string
+  description?: string
+}
 
 // One cohort/group row in the sample matrix. `samples` holds the tubes/parent
-// samples collected per subject at each timepoint (0 = not collected).
+// samples collected per subject at each visit (0 = not collected), keyed by
+// the visit's `id`.
 export interface CollectionGroup {
   name: string
+  description?: string
   subjects: number
   samples: Record<string, number>
 }
 
-export type IrbStatus = 'approved' | 'pending' | 'not-submitted'
-export type YesNo = 'yes' | 'no'
-export type PennsieveStatus = 'has-account' | 'need-setup' | 'unsure'
-export type SampleArrival = 'single-batch' | 'rolling'
-
-// Simple public lead form — first contact, before I3H has met the lead.
-// The full IntakeFormData questionnaire is only sent (via emailed token
-// link) after that conversation.
+// Simple public lead form — first contact, before I3H has met the lead. The
+// detailed study questionnaire is captured internally by the I3H team after
+// that conversation (see utils/intakeFields.ts), not via a PI-facing form.
 export interface LeadFormData {
   name: string
   email: string
@@ -128,58 +123,6 @@ export interface LeadFormData {
   referralSourceOther?: string
   callPurpose?: string
   researchSummary?: string
-}
-
-export interface IntakeFormData {
-  projectName: string
-  acronym?: string
-  principalInvestigator: string
-  piEmail: string
-  projectLead: string
-  leadEmail: string
-  collaborators?: string
-  collectionSites: string[]
-  collectionSiteOther?: string
-  participantNaming?: string
-  cohortCount?: number
-  cohortNames?: string
-  clinicalQuestion?: string
-  irbStatus?: IrbStatus
-  irbNumber?: string
-  irbTimeline?: string
-  pilotData?: YesNo
-  pilotDataDetail?: string
-  objectives: string
-  subjectCount: number
-  enrollmentPeriod?: number
-  firstSampleDate?: string
-  collectionGroups: CollectionGroup[]
-  statisticalJustification?: string
-  sampleType: SampleType
-  tubeTypes: string[]
-  tubeTypeOther?: string
-  phlebotomyNeeds: PhlebotomyOption
-  specialHandling: string[]
-  specialHandlingNotes?: string
-  services: ServiceRequest[]
-  customAssays?: string
-  clinicalVariables: string[]
-  clinicalVariableOther?: string
-  affiliation: AffiliationType
-  budgetCode?: string
-  fundingName?: string
-  baName?: string
-  baEmail?: string
-  ilabsId?: string
-  externalInstitution?: string
-  externalContact?: string
-  pennsieveStatus?: PennsieveStatus
-  dataSharing?: YesNo
-  dataSharingNotes?: string
-  metadataPlan?: string
-  hardDeadlines?: string
-  sampleArrival?: SampleArrival
-  notes?: string
 }
 
 // Team Member Types

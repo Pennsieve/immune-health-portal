@@ -192,26 +192,30 @@ async function submitSigned() {
           <p><strong>Objectives:</strong> {{ fields.objectivesText }}</p>
 
           <h3>Scope of Work</h3>
-          <p>
-            {{ fields.subjectCount }} subjects will be recruited across {{ fields.cohortCount }} cohort(s) over an
-            enrollment period of {{ fields.enrollmentPeriod }}, for a total of {{ fields.totalSamples }} samples
-            ({{ fields.sampleType }}). Samples will be collected in {{ fields.tubeType }}.
-          </p>
-          <p>
-            CyTOF with Tier 1 analysis for {{ fields.totalSamples }} samples. Tier 1: comparison of your study
-            subjects to other studies with their respective diseases/treatments run at Immune Health.
-          </p>
-          <p>
-            I3H agrees to provide the following services in accordance with the study protocol approved
-            under the above IRB number. All services will be performed using standardized I3H protocols
-            unless prior written deviation is approved.
-          </p>
           <ol>
-            <li v-for="line in fields.budgetLines" :key="line.service">
-              {{ line.service }} — {{ line.planned }} units at ${{ line.rate }}/unit (est. ${{ line.committed.toLocaleString() }})
+            <li>
+              The number of subjects, timepoints, and total samples:
+              <ol type="a">
+                <li>{{ fields.scopeSubjectsLine }}</li>
+                <li>{{ fields.scopeVisitsLine }}</li>
+                <li>{{ fields.totalSamples }} total samples ({{ fields.sampleType }})</li>
+              </ol>
+            </li>
+            <li>
+              {{ fields.scopeTubeLine }}.
+            </li>
+            <li v-if="fields.budgetLines.length">
+              Selected services:
+              <ol type="a">
+                <li v-for="line in fields.budgetLines" :key="line.service">
+                  {{ line.service }} for {{ line.planned }} sample{{ line.planned === 1 ? '' : 's' }}
+                </li>
+                <li v-if="fields.hasTier1Service">
+                  Tier 1: comparison of your study subjects to other studies with their respective diseases/treatments run at Immune Health.
+                </li>
+              </ol>
             </li>
           </ol>
-          <p><strong>Estimated grand total: {{ fields.totalBudget }}</strong></p>
 
           <h3>Project Management</h3>
           <p>
@@ -391,23 +395,44 @@ async function submitSigned() {
           </p>
 
           <h3>Timelines</h3>
-          <p>
-            CyTOF is generally performed in batches of at least 10 samples. Raw data and QC data can be expected
-            within 30 days after the run is complete.
-          </p>
-          <p>
-            Estimated enrollment date of first subject: {{ fields.firstSampleDate }}. After approximately
-            {{ fields.subjectCount }} subjects across {{ fields.cohortCount }} cohort(s), the project is completed
-            and will depend on participant retention and available funds; this is estimated to occur around
-            {{ fields.enrollmentPeriod }} after the start of initial recruitment.
-          </p>
+          <ul>
+            <li v-if="fields.hasCytofService">
+              <em>CyTOF is generally performed in batches of at least 10 samples. Raw data and QC data can be
+              expected within 30 days after the run is complete.</em>
+            </li>
+            <li>
+              The estimated timeline for the project is as follows:
+              <ul>
+                <li>
+                  Estimated enrollment date of first subject: {{ fields.firstSampleDate }}.
+                </li>
+                <li>
+                  After approximately {{ fields.subjectCount }} subjects and {{ fields.visitCount }}
+                  timepoints/subject, the project is completed and will depend on participant retention and
+                  available funds. We estimate that this will occur around {{ fields.enrollmentPeriod }} after
+                  the start of initial recruitment.
+                </li>
+              </ul>
+            </li>
+          </ul>
 
           <h3>Budget</h3>
           <p>
-            The total budget for the project is <strong>{{ fields.totalBudget }}</strong>. The itemized budget is
-            provided in the Scope of Work section above. A budget code is required to begin any work. No
-            services will be provided, including phlebotomy or sample processing, without a budget code.
+            The total budget for the project is <strong>{{ fields.totalBudget }}</strong>. A budget code is
+            required to begin any work. No services will be provided, including phlebotomy or sample processing,
+            without a budget code.
           </p>
+          <p>
+            I3H agrees to provide the following services in accordance with the study protocol approved
+            under the above IRB number. All services will be performed using standardized I3H protocols
+            unless prior written deviation is approved.
+          </p>
+          <ol>
+            <li v-for="line in fields.budgetLines" :key="line.service">
+              {{ line.service }} — {{ line.planned }} units at ${{ line.rate }}/unit (est. ${{ line.committed.toLocaleString() }})
+            </li>
+          </ol>
+          <p><strong>Estimated grand total: {{ fields.totalBudget }}</strong></p>
           <p>
             <strong>Funding Support</strong> — budget account number(s) to be billed in support of the project:
           </p>

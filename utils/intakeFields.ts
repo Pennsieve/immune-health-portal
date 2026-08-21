@@ -16,6 +16,7 @@
 export type IntakeFieldType =
   | 'text'
   | 'textarea'
+  | 'number' // non-negative integer, no suffix
   | 'months' // numeric with a "months" suffix
   | 'month' // YYYY-MM picker
   | 'select'
@@ -44,9 +45,18 @@ export interface IntakeField {
   detailShowIf?: string | string[]
   detailLabel?: string
   detailPlaceholder?: string
-  // cross-field visibility (e.g. tube types only for fresh blood)
+  // cross-field visibility, driven by a top-level form value (e.g. sampleType,
+  // affiliation) supplied via the `context` prop. Bypassed by `showAll`
+  // (admin modals), since staff should see every field regardless of context.
   showIfKey?: string
   showIfEquals?: string
+  // sibling-field visibility, driven by another INTAKE_FIELDS answer in the
+  // same model (e.g. a tube count only applies if that tube type was
+  // selected). Always enforced — never bypassed by `showAll` — since the
+  // field is genuinely inapplicable otherwise. `requiresValue` must appear in
+  // the array stored at model[requiresKey].
+  requiresKey?: string
+  requiresValue?: string
 }
 
 const YES_NO: IntakeOption[] = [
@@ -54,7 +64,7 @@ const YES_NO: IntakeOption[] = [
   { value: 'no', label: 'No' },
 ]
 
-export const INTAKE_SECTIONS = ['Study design', 'Scope', 'Samples', 'Assays', 'Data & compliance', 'Logistics'] as const
+export const INTAKE_SECTIONS = ['Study design', 'Regulatory', 'Scope', 'Samples', 'Assays', 'Data & compliance', 'Logistics'] as const
 
 export const INTAKE_FIELDS: IntakeField[] = [
   // ── Study design ──
@@ -62,11 +72,6 @@ export const INTAKE_FIELDS: IntakeField[] = [
     key: 'clinicalQuestion', label: 'Clinical Question', section: 'Study design', type: 'textarea',
     hint: "The specific clinical question you're trying to answer",
     placeholder: 'e.g. Does treatment X restore immune cell populations in irAE patients?',
-  },
-  {
-    key: 'collaborators', label: 'Other Staff & Collaborators', section: 'Study design', type: 'text',
-    hint: 'Co-investigators, coordinators, or collaborators on the study',
-    placeholder: 'Names / roles',
   },
   {
     key: 'collectionSites', label: 'Collection Site(s)', section: 'Study design', type: 'multiselect',
@@ -87,7 +92,15 @@ export const INTAKE_FIELDS: IntakeField[] = [
     placeholder: 'e.g. SLE, SSc, irAE',
   },
   {
-    key: 'irbStatus', label: 'IRB Status', section: 'Study design', type: 'select',
+    key: 'pilotData', label: 'Preliminary / Pilot Data', section: 'Study design', type: 'yesno',
+    options: YES_NO,
+    detailKey: 'pilotDataDetail', detailShowIf: 'yes',
+    detailLabel: 'Pilot data detail', detailPlaceholder: 'Briefly describe your preliminary data',
+  },
+
+  // ── Regulatory ──
+  {
+    key: 'irbStatus', label: 'IRB Status', section: 'Regulatory', type: 'select',
     options: [
       { value: 'approved', label: 'Approved' },
       { value: 'pending', label: 'Submitted / pending' },
@@ -97,10 +110,14 @@ export const INTAKE_FIELDS: IntakeField[] = [
     detailLabel: 'Expected IRB timeline', detailPlaceholder: 'Expected timeline for approval / submission',
   },
   {
-    key: 'pilotData', label: 'Preliminary / Pilot Data', section: 'Study design', type: 'yesno',
+    key: 'bloodVolumePerVisit', label: 'Target Blood Volume per Visit', section: 'Regulatory', type: 'text',
+    hint: 'Total volume to be drawn from the subject at each visit',
+    placeholder: 'e.g. 20 mL',
+  },
+  {
+    key: 'bloodVolumeConfirmed', label: 'Blood Volume Within IRB Limits', section: 'Regulatory', type: 'yesno',
+    hint: "Confirmed blood draw volume falls within the limits outlined in the IRB protocol",
     options: YES_NO,
-    detailKey: 'pilotDataDetail', detailShowIf: 'yes',
-    detailLabel: 'Pilot data detail', detailPlaceholder: 'Briefly describe your preliminary data',
   },
 
   // ── Scope ──
@@ -113,6 +130,10 @@ export const INTAKE_FIELDS: IntakeField[] = [
     hint: 'Drives the projected dates in the estimator',
   },
   {
+    key: 'sampleArrivalCadence', label: 'Anticipated Cadence of Sample Arrival', section: 'Scope', type: 'text',
+    placeholder: 'e.g. estimated 10 subjects per week for 8 weeks',
+  },
+  {
     key: 'statisticalJustification', label: 'Statistical Justification', section: 'Scope', type: 'textarea',
     hint: 'Power calculation or rationale for the sample size',
     placeholder: 'e.g. Powered at 80% to detect a 1.5-fold difference…',
@@ -121,10 +142,31 @@ export const INTAKE_FIELDS: IntakeField[] = [
   // ── Samples ──
   {
     key: 'tubeTypes', label: 'Collection Tube Type(s)', section: 'Samples', type: 'multiselect',
-    hint: 'CBC with differential is run on all fresh blood samples.',
+    hint: 'CBC with differential provided with PBMC processing services requires a small EDTA collection tube. CyTOF requires heparin collection tubes. Minimum 4 mL sodium heparin tube if only requesting CyTOF services; otherwise, 300 microliters of whole blood can be taken for CyTOF prior to processing heparin PBMCs.',
     options: ['EDTA', 'Sodium heparin', 'Lithium heparin', 'ACD', 'Serum (SST)', 'Other'].map(v => ({ value: v, label: v })),
     otherValue: 'Other', otherKey: 'tubeTypeOther', otherPlaceholder: 'Specify tube type',
     showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+  },
+  {
+    key: 'tubeCountEdta4ml', label: '4 mL EDTA Tubes Needed', section: 'Samples', type: 'number',
+    hint: 'Distribution of volume across tube types, per visit',
+    placeholder: 'e.g. 2', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'EDTA',
+  },
+  {
+    key: 'tubeCountHeparin10ml', label: '10 mL Sodium Heparin Tubes Needed', section: 'Samples', type: 'number',
+    placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'Sodium heparin',
+  },
+  {
+    key: 'tubeCountHeparin6ml', label: '6 mL Sodium Heparin Tubes Needed', section: 'Samples', type: 'number',
+    placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'Sodium heparin',
+  },
+  {
+    key: 'tubeCountSerum10ml', label: '10 mL Serum (SST) Tubes Needed', section: 'Samples', type: 'number',
+    placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'Serum (SST)',
   },
   {
     key: 'specialHandling', label: 'Special Handling Requirements', section: 'Samples', type: 'multiselect',
@@ -261,9 +303,14 @@ export function intakeDetailRows(details: Record<string, unknown> | undefined): 
 export function cleanIntakeDetails(src: Record<string, unknown>): Record<string, unknown> {
   const keep = (v: unknown) =>
     v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
+  const requiresApplies = (field: IntakeField) => {
+    if (!field.requiresKey || !field.requiresValue) return true
+    const v = src[field.requiresKey]
+    return Array.isArray(v) && v.includes(field.requiresValue)
+  }
   const out: Record<string, unknown> = {}
   for (const field of INTAKE_FIELDS) {
-    if (keep(src[field.key])) out[field.key] = src[field.key]
+    if (requiresApplies(field) && keep(src[field.key])) out[field.key] = src[field.key]
     if (field.otherKey && field.otherValue
       && Array.isArray(src[field.key]) && (src[field.key] as string[]).includes(field.otherValue)
       && keep(src[field.otherKey])) {

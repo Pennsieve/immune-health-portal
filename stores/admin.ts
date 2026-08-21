@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
+import type { CollectionVisit } from '~/types/index'
 
 // Lifecycle: 'Lead' (simple lead form submitted) → 'Intake Sent' (full-intake
 // link emailed) → 'New' (full intake received, awaiting review) → terminal.
@@ -46,7 +47,9 @@ export interface Inquiry {
   // 'hold' parks the lead ('On Hold') until holdUntil. Undefined = undecided.
   leadDecision?: 'proceed' | 'hold'
   holdUntil?: string
-  collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
+  collectionGroups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+  collectionVisits?: CollectionVisit[]
+  keyPersonnel?: Array<{ name: string; email: string; role: string }>
   notes: Array<{ author: string; date: string; text: string; ts?: number }>
   activity: ActivityItem[]
   feasibility: Array<{ label: string; checked: boolean }>
@@ -89,18 +92,19 @@ export interface Study {
     totalSamples: number
     processedSamples: number
     sampleType: string
-    groups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
+    groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+    visits?: CollectionVisit[]
   }
   budget: {
     committed: number
     invoiced: number
     remaining: number
     pctInvoiced: number
-    accountCode?: string
-    fundingName?: string
-    baName?: string
-    baEmail?: string
-    contractingContact?: string
+    accountCode?: string | null
+    fundingName?: string | null
+    baName?: string | null
+    baEmail?: string | null
+    contractingContact?: string | null
     billingContact?: string
     lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
   }
@@ -112,6 +116,7 @@ export interface Study {
   additionalNotes?: string
   phlebotomy?: string
   metadata?: string
+  keyPersonnel?: Array<{ name: string; email: string; role: string }>
   activity: ActivityItem[]
   lifecycle: Array<{ label: string; date: string; status: 'done' | 'active' | 'pending' }>
   updatedAt: string
@@ -152,7 +157,9 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     intakeSentDate: row.intake_sent_date as string | undefined,
     leadDecision: row.lead_decision as 'proceed' | 'hold' | undefined,
     holdUntil: row.hold_until as string | undefined,
-    collectionGroups: (row.sample_schedule as Array<{ name: string; subjects: number; samples: Record<string, number> }>) || [],
+    collectionGroups: (row.sample_schedule as Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>) || [],
+    collectionVisits: (row.collection_visits as CollectionVisit[]) || [],
+    keyPersonnel: (row.key_personnel as Array<{ name: string; email: string; role: string }>) || [],
     notes: (row.notes as Array<{ author: string; date: string; text: string; ts?: number }>) || [],
     activity: (row.activity as ActivityItem[]) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
@@ -196,6 +203,7 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     additionalNotes: row.additional_notes as string | undefined,
     phlebotomy: row.phlebotomy as string | undefined,
     metadata: row.metadata_desc as string | undefined,
+    keyPersonnel: (row.key_personnel as Array<{ name: string; email: string; role: string }>) || [],
     activity: (row.activity as ActivityItem[]) || [],
     lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
     updatedAt: row.updated_at as string,
@@ -470,7 +478,9 @@ export const useAdminStore = defineStore('admin', {
       contractingContact?: string
       estimate?: number
       intakeDetails?: Record<string, unknown>
-      collectionGroups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
+      collectionGroups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+      collectionVisits?: CollectionVisit[]
+      keyPersonnel?: Array<{ name: string; email: string; role: string }>
     }, changeNote?: string) {
       const { activityItem } = await $fetch<{ success: boolean; activityItem: ActivityItem }>('/api/admin/update-inquiry', {
         method: 'POST',
@@ -500,6 +510,8 @@ export const useAdminStore = defineStore('admin', {
         inquiry.estimate = fields.estimate
         if (fields.intakeDetails !== undefined) inquiry.intakeDetails = fields.intakeDetails
         if (fields.collectionGroups !== undefined) inquiry.collectionGroups = fields.collectionGroups
+        if (fields.collectionVisits !== undefined) inquiry.collectionVisits = fields.collectionVisits
+        if (fields.keyPersonnel !== undefined) inquiry.keyPersonnel = fields.keyPersonnel
         if (activityItem) inquiry.activity.unshift(activityItem)
       }
     },

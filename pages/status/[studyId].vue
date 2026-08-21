@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import type { CollectionVisit } from '~/types/index'
 import { intakeDetailRows } from '~/utils/intakeFields'
 
 definePageMeta({ layout: false })
@@ -22,7 +22,8 @@ interface Cohort {
   totalSamples: number
   processedSamples: number
   sampleType: string
-  groups?: Array<{ name: string; subjects: number; samples: Record<string, number> }>
+  groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+  visits?: CollectionVisit[]
 }
 
 interface LifecycleStep {
@@ -104,11 +105,11 @@ const affiliationLabel = computed(() => {
   return s.affiliationOrg ? `${s.affiliation} · ${s.affiliationOrg}` : s.affiliation
 })
 
-// Fixed collection-timepoint columns for the cohort sample matrix
-const TIMEPOINTS = COLLECTION_TIMEPOINTS
+// Study-defined visit columns for the cohort sample matrix
+const visits = computed(() => study.value?.cohort.visits ?? [])
 const cohortGroups = computed(() => study.value?.cohort.groups ?? [])
-const groupTotal = (g: { subjects: number; samples: Record<string, number> }) =>
-  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((s, tp) => s + (Number(g.samples?.[tp.key]) || 0), 0)
+const groupTotal = (g: { subjects: number; samples: Record<string, number> }, visitList: CollectionVisit[]) =>
+  (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
 
 // Expanded intake questionnaire answers, resolved to labels via the shared schema
 const detailRows = computed(() => intakeDetailRows(study.value?.intakeDetails))
@@ -320,7 +321,7 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
                 <tr>
                   <th style="text-align:left;">Cohort / Group</th>
                   <th>Subjects</th>
-                  <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                  <th v-for="v in visits" :key="v.id">{{ v.label }}</th>
                   <th>Samples</th>
                 </tr>
               </thead>
@@ -328,13 +329,13 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
                 <tr v-for="(g, i) in cohortGroups" :key="i">
                   <td style="text-align:left;">{{ g.name || `Cohort ${i + 1}` }}</td>
                   <td>{{ g.subjects }}</td>
-                  <td v-for="tp in TIMEPOINTS" :key="tp.key">{{ g.samples?.[tp.key] || 0 }}</td>
-                  <td class="status-matrix-total">{{ groupTotal(g).toLocaleString() }}</td>
+                  <td v-for="v in visits" :key="v.id">{{ g.samples?.[v.id] || 0 }}</td>
+                  <td class="status-matrix-total">{{ groupTotal(g, visits).toLocaleString() }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p class="status-matrix-note">Values are tubes / parent samples collected per subject at each timepoint.</p>
+          <p class="status-matrix-note">Values are tubes / parent samples collected per subject at each visit.</p>
         </div>
 
         <!-- Services & estimated cost -->

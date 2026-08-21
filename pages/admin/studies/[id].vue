@@ -2,7 +2,7 @@
 import { useAdminStore } from '~/stores/admin'
 import type { Affiliation, StudyStage } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
-import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 
 definePageMeta({ layout: 'admin' })
@@ -13,14 +13,20 @@ const adminStore = useAdminStore()
 const study = computed(() => adminStore.studies.find(s => s.id === route.params.id))
 
 // Cohort sample matrix (read-only display on the overview)
-const TIMEPOINTS = COLLECTION_TIMEPOINTS
-type CohortGroup = { name: string; subjects: number; samples: Record<string, number> }
+type CohortGroup = { name: string; description?: string; subjects: number; samples: Record<string, number> }
+const visits = computed(() => study.value?.cohort.visits ?? [])
 const cohortGroups = computed<CohortGroup[]>(() => study.value?.cohort.groups ?? [])
-const groupTotal = (g: CohortGroup) =>
-  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((s, tp) => s + (Number(g.samples?.[tp.key]) || 0), 0)
+const groupTotal = (g: CohortGroup, visitList: CollectionVisit[]) =>
+  (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
 const matrixGrandTotal = computed(() =>
-  cohortGroups.value.reduce((s, g) => s + groupTotal(g), 0),
+  cohortGroups.value.reduce((s, g) => s + groupTotal(g, visits.value), 0),
 )
+// Generate a stable id for a new visit column (used as the key in every
+// group's `samples` map)
+function newVisitId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
 // Read-only rows for the expanded intake answers (schema-driven)
 const detailRows = computed(() => intakeDetailRows(study.value?.intakeDetails))
 const fieldsBySection = INTAKE_SECTIONS.map(section => ({
@@ -145,7 +151,8 @@ const hasChanges = computed(() => {
   if (editForm.phlebotomy !== (s.phlebotomy ?? '')) return true
   if (editForm.metadata !== (s.metadata ?? '')) return true
   if (editForm.cohortSampleType.trim() !== (s.cohort.sampleType ?? '')) return true
-  if (JSON.stringify(normalizeGroups(editForm.cohortGroups)) !== JSON.stringify(normalizeGroups(s.cohort.groups ?? []))) return true
+  if (JSON.stringify(editForm.visits) !== JSON.stringify(s.cohort.visits ?? [])) return true
+  if (JSON.stringify(normalizeGroups(editForm.cohortGroups, editForm.visits)) !== JSON.stringify(normalizeGroups(s.cohort.groups ?? [], editForm.visits))) return true
   if (editForm.accountCode.trim() !== (s.budget.accountCode ?? '')) return true
   if (editForm.fundingName.trim() !== (s.budget.fundingName ?? '')) return true
   if (editForm.baName.trim() !== (s.budget.baName ?? '')) return true
@@ -185,22 +192,47 @@ const editForm = reactive({
   metadata: '',
   cohortSampleType: '',
   cohortGroups: [] as CohortGroup[],
+  visits: [] as CollectionVisit[],
   budgetLines: [] as BudgetLine[],
   intakeDetails: {} as Record<string, unknown>,
 })
 
-function normalizeGroups(groups: CohortGroup[]): CohortGroup[] {
+// Normalise a cohort matrix to numeric cells, keyed by the given visit list,
+// for comparison / saving
+function normalizeGroups(groups: CohortGroup[], visitList: CollectionVisit[]): CohortGroup[] {
   return groups.map(g => ({
     name: g.name || '',
+    description: g.description || '',
     subjects: Number(g.subjects) || 0,
-    samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, Number(g.samples?.[tp.key]) || 0])),
+    samples: Object.fromEntries(visitList.map(v => [v.id, Number(g.samples?.[v.id]) || 0])),
   }))
 }
 function addEditGroup() {
-  editForm.cohortGroups.push({ name: '', subjects: 0, samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, 0])) })
+  editForm.cohortGroups.push({
+    name: '',
+    description: '',
+    subjects: 0,
+    samples: Object.fromEntries(editForm.visits.map(v => [v.id, 0])),
+  })
 }
 function removeEditGroup(i: number) {
   editForm.cohortGroups.splice(i, 1)
+}
+function addEditVisit() {
+  const visit: CollectionVisit = { id: newVisitId(), label: '', description: '' }
+  editForm.visits.push(visit)
+  editForm.cohortGroups.forEach((g) => { g.samples[visit.id] = 0 })
+}
+function removeEditVisit(i: number) {
+  const visit = editForm.visits[i]
+  if (!visit) return
+  const hasData = editForm.cohortGroups.some(g => Number(g.samples?.[visit.id]) > 0)
+  if (hasData && !confirm(`Remove "${visit.label || 'this visit'}"? This will discard the sample counts already entered for it across every cohort.`)) return
+  editForm.visits.splice(i, 1)
+  editForm.cohortGroups.forEach((g) => {
+    const { [visit.id]: _removed, ...rest } = g.samples
+    g.samples = rest
+  })
 }
 // Cohort scope derived from the edited matrix
 const editMatrixSubjects = computed(() =>
@@ -208,7 +240,7 @@ const editMatrixSubjects = computed(() =>
 )
 const editMatrixTotal = computed(() =>
   editForm.cohortGroups.reduce(
-    (s, g) => s + (Number(g.subjects) || 0) * TIMEPOINTS.reduce((a, tp) => a + (Number(g.samples?.[tp.key]) || 0), 0),
+    (s, g) => s + (Number(g.subjects) || 0) * editForm.visits.reduce((a, v) => a + (Number(g.samples?.[v.id]) || 0), 0),
     0,
   ),
 )
@@ -296,7 +328,8 @@ function openEdit() {
   editForm.phlebotomy = study.value.phlebotomy ?? ''
   editForm.metadata = study.value.metadata ?? ''
   editForm.cohortSampleType = study.value.cohort.sampleType
-  editForm.cohortGroups = normalizeGroups(study.value.cohort.groups ?? [])
+  editForm.visits = (study.value.cohort.visits ?? []).map(v => ({ ...v }))
+  editForm.cohortGroups = normalizeGroups(study.value.cohort.groups ?? [], editForm.visits)
   editForm.intakeDetails = JSON.parse(JSON.stringify(study.value.intakeDetails ?? {}))
   editForm.budgetLines = study.value.budget.lines.map(l => ({ ...l }))
   newServiceId.value = ''
@@ -332,6 +365,7 @@ async function saveEdit() {
       metadata: study.value.metadata ?? '',
       cohortSubjects: study.value.cohort.subjects,
       cohortSampleType: study.value.cohort.sampleType ?? '',
+      visits: study.value.cohort.visits ?? [],
       services: [...(study.value.budget.lines || [])].map(l => l.service).sort().join('|'),
     }
     const changes: string[] = []
@@ -346,6 +380,7 @@ async function saveEdit() {
     if (editForm.phlebotomy !== snap.phlebotomy) changes.push('phlebotomy')
     if (editForm.metadata !== snap.metadata) changes.push('metadata plan')
     if (subjects !== snap.cohortSubjects || editForm.cohortSampleType.trim() !== snap.cohortSampleType) changes.push('cohort')
+    if (JSON.stringify(editForm.visits) !== JSON.stringify(snap.visits)) changes.push('visit schedule')
     if ([...editForm.budgetLines].map(l => l.service).sort().join('|') !== snap.services) changes.push('services')
     const changeNote = changes.length > 0 ? `Updated: ${changes.join(', ')}` : undefined
 
@@ -368,7 +403,8 @@ async function saveEdit() {
         subjects,
         totalSamples,
         sampleType: editForm.cohortSampleType.trim(),
-        groups: normalizeGroups(editForm.cohortGroups),
+        groups: normalizeGroups(editForm.cohortGroups, editForm.visits),
+        visits: editForm.visits,
       },
       budget: {
         ...study.value.budget,
@@ -589,6 +625,26 @@ const affiliationClass = computed(() => {
             </div>
           </div>
 
+          <template v-if="visits.length">
+            <div class="info-lbl">Visit schedule</div>
+            <div>
+              <table class="sched-table">
+                <thead>
+                  <tr>
+                    <th>Visit</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="v in visits" :key="v.id">
+                    <td>{{ v.label || '—' }}</td>
+                    <td>{{ v.description || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
           <template v-if="cohortGroups.length">
             <div class="info-lbl">Cohort sample matrix</div>
             <div>
@@ -597,24 +653,24 @@ const affiliationClass = computed(() => {
                   <tr>
                     <th>Cohort</th>
                     <th>Subs</th>
-                    <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                    <th v-for="v in visits" :key="v.id">{{ v.label }}</th>
                     <th>Samples</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(g, i) in cohortGroups" :key="i">
-                    <td>{{ g.name || '—' }}</td>
+                    <td>{{ g.name || '—' }}<template v-if="g.description"> — {{ g.description }}</template></td>
                     <td class="mono">{{ g.subjects }}</td>
-                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">{{ g.samples?.[tp.key] || 0 }}</td>
-                    <td class="mono">{{ groupTotal(g).toLocaleString() }}</td>
+                    <td v-for="v in visits" :key="v.id" class="mono">{{ g.samples?.[v.id] || 0 }}</td>
+                    <td class="mono">{{ groupTotal(g, visits).toLocaleString() }}</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr>
                     <td>Total</td>
                     <td class="mono">{{ cohortGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0).toLocaleString() }}</td>
-                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">
-                      {{ cohortGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[tp.key]) || 0), 0).toLocaleString() }}
+                    <td v-for="v in visits" :key="v.id" class="mono">
+                      {{ cohortGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[v.id]) || 0), 0).toLocaleString() }}
                     </td>
                     <td class="mono">{{ matrixGrandTotal.toLocaleString() }}</td>
                   </tr>
@@ -935,8 +991,9 @@ const affiliationClass = computed(() => {
               <input v-model="editForm.name" type="text" autofocus @keydown.escape="editOpen = false">
             </div>
             <div class="em-field">
-              <label class="em-label">Abbreviation</label>
-              <input v-model="editForm.abbreviation" type="text">
+              <label class="em-label">Project Acronym / ID</label>
+              <div class="em-hint">Must be limited to 20 characters for LIMS</div>
+              <input v-model="editForm.abbreviation" type="text" maxlength="20">
             </div>
             <div class="em-field">
               <label class="em-label">IRB</label>
@@ -984,35 +1041,25 @@ const affiliationClass = computed(() => {
                 <input v-model="editForm.baEmail" type="email">
               </div>
             </template>
-          </div>
-        </div>
-
-        <!-- Principal Investigator -->
-        <div class="em-section">
-          <div class="em-section-title">Principal Investigator</div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">PI name</label>
-              <input v-model="editForm.piName" type="text">
+            <div class="em-field-pair">
+              <div class="em-field">
+                <label class="em-label">Principal investigator</label>
+                <input v-model="editForm.piName" type="text">
+              </div>
+              <div class="em-field">
+                <label class="em-label">PI email</label>
+                <input v-model="editForm.piEmail" type="email">
+              </div>
             </div>
-            <div class="em-field">
-              <label class="em-label">PI email</label>
-              <input v-model="editForm.piEmail" type="email">
-            </div>
-          </div>
-        </div>
-
-        <!-- Study Lead -->
-        <div class="em-section">
-          <div class="em-section-title">Study Lead <span class="em-section-opt">(optional)</span></div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Lead name</label>
-              <input v-model="editForm.studyLeadName" type="text">
-            </div>
-            <div class="em-field">
-              <label class="em-label">Lead email</label>
-              <input v-model="editForm.studyLeadEmail" type="email">
+            <div class="em-field-pair">
+              <div class="em-field">
+                <label class="em-label">Point of contact / Project lead</label>
+                <input v-model="editForm.studyLeadName" type="text">
+              </div>
+              <div class="em-field">
+                <label class="em-label">Lead email</label>
+                <input v-model="editForm.studyLeadEmail" type="email">
+              </div>
             </div>
           </div>
         </div>
@@ -1100,6 +1147,36 @@ const affiliationClass = computed(() => {
           </div>
         </div>
 
+        <!-- Defining Visits -->
+        <div class="em-section">
+          <div class="em-section-title">Defining Visits</div>
+          <div class="em-section-hint">The timepoints/visits at which samples are collected — these drive the columns in the cohort sample matrix below</div>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Visit</th>
+                  <th style="text-align:left;">Description</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(v, i) in editForm.visits" :key="v.id">
+                  <td><input v-model="v.label" type="text" placeholder="e.g. V1"></td>
+                  <td><input v-model="v.description" type="text" placeholder="e.g. before treatment"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditVisit(i)">✕</button></td>
+                </tr>
+                <tr v-if="!editForm.visits.length">
+                  <td colspan="3" class="em-srv-empty">No visits defined yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditVisit">+ Add another visit</button>
+          </div>
+        </div>
+
         <!-- Cohort sample matrix -->
         <div class="em-section">
           <div class="em-section-title">Cohort sample matrix</div>
@@ -1109,21 +1186,24 @@ const affiliationClass = computed(() => {
                 <tr>
                   <th style="text-align:left;">Cohort / Group</th>
                   <th>Subjects</th>
-                  <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                  <th v-for="v in editForm.visits" :key="v.id">{{ v.label || '—' }}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.cohortGroups" :key="i">
-                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td>
+                    <input v-model="g.name" type="text" placeholder="Cohort name">
+                    <input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20" style="margin-top:0.4rem;">
+                  </td>
                   <td><input v-model.number="g.subjects" type="number" min="0"></td>
-                  <td v-for="tp in TIMEPOINTS" :key="tp.key">
-                    <input v-model.number="g.samples[tp.key]" type="number" min="0">
+                  <td v-for="v in editForm.visits" :key="v.id">
+                    <input v-model.number="g.samples[v.id]" type="number" min="0">
                   </td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
                 </tr>
                 <tr v-if="!editForm.cohortGroups.length">
-                  <td :colspan="TIMEPOINTS.length + 3" class="em-srv-empty">No cohorts yet.</td>
+                  <td :colspan="editForm.visits.length + 3" class="em-srv-empty">No cohorts yet.</td>
                 </tr>
               </tbody>
             </table>

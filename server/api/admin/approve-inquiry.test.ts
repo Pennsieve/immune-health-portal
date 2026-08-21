@@ -19,7 +19,11 @@ interface StudyInsert {
     pctInvoiced: number
     lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
   }
-  cohort: { totalSamples: number; groups: Array<{ name: string; subjects: number; samples: Record<string, number> }> }
+  cohort: {
+    totalSamples: number
+    groups: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+    visits: Array<{ id: string; label: string; description?: string }>
+  }
 }
 
 // A minimal chainable stand-in for the Supabase query builder. Records the
@@ -66,9 +70,14 @@ function baseInquiry(overrides: Record<string, unknown> = {}) {
       { name: 'CyTOF', qty: 3, rate: '$1,200' },
       { name: 'Processing', qty: 2, rate: 500 },
     ],
+    collection_visits: [
+      { id: 'v1', label: 'V1', description: 'Before treatment' },
+      { id: 'v2', label: 'V2', description: '7-10 days after treatment' },
+      { id: 'v3', label: 'V3', description: '21-28 days after treatment' },
+    ],
     sample_schedule: [
-      { name: 'Cohort A', subjects: 10, samples: { base: 2, w24: 1 } },
-      { name: 'Cohort B', subjects: 5, samples: { base: 1, w52: 1, w104: 1 } },
+      { name: 'Cohort A', subjects: 10, samples: { v1: 2, v2: 1, v3: 0 } },
+      { name: 'Cohort B', subjects: 5, samples: { v1: 1, v2: 1, v3: 1 } },
     ],
     cohort_subjects: 15,
     sample_type: 'Fresh blood',
@@ -125,21 +134,40 @@ describe('approve-inquiry — budget math', () => {
 })
 
 describe('approve-inquiry — sample matrix total', () => {
-  it('totals subjects x sum(timepoint samples) across cohort groups', async () => {
+  it('totals subjects x sum(visit samples) across cohort groups', async () => {
     const { db, result } = invoke(baseInquiry())
     await result
-    // Cohort A: 10 x (2+1) = 30; Cohort B: 5 x (1+1+1) = 15 → 45
+    // Cohort A: 10 x (2+1+0) = 30; Cohort B: 5 x (1+1+1) = 15 → 45
     expect(db.inserts.studies[0].cohort.totalSamples).toBe(45)
   })
 
-  it('ignores non-timepoint sample keys and defaults missing ones to 0', async () => {
+  it('ignores unknown visit ids and defaults missing ones to 0', async () => {
     const { db, result } = invoke(baseInquiry({
-      sample_schedule: [{ name: 'X', subjects: 4, samples: { base: 2, junk: 99 } }],
+      collection_visits: [{ id: 'v1', label: 'V1' }],
+      sample_schedule: [{ name: 'X', subjects: 4, samples: { v1: 2, junk: 99 } }],
     }))
     await result
-    // Only `base` counts (junk ignored): 4 x 2 = 8
+    // Only `v1` counts (junk ignored, not a defined visit): 4 x 2 = 8
     expect(db.inserts.studies[0].cohort.totalSamples).toBe(8)
-    expect(db.inserts.studies[0].cohort.groups[0].samples).toEqual({ base: 2, w24: 0, w52: 0, w104: 0 })
+    expect(db.inserts.studies[0].cohort.groups[0].samples).toEqual({ v1: 2 })
+  })
+
+  it('freezes the inquiry\'s visit schedule onto the new study', async () => {
+    const { db, result } = invoke(baseInquiry())
+    await result
+    expect(db.inserts.studies[0].cohort.visits).toEqual([
+      { id: 'v1', label: 'V1', description: 'Before treatment' },
+      { id: 'v2', label: 'V2', description: '7-10 days after treatment' },
+      { id: 'v3', label: 'V3', description: '21-28 days after treatment' },
+    ])
+  })
+
+  it('defaults to an empty visit schedule when none was defined', async () => {
+    const { db, result } = invoke(baseInquiry({ collection_visits: undefined, sample_schedule: [{ name: 'X', subjects: 4, samples: {} }] }))
+    await result
+    expect(db.inserts.studies[0].cohort.visits).toEqual([])
+    expect(db.inserts.studies[0].cohort.groups[0].samples).toEqual({})
+    expect(db.inserts.studies[0].cohort.totalSamples).toBe(0)
   })
 })
 

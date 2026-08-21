@@ -115,7 +115,7 @@ describe('cleanIntakeDetails', () => {
   it('drops empty values', () => {
     const out = cleanIntakeDetails({
       clinicalQuestion: 'Q',
-      collaborators: '',
+      participantNaming: '',
       collectionSites: [],
       cohortCount: undefined,
     })

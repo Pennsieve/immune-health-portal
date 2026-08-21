@@ -16,6 +16,45 @@ import { intakeDisplayValue } from '~/utils/intakeFields'
 
 const TBD = 'to be finalized with the I3H team'
 
+// Distribution of draw volume across tube types, per visit (utils/intakeFields.ts).
+const TUBE_COUNT_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'tubeCountEdta4ml', label: '4 mL EDTA' },
+  { key: 'tubeCountHeparin10ml', label: '10 mL Sodium Heparin' },
+  { key: 'tubeCountHeparin6ml', label: '6 mL Sodium Heparin' },
+  { key: 'tubeCountSerum10ml', label: '10 mL Serum (SST)' },
+]
+
+function tubesPerVisitText(details: Record<string, unknown>): string {
+  return TUBE_COUNT_FIELDS
+    .map(({ key, label }) => {
+      const n = Number(details[key])
+      return n > 0 ? `${n} × ${label}` : ''
+    })
+    .filter(Boolean)
+    .join(', ')
+}
+
+// The Scope of Work list items read naturally whether the underlying study
+// data is fully filled in (dynamic numbers) or still incomplete (falls back
+// to a plain-English TBD sentence instead of gluing the TBD phrase into a
+// number's position, e.g. "35 subjects recruited (enrollment period TBD)"
+// rather than "35 subjects recruited over TBD").
+function scopeSubjectsLine(subjectCount: string, enrollmentPeriod: string): string {
+  return enrollmentPeriod === TBD
+    ? `${subjectCount} subjects recruited (enrollment period ${TBD})`
+    : `${subjectCount} subjects recruited over ${enrollmentPeriod}`
+}
+
+function scopeVisitsLine(visitCount: string): string {
+  return visitCount === TBD ? `Visit schedule ${TBD}` : `${visitCount} visits`
+}
+
+function scopeTubeLine(tubeType: string, tubesPerVisit: string): string {
+  return tubeType === TBD
+    ? `Collection tube type ${TBD}`
+    : `Fresh whole blood in ${tubeType}${tubesPerVisit ? `, ${tubesPerVisit} tube(s) per visit` : ''}`
+}
+
 export interface AgreementBudgetLine {
   service: string
   rate: number
@@ -39,6 +78,13 @@ export interface AgreementFields {
   sampleType: string
   cohortCount: number
   tubeType: string
+  visitCount: string
+  tubesPerVisit: string
+  scopeSubjectsLine: string
+  scopeVisitsLine: string
+  scopeTubeLine: string
+  hasTier1Service: boolean
+  hasCytofService: boolean
   enrollmentPeriod: string
   firstSampleDate: string
   objectivesText: string
@@ -64,6 +110,7 @@ export interface StudyForAgreement {
     totalSamples?: number
     sampleType?: string
     groups?: Array<Record<string, unknown>>
+    visits?: Array<{ id: string; label: string; description?: string }>
   } | null
   budget?: {
     committed?: number
@@ -95,6 +142,21 @@ export function buildAgreementFields(study: StudyForAgreement, generatedOn?: str
   const projectLead = study.study_lead
   const committed = budget.committed
 
+  const subjectCount = cohort.subjects ? String(cohort.subjects) : TBD
+  const totalSamples = cohort.totalSamples ? String(cohort.totalSamples) : TBD
+  const tubeType = intake('tubeTypes') || TBD
+  const visitCount = cohort.visits?.length ? String(cohort.visits.length) : TBD
+  const tubesPerVisit = tubesPerVisitText(intakeDetails)
+  const enrollmentPeriod = intake('enrollmentPeriod') || TBD
+  const budgetLines = (budget.lines || []).map(l => ({
+    service: l.service,
+    rate: Number(l.rate),
+    planned: Number(l.planned),
+    committed: Number(l.committed),
+  }))
+  const hasTier1Service = budgetLines.some(l => /tier\s*1/i.test(l.service))
+  const hasCytofService = budgetLines.some(l => /cytof/i.test(l.service))
+
   return {
     studyName: study.name,
     abbreviation: study.abbreviation || '',
@@ -106,12 +168,19 @@ export function buildAgreementFields(study: StudyForAgreement, generatedOn?: str
     projectLeadEmail: projectLead?.email || '',
     pointOfContactLine: projectLead ? `${projectLead.name} <${projectLead.email}>` : TBD,
     generatedOn: generatedOn || todayLong(),
-    subjectCount: cohort.subjects ? String(cohort.subjects) : TBD,
-    totalSamples: cohort.totalSamples ? String(cohort.totalSamples) : TBD,
+    subjectCount,
+    totalSamples,
     sampleType: cohort.sampleType || TBD,
-    cohortCount: cohort.groups?.length || 1,
-    tubeType: intake('tubeTypes') || TBD,
-    enrollmentPeriod: intake('enrollmentPeriod') || TBD,
+    cohortCount: cohort.groups?.length || 0,
+    tubeType,
+    visitCount,
+    tubesPerVisit,
+    scopeSubjectsLine: scopeSubjectsLine(subjectCount, enrollmentPeriod),
+    scopeVisitsLine: scopeVisitsLine(visitCount),
+    scopeTubeLine: scopeTubeLine(tubeType, tubesPerVisit),
+    hasTier1Service,
+    hasCytofService,
+    enrollmentPeriod,
     firstSampleDate: intake('firstSampleDate') || TBD,
     objectivesText: study.objectives || TBD,
     isRemotePhlebotomy: /remote/i.test(study.phlebotomy || ''),
@@ -121,11 +190,6 @@ export function buildAgreementFields(study: StudyForAgreement, generatedOn?: str
     baName: budget.baName || TBD,
     baEmail: budget.baEmail || TBD,
     totalBudget: committed ? `$${Number(committed).toLocaleString()}` : TBD,
-    budgetLines: (budget.lines || []).map(l => ({
-      service: l.service,
-      rate: Number(l.rate),
-      planned: Number(l.planned),
-      committed: Number(l.committed),
-    })),
+    budgetLines,
   }
 }
