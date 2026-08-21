@@ -17,9 +17,9 @@
 --   objectives, pi, study_lead, affiliation, affiliation_org, irb,
 --   cohort_subjects, services, services_detail, estimate, sample_type,
 --   phlebotomy, metadata, lead_details, intake_sent_date, intake_details,
---   sample_schedule, notes, feasibility
+--   sample_schedule, collection_visits, notes, feasibility
 
-insert into inquiries (id, study_name, abbreviation, status, submitted_date, submitted_relative, objectives, pi, study_lead, affiliation, affiliation_org, irb, cohort_subjects, services, services_detail, estimate, sample_type, phlebotomy, metadata, lead_details, intake_sent_date, intake_details, sample_schedule, notes, feasibility) values
+insert into inquiries (id, study_name, abbreviation, status, submitted_date, submitted_relative, objectives, pi, study_lead, affiliation, affiliation_org, irb, cohort_subjects, services, services_detail, estimate, sample_type, phlebotomy, metadata, lead_details, intake_sent_date, intake_details, sample_schedule, collection_visits, notes, feasibility) values
 
 -- ── Lead: fresh, awaiting introductory contact (checklist untouched) ──
 (
@@ -30,7 +30,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'Internal', 'Perelman School of Medicine', null,
   null, '', '[]'::jsonb, null, null, null, null,
   '{"role":"Principal Investigator","referralSource":"colleague","callPurpose":"New study inquiry — microglia immune profiling","researchSummary":"Exploring peripheral immune correlates of neuroinflammation in early Parkinson disease, and whether CyTOF profiling could support a pilot cohort."}',
-  null, '{}'::jsonb, '[]'::jsonb,
+  null, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb,
   '[]',
   '[{"label":"Schedule introductory meeting","checked":false},{"label":"Introductory meeting complete","checked":false}]'
 ),
@@ -44,7 +44,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'External', 'The Jackson Laboratory', null,
   null, '', '[]'::jsonb, null, null, null, null,
   '{"role":"Associate Professor","referralSource":"conference","callPurpose":"Learning about your CyTOF services and pricing","researchSummary":"Comparative immune atlas across autoimmune translational cohorts; interested in whether the core can handle cross-site sample logistics."}',
-  null, '{}'::jsonb, '[]'::jsonb,
+  null, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb,
   '[{"author":"Lori Guercio","date":"Jul 15 · 2:20 PM","text":"Met Dr. Okonkwo at CYTO — strong fit for cross-site work. Intro meeting done, ready to send the full intake form."}]',
   '[{"label":"Schedule introductory meeting","checked":true},{"label":"Introductory meeting complete","checked":true}]'
 ),
@@ -58,7 +58,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'Industry', 'Genoptix', null,
   null, '', '[]'::jsonb, null, null, null, null,
   '{"role":"Director of Translational Science","referralSource":"web-search","callPurpose":"Discuss a biomarker study and turnaround times","researchSummary":"Phase I immuno-oncology candidate; need standardized immune monitoring with a defined turnaround and data delivery on Pennsieve."}',
-  'Jul 14, 2026', '{}'::jsonb, '[]'::jsonb,
+  'Jul 14, 2026', '{}'::jsonb, '[]'::jsonb, '[]'::jsonb,
   '[{"author":"Lori Guercio","date":"Jul 14 · 10:05 AM","text":"Intro call done. Sent the full study intake form — awaiting submission."}]',
   '[{"label":"Schedule introductory meeting","checked":true},{"label":"Introductory meeting complete","checked":true}]'
 ),
@@ -76,6 +76,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null,
   '{"clinicalQuestion":"Does PD-1 blockade restore CD8 T-cell effector function in NSCLC responders versus non-responders?","collaborators":"Rachel Thompson — CRC; Merck Immuno-Oncology group","collectionSites":["Remote / off-site"],"collectionSiteOther":"Merck multi-center trial sites","participantNaming":"APEX-001, APEX-002","cohortCount":"2","cohortNames":"Responders, Non-responders","irbStatus":"pending","irbTimeline":"Merck IRB approval expected Q3 2026","pilotData":"yes","pilotDataDetail":"Pilot CyTOF on 8 subjects showed a measurable exhaustion signature","enrollmentPeriod":12,"firstSampleDate":"2026-08","statisticalJustification":"Powered at 80% to detect a 1.5-fold difference in CD8 exhaustion frequency, alpha 0.05","tubeTypes":["Sodium heparin","EDTA"],"specialHandling":["Time-sensitive processing window"],"specialHandlingNotes":"24-hour processing window from draw","customAssays":"Custom CyTOF panel — add PD-1, TIM-3, LAG-3","clinicalVariables":["Treatment arms","Clinical outcomes","Biomarkers"],"pennsieveStatus":"need-setup","dataSharing":"yes","dataSharingNotes":"12-month embargo per Merck data policy","sampleArrival":"rolling","hardDeadlines":"AACR 2027 abstract deadline Nov 2026"}',
   '[{"name":"Responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}},{"name":"Non-responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}}]',
+  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"author":"Lori Guercio","date":"May 12 · 11:08 AM","text":"CyTOF capacity check w/ Hannah — can absorb in early Q3 batch. Need MSA before agreement package goes out. Routing to legal."}]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":false},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":false},{"label":"iLabs service request ID# received","checked":false},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":false},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":false},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":false},{"label":"Investigator team member added to crc-ihpu slack channel","checked":false},{"label":"Investigator team member has REDcap access","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"User agreement signed","checked":false}]'
 ),
@@ -93,6 +94,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null,
   '{"clinicalQuestion":"How do NK cell activation and macrophage polarization shift with cardiac immunometabolic intervention?","collaborators":"Division of Cardiology metabolic group","collectionSites":["HUP"],"participantNaming":"CARDIA-001","cohortCount":"1","cohortNames":"CARDIA","irbStatus":"approved","pilotData":"no","enrollmentPeriod":18,"firstSampleDate":"2026-07","statisticalJustification":"Effect size from prior cohort; 24 subjects gives 80% power for the primary endpoint","tubeTypes":["Sodium heparin"],"specialHandling":[],"clinicalVariables":["Demographics","Clinical outcomes"],"ilabsId":"IL-224417","pennsieveStatus":"has-account","dataSharing":"no","sampleArrival":"rolling"}',
   '[{"name":"CARDIA","subjects":24,"samples":{"base":1,"w24":1,"w52":1,"w104":0}}]',
+  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":true},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":false},{"label":"iLabs service request ID# received","checked":false},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":false},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":false},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":false},{"label":"Investigator team member added to crc-ihpu slack channel","checked":false},{"label":"Investigator team member has REDcap access","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"User agreement signed","checked":false}]'
 ),
@@ -110,6 +112,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null,
   '{"clinicalQuestion":"What immune signatures distinguish sustained remission in IBD?","collaborators":"Division of Gastroenterology; IBD program CRCs","collectionSites":["HUP","PAH"],"participantNaming":"RESOLVE-001","cohortCount":"2","cohortNames":"Remission, Active disease","irbStatus":"approved","pilotData":"yes","pilotDataDetail":"Prior flow data showed Treg/Th17 imbalance in active disease","enrollmentPeriod":24,"firstSampleDate":"2026-06","statisticalJustification":"Powered to detect a 20% difference in Treg frequency at 80% power","tubeTypes":["Sodium heparin","EDTA"],"specialHandling":["Rare or irreplaceable samples"],"specialHandlingNotes":"Some timepoints are single-draw and cannot be repeated","clinicalVariables":["Demographics","Treatment arms","Clinical outcomes","Medications"],"ilabsId":"IL-231180","pennsieveStatus":"has-account","dataSharing":"no","sampleArrival":"rolling","hardDeadlines":"R01 renewal reporting March 2027"}',
   '[{"name":"Remission","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}},{"name":"Active disease","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}}]',
+  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"author":"Lori Guercio","date":"May 14 · 9:40 AM","text":"Feasibility cleared. Approved and agreement package sent to Dr. Lakshmi."}]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":true},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":true},{"label":"iLabs service request ID# received","checked":true},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":true},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":true},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":true},{"label":"Investigator team member added to crc-ihpu slack channel","checked":true},{"label":"Investigator team member has REDcap access","checked":true},{"label":"Metadata collection plan obtained","checked":true},{"label":"User agreement signed","checked":true}]'
 ),
@@ -127,6 +130,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null,
   '{"clinicalQuestion":"How do germinal center B-cell responses evolve across a pediatric vaccine series?","collaborators":"CHOP Vaccine Immunology group","collectionSites":["CHOP"],"participantNaming":"VECTOR-001","cohortCount":"1","cohortNames":"Vaccine series","irbStatus":"pending","irbTimeline":"CHOP IRB submission planned Q4 2026","pilotData":"no","enrollmentPeriod":6,"firstSampleDate":"2026-09","statisticalJustification":"Feasibility cohort; formal power analysis pending pilot","tubeTypes":["Sodium heparin"],"specialHandling":["Pediatric / low-volume draws"],"specialHandlingNotes":"Low-volume pediatric draws; minimize tube count","clinicalVariables":["Demographics","Biomarkers"],"pennsieveStatus":"unsure","dataSharing":"no","sampleArrival":"single-batch"}',
   '[{"name":"Vaccine series","subjects":18,"samples":{"base":2,"w24":1,"w52":1,"w104":1}}]',
+  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"author":"Lori Guercio","date":"May 10 · 1:15 PM","text":"Declined — pediatric low-volume draws below our minimum viable volume for the requested panel. Offered to revisit if protocol changes."}]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":false},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":false},{"label":"iLabs service request ID# received","checked":false},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":false},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":false},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":false},{"label":"Investigator team member added to crc-ihpu slack channel","checked":false},{"label":"Investigator team member has REDcap access","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"User agreement signed","checked":false}]'
 );

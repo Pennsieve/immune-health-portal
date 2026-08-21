@@ -54,34 +54,27 @@ function makeDb(existing: Record<string, unknown> | null) {
   return { client: { from }, updates }
 }
 
-function baseForm(overrides: Record<string, unknown> = {}) {
+// The rest of the intake is captured internally now — this endpoint only
+// ever accepts and writes Funding & Affiliation (billing) fields.
+function billingBody(overrides: Record<string, unknown> = {}) {
   return {
-    projectName: 'Immune Aging',
-    acronym: 'IMA',
-    principalInvestigator: 'Dr. Lee',
-    piEmail: 'lee@example.com',
     affiliation: 'internal',
-    subjectCount: 15,
-    collectionGroups: [],
-    objectives: 'Study immune aging',
-    irbStatus: 'approved',
-    irbNumber: 'IRB-1',
-    sampleType: 'fresh-blood',
-    phlebotomyNeeds: 'ih-campus',
-    metadataPlan: 'redcap',
+    budgetCode: '400-1234-5-678901-2345-6789-0123',
+    fundingName: 'R01 Immune Aging',
+    baName: 'Jane BA',
+    baEmail: 'ba@pennmedicine.upenn.edu',
+    ilabsId: 'IL-123456',
+    externalInstitution: '',
+    externalContact: '',
     ...overrides,
   }
 }
 
 function body(overrides: Record<string, unknown> = {}) {
   return {
-    form: baseForm(),
+    ...billingBody(),
     token: validToken(),
     inquiryId: 'inq-1',
-    servicesText: 'CyTOF',
-    servicesDetail: [],
-    totalSamples: 10,
-    estimatedTotal: 1000,
     timezone: 'America/New_York',
     ...overrides,
   }
@@ -94,6 +87,19 @@ function leadRow(overrides: Record<string, unknown> = {}) {
     submitted_date: 'Jul 1, 2026',
     feasibility: [{ label: 'x', checked: true }],
     activity: [],
+    study_name: 'Immune Aging',
+    abbreviation: 'IMA',
+    pi: { name: 'Dr. Lee', email: 'lee@example.com' },
+    study_lead: null,
+    objectives: 'Study immune aging',
+    sample_type: 'Fresh whole blood',
+    sample_schedule: [{ name: 'Cohort A', subjects: 10, samples: { v1: 1 } }],
+    cohort_subjects: 10,
+    services: 'CyTOF',
+    estimate: 1000,
+    intake_details: {},
+    additional_notes: '',
+    affiliation: 'Internal',
     ...overrides,
   }
 }
@@ -114,7 +120,8 @@ describe('submit-intake — happy path', () => {
     const res = await result as { success: boolean }
     expect(res.success).toBe(true)
     expect(db.updates[0].status).toBe('New')
-    expect(db.updates[0].study_name).toBe('Immune Aging')
+    expect(db.updates[0].budget_code).toBe('400-1234-5-678901-2345-6789-0123')
+    expect((db.updates[0].intake_details as Record<string, unknown>).ilabsId).toBe('IL-123456')
     // one confirmation email + one staff alert
     expect(sendEmailMock).toHaveBeenCalledTimes(2)
   })
@@ -166,8 +173,13 @@ describe('submit-intake — token gating', () => {
 })
 
 describe('submit-intake — validation & status gating', () => {
-  it('rejects an invalid PI email with 400', async () => {
-    const { result } = run(leadRow(), body({ form: baseForm({ piEmail: 'not-an-email' }) }))
+  it('rejects an invalid BA email with 400', async () => {
+    const { result } = run(leadRow(), body({ baEmail: 'not-an-email' }))
+    await expect(result).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('rejects a missing institution name for external affiliation with 400', async () => {
+    const { result } = run(leadRow(), body({ affiliation: 'external', externalInstitution: '' }))
     await expect(result).rejects.toMatchObject({ statusCode: 400 })
   })
 

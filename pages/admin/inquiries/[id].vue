@@ -2,7 +2,7 @@
 import { useAdminStore } from '~/stores/admin'
 import type { Affiliation } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
-import { COLLECTION_TIMEPOINTS } from '~/types/index'
+import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 import { leadDetailRows } from '~/utils/leadFields'
 
@@ -133,13 +133,21 @@ const fieldsBySection = INTAKE_SECTIONS.map(section => ({
   fields: INTAKE_FIELDS.filter(f => f.section === section),
 }))
 
-const TIMEPOINTS = COLLECTION_TIMEPOINTS
+const visits = computed(() => inquiry.value?.collectionVisits || [])
 const collectionGroups = computed(() => inquiry.value?.collectionGroups || [])
-const groupTotal = (g: { subjects: number; samples: Record<string, number> }) =>
-  (Number(g.subjects) || 0) * TIMEPOINTS.reduce((s, tp) => s + (Number(g.samples?.[tp.key]) || 0), 0)
+const keyPersonnel = computed(() => inquiry.value?.keyPersonnel || [])
+const groupTotal = (g: { subjects: number; samples: Record<string, number> }, visitList: CollectionVisit[]) =>
+  (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
 const matrixGrandTotal = computed(() =>
-  collectionGroups.value.reduce((s, g) => s + groupTotal(g), 0),
+  collectionGroups.value.reduce((s, g) => s + groupTotal(g, visits.value), 0),
 )
+
+// Generate a stable id for a new visit column (used as the key in every
+// group's `samples` map)
+function newVisitId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
 
 const isApproving = ref(false)
 const isDeclining = ref(false)
@@ -285,27 +293,67 @@ const editForm = reactive({
   cohortSampleType: '',
   servicesDetail: [] as ServiceLine[],
   intakeDetails: {} as Record<string, unknown>,
-  collectionGroups: [] as Array<{ name: string; subjects: number; samples: Record<string, number> }>,
+  collectionGroups: [] as Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>,
+  visits: [] as CollectionVisit[],
+  keyPersonnel: [] as Array<{ name: string; email: string; role: string }>,
 })
 
-// Normalise a cohort matrix to numeric cells for comparison / saving
-function normalizeGroups(groups: Array<{ name: string; subjects: number; samples: Record<string, number> }>) {
+// Normalise a cohort matrix to numeric cells, keyed by the given visit list,
+// for comparison / saving
+function normalizeGroups(
+  groups: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>,
+  visitList: CollectionVisit[],
+) {
   return groups.map(g => ({
     name: g.name || '',
+    description: g.description || '',
     subjects: Number(g.subjects) || 0,
-    samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, Number(g.samples?.[tp.key]) || 0])),
+    samples: Object.fromEntries(visitList.map(v => [v.id, Number(g.samples?.[v.id]) || 0])),
   }))
 }
 
 function addEditGroup() {
   editForm.collectionGroups.push({
     name: '',
+    description: '',
     subjects: 0,
-    samples: Object.fromEntries(TIMEPOINTS.map(tp => [tp.key, 0])),
+    samples: Object.fromEntries(editForm.visits.map(v => [v.id, 0])),
   })
 }
 function removeEditGroup(i: number) {
   editForm.collectionGroups.splice(i, 1)
+}
+
+function addEditVisit() {
+  const visit: CollectionVisit = { id: newVisitId(), label: '', description: '' }
+  editForm.visits.push(visit)
+  editForm.collectionGroups.forEach((g) => { g.samples[visit.id] = 0 })
+}
+function removeEditVisit(i: number) {
+  const visit = editForm.visits[i]
+  if (!visit) return
+  const hasData = editForm.collectionGroups.some(g => Number(g.samples?.[visit.id]) > 0)
+  if (hasData && !confirm(`Remove "${visit.label || 'this visit'}"? This will discard the sample counts already entered for it across every cohort.`)) return
+  editForm.visits.splice(i, 1)
+  editForm.collectionGroups.forEach((g) => {
+    const { [visit.id]: _removed, ...rest } = g.samples
+    g.samples = rest
+  })
+}
+
+// Drop blank rows and trim whitespace so empty "+ Add another person" rows
+// left untouched don't get saved.
+function normalizePersonnel(people: Array<{ name: string; email: string; role: string }>) {
+  return people
+    .map(p => ({ name: (p.name || '').trim(), email: (p.email || '').trim(), role: (p.role || '').trim() }))
+    .filter(p => p.name || p.email || p.role)
+}
+
+function addEditPerson() {
+  editForm.keyPersonnel.push({ name: '', email: '', role: '' })
+}
+function removeEditPerson(i: number) {
+  editForm.keyPersonnel.splice(i, 1)
 }
 
 // Cohort scope is derived from the edited matrix, not entered by hand.
@@ -315,7 +363,7 @@ const editMatrixSubjects = computed(() =>
 const editMatrixTotal = computed(() =>
   editForm.collectionGroups.reduce(
     (s, g) => s + (Number(g.subjects) || 0)
-      * TIMEPOINTS.reduce((a, tp) => a + (Number(g.samples?.[tp.key]) || 0), 0),
+      * editForm.visits.reduce((a, v) => a + (Number(g.samples?.[v.id]) || 0), 0),
     0,
   ),
 )
@@ -364,8 +412,12 @@ const hasChanges = computed(() => {
   }
   // Expanded intake answers
   if (JSON.stringify(cleanIntakeDetails(editForm.intakeDetails)) !== JSON.stringify(cleanIntakeDetails(q.intakeDetails ?? {}))) return true
-  // Cohort sample matrix
-  if (JSON.stringify(normalizeGroups(editForm.collectionGroups)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? []))) return true
+  // Visit schedule
+  if (JSON.stringify(editForm.visits) !== JSON.stringify(q.collectionVisits ?? [])) return true
+  // Cohort sample matrix (normalised against the currently-edited visit list)
+  if (JSON.stringify(normalizeGroups(editForm.collectionGroups, editForm.visits)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? [], editForm.visits))) return true
+  // Key personnel
+  if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(q.keyPersonnel ?? []))) return true
   return false
 })
 
@@ -392,7 +444,9 @@ function openEdit() {
   editForm.cohortSampleType = q.sampleType ?? ''
   editForm.servicesDetail = q.servicesDetail.map(s => ({ ...s }))
   editForm.intakeDetails = JSON.parse(JSON.stringify(q.intakeDetails ?? {}))
-  editForm.collectionGroups = normalizeGroups(q.collectionGroups ?? [])
+  editForm.visits = (q.collectionVisits ?? []).map(v => ({ ...v }))
+  editForm.collectionGroups = normalizeGroups(q.collectionGroups ?? [], editForm.visits)
+  editForm.keyPersonnel = (q.keyPersonnel ?? []).map(p => ({ ...p }))
   newServiceId.value = ''
   editOpen.value = true
 }
@@ -421,12 +475,14 @@ function buildChangeNote(): string | undefined {
     || editForm.servicesDetail.some((l, i) => l.name !== q.servicesDetail[i]?.name || l.qty !== q.servicesDetail[i]?.qty)
   if (svcChanged) changes.push('services')
   if (JSON.stringify(cleanIntakeDetails(editForm.intakeDetails)) !== JSON.stringify(cleanIntakeDetails(q.intakeDetails ?? {}))) changes.push('intake questionnaire')
-  if (JSON.stringify(normalizeGroups(editForm.collectionGroups)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? []))) changes.push('cohort matrix')
+  if (JSON.stringify(editForm.visits) !== JSON.stringify(q.collectionVisits ?? [])) changes.push('visit schedule')
+  if (JSON.stringify(normalizeGroups(editForm.collectionGroups, editForm.visits)) !== JSON.stringify(normalizeGroups(q.collectionGroups ?? [], editForm.visits))) changes.push('cohort matrix')
+  if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(q.keyPersonnel ?? []))) changes.push('key personnel')
   return changes.length ? `Updated: ${changes.join(', ')}` : undefined
 }
 
 async function saveEdit() {
-  if (!inquiry.value || !editForm.studyName.trim()) return
+  if (!inquiry.value) return
   isSaving.value = true
   try {
     const changeNote = buildChangeNote()
@@ -458,7 +514,9 @@ async function saveEdit() {
       contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || undefined) : undefined,
       estimate: estimate > 0 ? estimate : undefined,
       intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
-      collectionGroups: normalizeGroups(editForm.collectionGroups),
+      collectionVisits: editForm.visits,
+      collectionGroups: normalizeGroups(editForm.collectionGroups, editForm.visits),
+      keyPersonnel: normalizePersonnel(editForm.keyPersonnel),
     }, changeNote)
     editOpen.value = false
   }
@@ -659,6 +717,28 @@ async function saveEdit() {
             <div>{{ inquiry.studyLead.name }} · <span class="mono">{{ inquiry.studyLead.email }}</span></div>
           </template>
 
+          <template v-if="keyPersonnel.length">
+            <div class="info-lbl">Key personnel</div>
+            <div>
+              <table class="sched-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in keyPersonnel" :key="i">
+                    <td>{{ p.name || '—' }}</td>
+                    <td>{{ p.role || '—' }}</td>
+                    <td class="mono">{{ p.email || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
           <template v-if="inquiry.phlebotomy">
             <div class="info-lbl">Phlebotomy</div>
             <div>{{ inquiry.phlebotomy }}</div>
@@ -704,6 +784,26 @@ async function saveEdit() {
             <div>{{ row.value }}</div>
           </template>
 
+          <template v-if="visits.length">
+            <div class="info-lbl">Visit schedule</div>
+            <div>
+              <table class="sched-table">
+                <thead>
+                  <tr>
+                    <th>Visit</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="v in visits" :key="v.id">
+                    <td>{{ v.label || '—' }}</td>
+                    <td>{{ v.description || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
           <template v-if="collectionGroups.length">
             <div class="info-lbl">Cohort sample matrix</div>
             <div>
@@ -712,24 +812,24 @@ async function saveEdit() {
                   <tr>
                     <th>Cohort</th>
                     <th>Subs</th>
-                    <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                    <th v-for="v in visits" :key="v.id">{{ v.label }}</th>
                     <th>Samples</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(g, i) in collectionGroups" :key="i">
-                    <td>{{ g.name || '—' }}</td>
+                    <td>{{ g.name || '—' }}<template v-if="g.description"> — {{ g.description }}</template></td>
                     <td class="mono">{{ g.subjects }}</td>
-                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">{{ g.samples?.[tp.key] || 0 }}</td>
-                    <td class="mono">{{ groupTotal(g).toLocaleString() }}</td>
+                    <td v-for="v in visits" :key="v.id" class="mono">{{ g.samples?.[v.id] || 0 }}</td>
+                    <td class="mono">{{ groupTotal(g, visits).toLocaleString() }}</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr>
                     <td>Total</td>
                     <td class="mono">{{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0).toLocaleString() }}</td>
-                    <td v-for="tp in TIMEPOINTS" :key="tp.key" class="mono">
-                      {{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[tp.key]) || 0), 0).toLocaleString() }}
+                    <td v-for="v in visits" :key="v.id" class="mono">
+                      {{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[v.id]) || 0), 0).toLocaleString() }}
                     </td>
                     <td class="mono">{{ matrixGrandTotal.toLocaleString() }}</td>
                   </tr>
@@ -823,81 +923,66 @@ async function saveEdit() {
           <div class="em-section-title">Study info</div>
           <div class="em-grid">
             <div class="em-field em-full">
-              <label class="em-label">Study name *</label>
+              <label class="em-label">Study name</label>
               <input v-model="editForm.studyName" type="text" autofocus @keydown.escape="editOpen = false">
             </div>
             <div class="em-field">
-              <label class="em-label">Abbreviation</label>
-              <input v-model="editForm.abbreviation" type="text">
+              <label class="em-label">Project Acronym / ID</label>
+              <div class="em-hint">Must be limited to 20 characters for LIMS</div>
+              <input v-model="editForm.abbreviation" type="text" maxlength="20">
             </div>
-            <div class="em-field">
-              <label class="em-label">IRB</label>
-              <input v-model="editForm.irb" type="text">
-            </div>
-            <div class="em-field">
-              <label class="em-label">Affiliation</label>
-              <select v-model="editForm.affiliation">
-                <option>Internal</option>
-                <option>External</option>
-                <option>Industry</option>
-              </select>
-            </div>
-            <div v-if="editForm.affiliation === 'Internal'" class="em-field">
-              <label class="em-label">Budget account number</label>
-              <input v-model="editForm.budgetCode" type="text" placeholder="400-____-_-______-____-____-____">
-            </div>
-            <div v-else class="em-field">
-              <label class="em-label">Institution</label>
-              <input v-model="editForm.affiliationOrg" type="text">
-            </div>
-            <div v-if="editForm.affiliation !== 'Internal'" class="em-field">
-              <label class="em-label">Contracting / grants office contact</label>
-              <input v-model="editForm.contractingContact" type="email" placeholder="contracts@institution.edu">
-            </div>
-            <template v-if="editForm.affiliation === 'Internal'">
-              <div class="em-field em-full">
-                <label class="em-label">Funding source name (in CAMS)</label>
-                <input v-model="editForm.fundingName" type="text" placeholder="Project title as listed in CAMS">
+            <div class="em-field-pair">
+              <div class="em-field">
+                <label class="em-label">Principal investigator</label>
+                <input v-model="editForm.piName" type="text">
               </div>
               <div class="em-field">
-                <label class="em-label">Business administrator name</label>
-                <input v-model="editForm.baName" type="text">
+                <label class="em-label">PI email</label>
+                <input v-model="editForm.piEmail" type="email">
+              </div>
+            </div>
+            <div class="em-field-pair">
+              <div class="em-field">
+                <label class="em-label">Point of contact / Project lead</label>
+                <input v-model="editForm.studyLeadName" type="text">
               </div>
               <div class="em-field">
-                <label class="em-label">BA contact email</label>
-                <input v-model="editForm.baEmail" type="email">
+                <label class="em-label">Lead email</label>
+                <input v-model="editForm.studyLeadEmail" type="email">
               </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- Principal Investigator -->
-        <div class="em-section">
-          <div class="em-section-title">Principal Investigator</div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">PI name</label>
-              <input v-model="editForm.piName" type="text">
-            </div>
-            <div class="em-field">
-              <label class="em-label">PI email</label>
-              <input v-model="editForm.piEmail" type="email">
             </div>
           </div>
         </div>
 
-        <!-- Study Lead -->
+        <!-- Key personnel -->
         <div class="em-section">
-          <div class="em-section-title">Study Lead <span class="em-section-opt">(optional)</span></div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Lead name</label>
-              <input v-model="editForm.studyLeadName" type="text">
-            </div>
-            <div class="em-field">
-              <label class="em-label">Lead email</label>
-              <input v-model="editForm.studyLeadEmail" type="email">
-            </div>
+          <div class="em-section-title">Key Personnel</div>
+          <div class="em-section-hint">CRCs, other physicians, etc. who'll help launch the study on the clinician's side</div>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Name</th>
+                  <th style="text-align:left;">Role</th>
+                  <th style="text-align:left;">Email</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(p, i) in editForm.keyPersonnel" :key="i">
+                  <td><input v-model="p.name" type="text" placeholder="Full name"></td>
+                  <td><input v-model="p.role" type="text" placeholder="e.g. CRC"></td>
+                  <td><input v-model="p.email" type="email" placeholder="name@pennmedicine.upenn.edu"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditPerson(i)">✕</button></td>
+                </tr>
+                <tr v-if="!editForm.keyPersonnel.length">
+                  <td colspan="4" class="em-srv-empty">No key personnel added yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditPerson">+ Add another person</button>
           </div>
         </div>
 
@@ -984,6 +1069,36 @@ async function saveEdit() {
           </div>
         </div>
 
+        <!-- Defining Visits -->
+        <div class="em-section">
+          <div class="em-section-title">Defining Visits</div>
+          <div class="em-section-hint">The timepoints/visits at which samples are collected — these drive the columns in the cohort sample matrix below</div>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Visit</th>
+                  <th style="text-align:left;">Description</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(v, i) in editForm.visits" :key="v.id">
+                  <td><input v-model="v.label" type="text" placeholder="e.g. V1"></td>
+                  <td><input v-model="v.description" type="text" placeholder="e.g. before treatment"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditVisit(i)">✕</button></td>
+                </tr>
+                <tr v-if="!editForm.visits.length">
+                  <td colspan="3" class="em-srv-empty">No visits defined yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditVisit">+ Add another visit</button>
+          </div>
+        </div>
+
         <!-- Cohort sample matrix -->
         <div class="em-section">
           <div class="em-section-title">Cohort sample matrix</div>
@@ -993,21 +1108,24 @@ async function saveEdit() {
                 <tr>
                   <th style="text-align:left;">Cohort / Group</th>
                   <th>Subjects</th>
-                  <th v-for="tp in TIMEPOINTS" :key="tp.key">{{ tp.short }}</th>
+                  <th v-for="v in editForm.visits" :key="v.id">{{ v.label || '—' }}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
-                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td>
+                    <input v-model="g.name" type="text" placeholder="Cohort name">
+                    <input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20" style="margin-top:0.4rem;">
+                  </td>
                   <td><input v-model.number="g.subjects" type="number" min="0"></td>
-                  <td v-for="tp in TIMEPOINTS" :key="tp.key">
-                    <input v-model.number="g.samples[tp.key]" type="number" min="0">
+                  <td v-for="v in editForm.visits" :key="v.id">
+                    <input v-model.number="g.samples[v.id]" type="number" min="0">
                   </td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
                 </tr>
                 <tr v-if="!editForm.collectionGroups.length">
-                  <td :colspan="TIMEPOINTS.length + 3" class="em-srv-empty">No cohorts yet.</td>
+                  <td :colspan="editForm.visits.length + 3" class="em-srv-empty">No cohorts yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -1021,12 +1139,61 @@ async function saveEdit() {
         <!-- Expanded intake answers — rendered from the shared schema -->
         <div v-for="group in fieldsBySection" :key="group.section" class="em-section">
           <div class="em-section-title">{{ group.section }}</div>
-          <IntakeFields :fields="group.fields" :model="editForm.intakeDetails" variant="modal" show-all />
+          <template v-if="group.section === 'Regulatory'">
+            <IntakeFields :fields="group.fields.filter(f => f.key === 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
+            <div class="em-field">
+              <label class="em-label">IRB Number</label>
+              <input v-model="editForm.irb" type="text">
+            </div>
+            <IntakeFields :fields="group.fields.filter(f => f.key !== 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
+          </template>
+          <IntakeFields v-else :fields="group.fields" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Funding & Affiliation -->
+        <div class="em-section">
+          <div class="em-section-title">Funding & Affiliation</div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">Affiliation</label>
+              <select v-model="editForm.affiliation">
+                <option>Internal</option>
+                <option>External</option>
+                <option>Industry</option>
+              </select>
+            </div>
+            <div v-if="editForm.affiliation === 'Internal'" class="em-field">
+              <label class="em-label">Budget account number</label>
+              <input v-model="editForm.budgetCode" type="text" placeholder="400-____-_-______-____-____-____">
+            </div>
+            <div v-else class="em-field">
+              <label class="em-label">Institution</label>
+              <input v-model="editForm.affiliationOrg" type="text">
+            </div>
+            <div v-if="editForm.affiliation !== 'Internal'" class="em-field">
+              <label class="em-label">Contracting / grants office contact</label>
+              <input v-model="editForm.contractingContact" type="email" placeholder="contracts@institution.edu">
+            </div>
+            <template v-if="editForm.affiliation === 'Internal'">
+              <div class="em-field em-full">
+                <label class="em-label">Funding source name (in CAMS)</label>
+                <input v-model="editForm.fundingName" type="text" placeholder="Project title as listed in CAMS">
+              </div>
+              <div class="em-field">
+                <label class="em-label">Business administrator name</label>
+                <input v-model="editForm.baName" type="text">
+              </div>
+              <div class="em-field">
+                <label class="em-label">BA contact email</label>
+                <input v-model="editForm.baEmail" type="email">
+              </div>
+            </template>
+          </div>
         </div>
       </div>
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isSaving" @click="editOpen = false">Cancel</button>
-        <button class="btn btn-primary btn-sm" :disabled="isSaving || !editForm.studyName.trim() || !hasChanges" @click="saveEdit">
+        <button class="btn btn-primary btn-sm" :disabled="isSaving || !hasChanges" @click="saveEdit">
           {{ isSaving ? 'Saving…' : 'Save changes' }}
         </button>
       </div>

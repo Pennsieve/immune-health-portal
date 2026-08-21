@@ -56,15 +56,22 @@ describe('mapInquiry', () => {
     expect(inq.intakeDetails).toEqual({})
     expect(inq.leadDetails).toEqual({})
     expect(inq.collectionGroups).toEqual([])
+    expect(inq.collectionVisits).toEqual([])
     expect(inq.notes).toEqual([])
     expect(inq.activity).toEqual([])
     expect(inq.feasibility).toEqual([])
   })
 
   it('maps sample_schedule into collectionGroups', () => {
-    const groups = [{ name: 'Baseline', subjects: 10, samples: { EDTA: 10 } }]
+    const groups = [{ name: 'Baseline', description: 'Untreated controls', subjects: 10, samples: { v1: 10 } }]
     const inq = mapInquiry({ id: 'inq-3', status: 'New', sample_schedule: groups })
     expect(inq.collectionGroups).toEqual(groups)
+  })
+
+  it('maps collection_visits into collectionVisits', () => {
+    const visits = [{ id: 'v1', label: 'V1', description: 'Before treatment' }]
+    const inq = mapInquiry({ id: 'inq-4', status: 'New', collection_visits: visits })
+    expect(inq.collectionVisits).toEqual(visits)
   })
 
   it('maps the lead go/no-go fields (lead_decision, hold_until)', () => {
