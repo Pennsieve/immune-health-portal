@@ -20,6 +20,8 @@ declare global {
   interface Window { grecaptcha?: GrecaptchaApi }
 }
 
+const servicesStore = await useServicesData()
+
 const recaptchaSiteKey = useRuntimeConfig().public.recaptchaSiteKey as string
 const recaptchaEl = ref<HTMLElement | null>(null)
 const recaptchaWidgetId = ref<number | null>(null)
@@ -54,6 +56,7 @@ const form = reactive<LeadFormData>({
   referralSourceOther: '',
   callPurpose: '',
   researchSummary: '',
+  servicesInterested: [],
 })
 
 const setAffiliation = (affiliation: AffiliationType) => {
@@ -123,7 +126,7 @@ const sidebarCards = [
   },
   {
     title: 'What happens next',
-    body: '<strong>1.</strong> We review your inquiry and reach out within 3 business days.<br><strong>2.</strong> We schedule an introductory call to discuss your research and our services.<br><strong>3.</strong> If we’re a good fit, we send you our full study intake form to begin feasibility review.',
+    body: '<strong>1.</strong> We review your inquiry and reach out within 3 business days.<br><strong>2.</strong> We schedule an introductory call to discuss your research and our services.<br><strong>3.</strong> If we’re a good fit, we’ll capture your study details together and send you a short billing form to finish setting things up.',
     variant: 'default',
   },
   {
@@ -233,6 +236,21 @@ const sidebarCards = [
             <div class="form-group">
               <label>Tell us some about your research, idea, or any questions</label>
               <textarea v-model="form.researchSummary" rows="4" placeholder="A few sentences about your research, the idea you're exploring, or anything you'd like to ask" />
+            </div>
+
+            <div class="form-group">
+              <label>What services are you interested in learning more about?</label>
+              <div class="service-check-grid">
+                <label
+                  v-for="svc in servicesStore.activeServices"
+                  :key="svc.id"
+                  class="service-check"
+                  :class="{ active: form.servicesInterested?.includes(svc.name) }"
+                >
+                  <input v-model="form.servicesInterested" type="checkbox" :value="svc.name">
+                  {{ svc.name }}
+                </label>
+              </div>
             </div>
 
             <div class="submit-section">
@@ -357,6 +375,36 @@ const sidebarCards = [
 
 .mt-sm {
   margin-top: 0.6rem;
+}
+
+.service-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.service-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+
+  input {
+    margin: 0;
+  }
+
+  &.active {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: rgba(1, 31, 91, 0.04);
+  }
 }
 
 .lead-success {

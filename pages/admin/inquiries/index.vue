@@ -16,14 +16,11 @@ const scopeDisplay = (inquiry: Inquiry) => {
   return `${inquiry.cohortSubjects} subj · ${total.toLocaleString()} samples`
 }
 
-// Row title / subtitle — leads have no study name or objectives yet
+// Row title / subtitle — leads have no study name yet
 const rowTitle = (inquiry: Inquiry) =>
   inquiry.studyName || `${inquiry.pi.name} (lead)`
 
 const rowSubtitle = (inquiry: Inquiry) => {
-  if (inquiry.objectives) {
-    return `${inquiry.objectives.substring(0, 50)}…${inquiry.irb ? ` · IRB ${inquiry.irb}` : ''}`
-  }
   const lead = inquiry.leadDetails || {}
   const purpose = (lead.callPurpose as string) || (lead.researchSummary as string) || ''
   return purpose ? `${purpose.substring(0, 60)}${purpose.length > 60 ? '…' : ''}` : ''

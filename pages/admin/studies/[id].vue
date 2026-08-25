@@ -33,6 +33,14 @@ const fieldsBySection = INTAKE_SECTIONS.map(section => ({
   section,
   fields: INTAKE_FIELDS.filter(f => f.section === section),
 }))
+// Blood Collection combines the Regulatory volume fields with the Samples
+// section (tube types / counts) under one heading.
+const bloodCollectionFields = [
+  ...(fieldsBySection.find(g => g.section === 'Regulatory')?.fields ?? []).filter(f => f.key !== 'irbStatus'),
+  ...(fieldsBySection.find(g => g.section === 'Samples')?.fields ?? []),
+]
+
+const keyPersonnel = computed(() => study.value?.keyPersonnel || [])
 
 // Hero scope label: subjects · cohorts · samples
 const cohortScopeLabel = computed(() => {
@@ -47,6 +55,12 @@ if (!study.value) {
 }
 
 const activeTab = ref('overview')
+
+// Estimated total (rate × planned) — computed live rather than tracked,
+// since there's no real invoicing system behind this app.
+const budgetEstimatedTotal = computed(() =>
+  (study.value?.budget.lines ?? []).reduce((sum, l) => sum + l.rate * l.planned, 0),
+)
 
 const signedCount = computed(() =>
   study.value ? study.value.agreements.filter(a => a.status === 'Signed').length : 0
@@ -102,6 +116,24 @@ async function saveSamples() {
   }
 }
 
+const isSavingStage = ref(false)
+const stageConfirmTarget = ref<'Complete' | 'Processing' | null>(null)
+
+async function confirmStageChange() {
+  if (!study.value || !stageConfirmTarget.value) return
+  isSavingStage.value = true
+  try {
+    await adminStore.updateStudyStage(study.value.id, stageConfirmTarget.value)
+    stageConfirmTarget.value = null
+  }
+  catch {
+    alert('Failed to update stage. Please try again.')
+  }
+  finally {
+    isSavingStage.value = false
+  }
+}
+
 const noteText = ref('')
 const isPostingNote = ref(false)
 
@@ -142,15 +174,11 @@ const hasChanges = computed(() => {
   const s = study.value
   if (editForm.name.trim() !== s.name) return true
   if (editForm.abbreviation.trim() !== (s.abbreviation ?? '')) return true
-  if (editForm.stage !== s.stage) return true
   if (editForm.affiliation !== s.affiliation) return true
   if (editForm.piName.trim() !== s.pi.name || editForm.piEmail.trim() !== s.pi.email) return true
   if (editForm.studyLeadName.trim() !== (s.studyLead?.name ?? '') || editForm.studyLeadEmail.trim() !== (s.studyLead?.email ?? '')) return true
   if (editForm.irb.trim() !== (s.irb ?? '')) return true
-  if (editForm.objectives.trim() !== (s.objectives ?? '')) return true
-  if (editForm.phlebotomy !== (s.phlebotomy ?? '')) return true
-  if (editForm.metadata !== (s.metadata ?? '')) return true
-  if (editForm.cohortSampleType.trim() !== (s.cohort.sampleType ?? '')) return true
+  if (editForm.additionalNotes.trim() !== (s.additionalNotes ?? '')) return true
   if (JSON.stringify(editForm.visits) !== JSON.stringify(s.cohort.visits ?? [])) return true
   if (JSON.stringify(normalizeGroups(editForm.cohortGroups, editForm.visits)) !== JSON.stringify(normalizeGroups(s.cohort.groups ?? [], editForm.visits))) return true
   if (editForm.accountCode.trim() !== (s.budget.accountCode ?? '')) return true
@@ -166,10 +194,11 @@ const hasChanges = computed(() => {
     if (origPlanned === undefined || origPlanned !== Math.max(0, l.planned || 0)) return true
   }
   if (JSON.stringify(cleanIntakeDetails(editForm.intakeDetails)) !== JSON.stringify(cleanIntakeDetails(s.intakeDetails ?? {}))) return true
+  if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(s.keyPersonnel ?? []))) return true
   return false
 })
 
-type BudgetLine = { service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }
+type BudgetLine = { service: string; rate: number; planned: number }
 
 const editForm = reactive({
   name: '',
@@ -187,15 +216,27 @@ const editForm = reactive({
   baName: '',
   baEmail: '',
   contractingContact: '',
-  objectives: '',
-  phlebotomy: '',
-  metadata: '',
-  cohortSampleType: '',
+  additionalNotes: '',
   cohortGroups: [] as CohortGroup[],
   visits: [] as CollectionVisit[],
   budgetLines: [] as BudgetLine[],
   intakeDetails: {} as Record<string, unknown>,
+  keyPersonnel: [] as Array<{ name: string; email: string; role: string }>,
 })
+
+// Drop blank rows and trim whitespace so empty "+ Add another person" rows
+// left untouched don't get saved.
+function normalizePersonnel(people: Array<{ name: string; email: string; role: string }>) {
+  return people
+    .map(p => ({ name: (p.name || '').trim(), email: (p.email || '').trim(), role: (p.role || '').trim() }))
+    .filter(p => p.name || p.email || p.role)
+}
+function addEditPerson() {
+  editForm.keyPersonnel.push({ name: '', email: '', role: '' })
+}
+function removeEditPerson(i: number) {
+  editForm.keyPersonnel.splice(i, 1)
+}
 
 // Normalise a cohort matrix to numeric cells, keyed by the given visit list,
 // for comparison / saving
@@ -256,7 +297,7 @@ function addServiceLine() {
   const svc = servicesStore.services.find(s => s.id === newServiceId.value)
   if (!svc) return
   const rate = editForm.affiliation === 'Internal' ? (svc.internalRate ?? 0) : (svc.externalRate ?? 0)
-  editForm.budgetLines.push({ service: svc.name, rate, planned: 1, completed: 0, committed: rate, invoiced: 0 })
+  editForm.budgetLines.push({ service: svc.name, rate, planned: 1 })
   newServiceId.value = ''
 }
 
@@ -324,14 +365,12 @@ function openEdit() {
   editForm.baName = study.value.budget.baName ?? ''
   editForm.baEmail = study.value.budget.baEmail ?? ''
   editForm.contractingContact = study.value.budget.contractingContact ?? ''
-  editForm.objectives = study.value.objectives ?? ''
-  editForm.phlebotomy = study.value.phlebotomy ?? ''
-  editForm.metadata = study.value.metadata ?? ''
-  editForm.cohortSampleType = study.value.cohort.sampleType
+  editForm.additionalNotes = study.value.additionalNotes ?? ''
   editForm.visits = (study.value.cohort.visits ?? []).map(v => ({ ...v }))
   editForm.cohortGroups = normalizeGroups(study.value.cohort.groups ?? [], editForm.visits)
   editForm.intakeDetails = JSON.parse(JSON.stringify(study.value.intakeDetails ?? {}))
   editForm.budgetLines = study.value.budget.lines.map(l => ({ ...l }))
+  editForm.keyPersonnel = (study.value.keyPersonnel ?? []).map(p => ({ ...p }))
   newServiceId.value = ''
   editOpen.value = true
 }
@@ -345,43 +384,34 @@ async function saveEdit() {
     const lines = editForm.budgetLines.map(l => ({
       ...l,
       planned: Math.max(0, l.planned || 0),
-      committed: Math.max(0, l.planned || 0) * l.rate,
     }))
-    const committed = lines.reduce((sum, l) => sum + l.committed, 0)
-    const invoiced = lines.reduce((sum, l) => sum + l.invoiced, 0)
 
     const snap = {
       name: study.value.name,
       abbreviation: study.value.abbreviation ?? '',
-      stage: study.value.stage,
       affiliation: study.value.affiliation,
       piName: study.value.pi.name,
       piEmail: study.value.pi.email,
       leadName: study.value.studyLead?.name ?? '',
       leadEmail: study.value.studyLead?.email ?? '',
       irb: study.value.irb ?? '',
-      objectives: study.value.objectives ?? '',
-      phlebotomy: study.value.phlebotomy ?? '',
-      metadata: study.value.metadata ?? '',
+      additionalNotes: study.value.additionalNotes ?? '',
       cohortSubjects: study.value.cohort.subjects,
-      cohortSampleType: study.value.cohort.sampleType ?? '',
       visits: study.value.cohort.visits ?? [],
       services: [...(study.value.budget.lines || [])].map(l => l.service).sort().join('|'),
     }
     const changes: string[] = []
     if (editForm.name.trim() !== snap.name) changes.push('name')
     if (editForm.abbreviation.trim() !== snap.abbreviation) changes.push('abbreviation')
-    if (editForm.stage !== snap.stage) changes.push(`stage → ${editForm.stage}`)
     if (editForm.affiliation !== snap.affiliation) changes.push(`affiliation → ${editForm.affiliation}`)
     if (editForm.piName.trim() !== snap.piName || editForm.piEmail.trim() !== snap.piEmail) changes.push('PI')
     if (editForm.studyLeadName.trim() !== snap.leadName || editForm.studyLeadEmail.trim() !== snap.leadEmail) changes.push('study lead')
     if (editForm.irb.trim() !== snap.irb) changes.push('IRB')
-    if (editForm.objectives.trim() !== snap.objectives) changes.push('objectives')
-    if (editForm.phlebotomy !== snap.phlebotomy) changes.push('phlebotomy')
-    if (editForm.metadata !== snap.metadata) changes.push('metadata plan')
-    if (subjects !== snap.cohortSubjects || editForm.cohortSampleType.trim() !== snap.cohortSampleType) changes.push('cohort')
+    if (editForm.additionalNotes.trim() !== snap.additionalNotes) changes.push('additional notes')
+    if (subjects !== snap.cohortSubjects) changes.push('cohort')
     if (JSON.stringify(editForm.visits) !== JSON.stringify(snap.visits)) changes.push('visit schedule')
     if ([...editForm.budgetLines].map(l => l.service).sort().join('|') !== snap.services) changes.push('services')
+    if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(study.value.keyPersonnel ?? []))) changes.push('key personnel')
     const changeNote = changes.length > 0 ? `Updated: ${changes.join(', ')}` : undefined
 
     await adminStore.updateStudy(study.value.id, {
@@ -395,24 +425,17 @@ async function saveEdit() {
       affiliationOrg: editForm.affiliationOrg.trim(),
       irb: editForm.irb.trim(),
       stage: editForm.stage,
-      objectives: editForm.objectives.trim() || undefined,
-      phlebotomy: editForm.phlebotomy.trim() || undefined,
-      metadata: editForm.metadata.trim() || undefined,
+      additionalNotes: editForm.additionalNotes.trim() || undefined,
       cohort: {
         ...study.value.cohort,
         subjects,
         totalSamples,
-        sampleType: editForm.cohortSampleType.trim(),
         groups: normalizeGroups(editForm.cohortGroups, editForm.visits),
         visits: editForm.visits,
       },
       budget: {
         ...study.value.budget,
         lines,
-        committed,
-        invoiced,
-        remaining: committed - invoiced,
-        pctInvoiced: committed > 0 ? Math.round(invoiced / committed * 100) : 0,
         accountCode: editForm.affiliation === 'Internal' ? (editForm.accountCode.trim() || null) : null,
         fundingName: editForm.affiliation === 'Internal' ? (editForm.fundingName.trim() || null) : null,
         baName: editForm.affiliation === 'Internal' ? (editForm.baName.trim() || null) : null,
@@ -420,6 +443,7 @@ async function saveEdit() {
         contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || null) : null,
       },
       intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
+      keyPersonnel: normalizePersonnel(editForm.keyPersonnel),
     }, changeNote)
     editOpen.value = false
   }
@@ -436,10 +460,6 @@ async function saveEdit() {
     isSaving.value = false
   }
 }
-
-const isActivated = computed(() =>
-  study.value?.stage === 'Processing' || study.value?.stage === 'Complete',
-)
 
 const stageClass = computed(() => {
   if (!study.value) return ''
@@ -499,10 +519,6 @@ const affiliationClass = computed(() => {
             <span class="meta-label">Cohort</span>
             <span class="meta-val">{{ cohortScopeLabel }}</span>
           </div>
-          <div class="meta-item">
-            <span class="meta-label">Sample type</span>
-            <span class="meta-val">{{ study.cohort.sampleType }}</span>
-          </div>
         </div>
       </div>
       <div class="hero-actions">
@@ -546,7 +562,15 @@ const affiliationClass = computed(() => {
 
     <!-- Lifecycle -->
     <div class="lifecycle-section">
-      <h3>Lifecycle</h3>
+      <div class="lifecycle-head">
+        <h3>Lifecycle</h3>
+        <button v-if="study.stage === 'Processing'" class="btn btn-success-outline btn-sm lifecycle-stage-btn" @click="stageConfirmTarget = 'Complete'">
+          Mark Complete ✓
+        </button>
+        <button v-else-if="study.stage === 'Complete'" class="btn btn-ghost btn-sm lifecycle-stage-btn" @click="stageConfirmTarget = 'Processing'">
+          Reopen study ↺
+        </button>
+      </div>
       <div class="sub">From intake to data delivery — every step time-stamped by the platform.</div>
       <div class="life-timeline">
         <div
@@ -582,9 +606,6 @@ const affiliationClass = computed(() => {
       <div class="panel">
         <div class="panel-head"><h3>Study summary</h3></div>
         <div class="study-info-grid">
-          <div class="info-lbl">Objectives</div>
-          <div>{{ study.objectives }}</div>
-
           <template v-if="study.additionalNotes">
             <div class="info-lbl">Additional notes</div>
             <div>{{ study.additionalNotes }}</div>
@@ -596,6 +617,28 @@ const affiliationClass = computed(() => {
             <template v-if="study.studyLead"> · {{ study.studyLead.name }} (lead) · <span class="mono">{{ study.studyLead.email }}</span></template>
           </div>
 
+          <template v-if="keyPersonnel.length">
+            <div class="info-lbl">Key personnel</div>
+            <div>
+              <table class="sched-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in keyPersonnel" :key="i">
+                    <td>{{ p.name || '—' }}</td>
+                    <td>{{ p.role || '—' }}</td>
+                    <td class="mono">{{ p.email || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+
           <template v-if="study.budget.fundingName || study.budget.baName">
             <div class="info-lbl">Funding / billing</div>
             <div>
@@ -606,17 +649,11 @@ const affiliationClass = computed(() => {
 
           <template v-if="study.budget.contractingContact">
             <div class="info-lbl">Contracting contact</div>
-            <div><span class="mono">{{ study.budget.contractingContact }}</span></div>
+            <div>{{ study.budget.contractingContact }}</div>
           </template>
 
           <div v-if="study.department" class="info-lbl">Department</div>
           <div v-if="study.department">{{ study.department }}</div>
-
-          <div v-if="study.phlebotomy" class="info-lbl">Phlebotomy</div>
-          <div v-if="study.phlebotomy">{{ study.phlebotomy }}</div>
-
-          <div v-if="study.metadata" class="info-lbl">Metadata</div>
-          <div v-if="study.metadata">{{ study.metadata }}</div>
 
           <div class="info-lbl">Services</div>
           <div>
@@ -790,10 +827,6 @@ const affiliationClass = computed(() => {
               <div style="font-size:0.62rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:600">Total samples</div>
               <div class="mono" style="font-size:1.1rem; font-weight:500">{{ study.cohort.totalSamples }}</div>
             </div>
-            <div style="padding:0.7rem 0.9rem; background:var(--cream); border-radius:var(--radius);">
-              <div style="font-size:0.62rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:600">Sample type</div>
-              <div style="font-size:0.88rem; font-weight:500">{{ study.cohort.sampleType }}</div>
-            </div>
           </div>
         </div>
       </div>
@@ -810,8 +843,6 @@ const affiliationClass = computed(() => {
           <div>{{ cohortGroups.length }}</div>
           <div class="info-lbl">Total samples</div>
           <div>{{ study.cohort.totalSamples }}</div>
-          <div class="info-lbl">Sample type</div>
-          <div>{{ study.cohort.sampleType }}</div>
           <div class="info-lbl">Processed</div>
           <div>
             <div v-if="!editingSamples" style="display:flex; align-items:center; gap:0.8rem;">
@@ -846,26 +877,8 @@ const affiliationClass = computed(() => {
     <div v-if="activeTab === 'budget'">
       <div class="panel">
         <div class="panel-head">
-          <h3>Budget vs. actuals</h3>
+          <h3>Budget</h3>
           <span v-if="study.budget.accountCode" class="ctx">Account: {{ study.budget.accountCode }} · billed via iLabs</span>
-        </div>
-        <div class="budget-grid">
-          <div class="budget-card">
-            <div class="lbl">Committed</div>
-            <div class="val">${{ study.budget.committed.toLocaleString() }}</div>
-          </div>
-          <div class="budget-card">
-            <div class="lbl">Invoiced</div>
-            <div class="val" style="color:var(--warm)">${{ study.budget.invoiced.toLocaleString() }}</div>
-          </div>
-          <div class="budget-card">
-            <div class="lbl">Remaining</div>
-            <div class="val" style="color:var(--green)">${{ study.budget.remaining.toLocaleString() }}</div>
-          </div>
-        </div>
-        <div class="budget-prog"><div :style="{ width: study.budget.pctInvoiced + '%' }" /></div>
-        <div style="padding:0.6rem 1.4rem 0; font-size:0.78rem; color:var(--muted)">
-          {{ study.budget.pctInvoiced }}% of committed budget invoiced
         </div>
 
         <table class="budget-table">
@@ -874,9 +887,7 @@ const affiliationClass = computed(() => {
               <th>Service</th>
               <th>Rate</th>
               <th>Planned</th>
-              <th>Completed</th>
-              <th>Committed</th>
-              <th>Invoiced</th>
+              <th>Est. total</th>
             </tr>
           </thead>
           <tbody>
@@ -884,14 +895,11 @@ const affiliationClass = computed(() => {
               <td>{{ line.service }}</td>
               <td class="mono">${{ line.rate }}</td>
               <td class="mono">{{ line.planned }}</td>
-              <td class="mono">{{ line.completed }}</td>
-              <td class="mono">${{ line.committed.toLocaleString() }}</td>
-              <td class="mono">${{ line.invoiced.toLocaleString() }}</td>
+              <td class="mono">${{ (line.rate * line.planned).toLocaleString() }}</td>
             </tr>
             <tr style="background:rgba(0,0,0,0.02)">
-              <td colspan="4" style="text-align:right; font-weight:600">Totals</td>
-              <td class="mono" style="font-weight:600; color:var(--accent)">${{ study.budget.committed.toLocaleString() }}</td>
-              <td class="mono" style="font-weight:600; color:var(--warm)">${{ study.budget.invoiced.toLocaleString() }}</td>
+              <td colspan="3" style="text-align:right; font-weight:600">Estimated total</td>
+              <td class="mono" style="font-weight:600; color:var(--accent)">${{ budgetEstimatedTotal.toLocaleString() }}</td>
             </tr>
           </tbody>
         </table>
@@ -975,6 +983,29 @@ const affiliationClass = computed(() => {
     </div>
   </div>
 
+  <!-- Stage change confirmation modal -->
+  <div v-if="stageConfirmTarget" class="clerk-overlay" @click.self="stageConfirmTarget = null">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>{{ stageConfirmTarget === 'Complete' ? 'Mark study Complete' : 'Reopen study' }}</h3>
+      </div>
+      <div class="em-body">
+        <p v-if="stageConfirmTarget === 'Complete'" style="margin:0; font-size:0.88rem;">
+          Are you sure you want to mark <strong>{{ study?.name }}</strong> as Complete?
+        </p>
+        <p v-else style="margin:0; font-size:0.88rem;">
+          Are you sure you want to reopen <strong>{{ study?.name }}</strong>? This moves it back to Processing.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isSavingStage" @click="stageConfirmTarget = null">Cancel</button>
+        <button class="btn btn-sm" :class="stageConfirmTarget === 'Complete' ? 'btn-success-outline' : 'btn-primary'" :disabled="isSavingStage" @click="confirmStageChange">
+          {{ isSavingStage ? 'Saving…' : (stageConfirmTarget === 'Complete' ? 'Mark Complete' : 'Reopen study') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit study modal -->
   <div v-if="editOpen" class="clerk-overlay" @click.self="editOpen = false">
     <div class="edit-modal edit-modal-wide">
@@ -995,52 +1026,6 @@ const affiliationClass = computed(() => {
               <div class="em-hint">Must be limited to 20 characters for LIMS</div>
               <input v-model="editForm.abbreviation" type="text" maxlength="20">
             </div>
-            <div class="em-field">
-              <label class="em-label">IRB</label>
-              <input v-model="editForm.irb" type="text">
-            </div>
-            <div class="em-field">
-              <label class="em-label">Stage</label>
-              <select v-if="isActivated" v-model="editForm.stage">
-                <option>Processing</option>
-                <option>Complete</option>
-              </select>
-              <div v-else class="em-computed">{{ editForm.stage }}</div>
-            </div>
-            <div class="em-field">
-              <label class="em-label">Affiliation</label>
-              <select v-model="editForm.affiliation">
-                <option>Internal</option>
-                <option>External</option>
-                <option>Industry</option>
-              </select>
-            </div>
-            <div v-if="editForm.affiliation === 'Internal'" class="em-field">
-              <label class="em-label">Budget account number</label>
-              <input v-model="editForm.accountCode" type="text" placeholder="400-____-_-______-____-____-____">
-            </div>
-            <div v-else class="em-field">
-              <label class="em-label">Institution</label>
-              <input v-model="editForm.affiliationOrg" type="text">
-            </div>
-            <div v-if="editForm.affiliation !== 'Internal'" class="em-field">
-              <label class="em-label">Contracting / grants office contact</label>
-              <input v-model="editForm.contractingContact" type="email" placeholder="contracts@institution.edu">
-            </div>
-            <template v-if="editForm.affiliation === 'Internal'">
-              <div class="em-field em-full">
-                <label class="em-label">Funding source name (in CAMS)</label>
-                <input v-model="editForm.fundingName" type="text" placeholder="Project title as listed in CAMS">
-              </div>
-              <div class="em-field">
-                <label class="em-label">Business administrator name</label>
-                <input v-model="editForm.baName" type="text">
-              </div>
-              <div class="em-field">
-                <label class="em-label">BA contact email</label>
-                <input v-model="editForm.baEmail" type="email">
-              </div>
-            </template>
             <div class="em-field-pair">
               <div class="em-field">
                 <label class="em-label">Principal investigator</label>
@@ -1062,88 +1047,70 @@ const affiliationClass = computed(() => {
               </div>
             </div>
           </div>
+
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <label class="em-label">Key Personnel</label>
+            <div class="em-hint" style="margin-bottom:0.6rem;">CRCs, other physicians, etc. who'll help launch the study on the clinician's side</div>
+            <div style="overflow-x:auto;">
+              <table class="em-matrix">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Name</th>
+                    <th style="text-align:left;">Role</th>
+                    <th style="text-align:left;">Email</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in editForm.keyPersonnel" :key="i">
+                    <td><input v-model="p.name" type="text" placeholder="Full name"></td>
+                    <td><input v-model="p.role" type="text" placeholder="e.g. CRC"></td>
+                    <td><input v-model="p.email" type="email" placeholder="name@pennmedicine.upenn.edu"></td>
+                    <td><button class="em-srv-remove" type="button" @click="removeEditPerson(i)">✕</button></td>
+                  </tr>
+                  <tr v-if="!editForm.keyPersonnel.length">
+                    <td colspan="4" class="em-srv-empty">No key personnel added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="em-matrix-foot">
+              <button class="btn btn-ghost btn-sm" type="button" @click="addEditPerson">+ Add another person</button>
+            </div>
+          </div>
+
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <IntakeFields :fields="INTAKE_FIELDS.filter(f => f.key === 'collectionSites')" :model="editForm.intakeDetails" variant="modal" show-all />
+          </div>
         </div>
 
-        <!-- Study details -->
+        <!-- Defining Groups -->
         <div class="em-section">
-          <div class="em-section-title">Study details</div>
-          <div class="em-field em-full" style="margin-bottom:0.75rem;">
-            <label class="em-label">Objectives</label>
-            <textarea v-model="editForm.objectives" rows="3" />
+          <div class="em-section-title">Defining Groups</div>
+          <div class="em-section-hint">The cohorts/groups being studied — these drive the rows in the cohort sample matrix below</div>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Group</th>
+                  <th style="text-align:left;">Description</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(g, i) in editForm.cohortGroups" :key="i">
+                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td><input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
+                </tr>
+                <tr v-if="!editForm.cohortGroups.length">
+                  <td colspan="3" class="em-srv-empty">No groups defined yet.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Phlebotomy</label>
-              <select v-model="editForm.phlebotomy">
-                <option value="">—</option>
-                <option>IH phlebotomist on campus</option>
-                <option>Remote phlebotomy needed</option>
-                <option>Study team will collect and transfer</option>
-                <option>N/A – using stored samples</option>
-              </select>
-            </div>
-            <div class="em-field">
-              <label class="em-label">Metadata plan</label>
-              <select v-model="editForm.metadata">
-                <option value="">—</option>
-                <option>REDCap</option>
-                <option>Other system</option>
-                <option>To be discussed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Services -->
-        <div class="em-section">
-          <div class="em-section-title">Services</div>
-          <div class="em-service-lines">
-            <div v-for="(line, i) in editForm.budgetLines" :key="i" class="em-service-row">
-              <span class="em-srv-name">{{ line.service }}</span>
-              <span class="em-srv-rate">${{ line.rate }}/ea</span>
-              <input
-                v-model.number="editForm.budgetLines[i].planned"
-                type="number"
-                min="0"
-                style="width:72px;"
-              >
-              <span class="em-srv-committed">${{ (line.rate * Math.max(0, editForm.budgetLines[i].planned || 0)).toLocaleString() }}</span>
-              <button class="em-srv-remove" type="button" @click="removeServiceLine(i)">✕</button>
-            </div>
-            <div v-if="editForm.budgetLines.length === 0" class="em-srv-empty">No services added yet.</div>
-          </div>
-          <select
-            v-if="availableToAdd.length > 0"
-            v-model="newServiceId"
-            style="width:auto; margin-top:0.4rem;"
-            @change="addServiceLine"
-          >
-            <option value="">+ Add service…</option>
-            <option v-for="svc in availableToAdd" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
-          </select>
-        </div>
-
-        <!-- Cohort -->
-        <div class="em-section">
-          <div class="em-section-title">Cohort</div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Sample type</label>
-              <select v-model="editForm.cohortSampleType">
-                <option value="">—</option>
-                <option>Fresh whole blood</option>
-                <option>Stored PBMCs (cryopreserved)</option>
-                <option>Tissue</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div class="em-field">
-              <label class="em-label">Total samples</label>
-              <div class="em-computed">
-                {{ editMatrixTotal.toLocaleString() }}
-                <span class="em-computed-note">from matrix below</span>
-              </div>
-            </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add another group</button>
           </div>
         </div>
 
@@ -1192,10 +1159,7 @@ const affiliationClass = computed(() => {
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.cohortGroups" :key="i">
-                  <td>
-                    <input v-model="g.name" type="text" placeholder="Cohort name">
-                    <input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20" style="margin-top:0.4rem;">
-                  </td>
+                  <td style="text-align:left;">{{ g.name || 'Untitled group' }}</td>
                   <td><input v-model.number="g.subjects" type="number" min="0"></td>
                   <td v-for="v in editForm.visits" :key="v.id">
                     <input v-model.number="g.samples[v.id]" type="number" min="0">
@@ -1209,15 +1173,104 @@ const affiliationClass = computed(() => {
             </table>
           </div>
           <div class="em-matrix-foot">
-            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add cohort</button>
             <span class="em-matrix-total">{{ editMatrixSubjects.toLocaleString() }} subjects · {{ editMatrixTotal.toLocaleString() }} samples</span>
           </div>
         </div>
 
-        <!-- Expanded intake answers — rendered from the shared schema -->
-        <div v-for="group in fieldsBySection" :key="group.section" class="em-section">
-          <div class="em-section-title">{{ group.section }}</div>
-          <IntakeFields :fields="group.fields" :model="editForm.intakeDetails" variant="modal" show-all />
+        <!-- Services -->
+        <div class="em-section">
+          <div class="em-section-title">Services</div>
+          <div class="em-service-lines">
+            <div v-for="(line, i) in editForm.budgetLines" :key="i" class="em-service-row">
+              <span class="em-srv-name">{{ line.service }}</span>
+              <span class="em-srv-rate">${{ line.rate }}/ea</span>
+              <input
+                v-model.number="editForm.budgetLines[i].planned"
+                type="number"
+                min="0"
+                style="width:72px;"
+              >
+              <span class="em-srv-committed">${{ (line.rate * Math.max(0, editForm.budgetLines[i].planned || 0)).toLocaleString() }}</span>
+              <button class="em-srv-remove" type="button" @click="removeServiceLine(i)">✕</button>
+            </div>
+            <div v-if="editForm.budgetLines.length === 0" class="em-srv-empty" style="padding-bottom:0;">No services added yet.</div>
+          </div>
+          <select
+            v-if="availableToAdd.length > 0"
+            v-model="newServiceId"
+            style="width:auto; margin-top:0.9rem;"
+            @change="addServiceLine"
+          >
+            <option value="">+ Add service…</option>
+            <option v-for="svc in availableToAdd" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
+          </select>
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <label class="em-label">Additional notes or questions</label>
+            <textarea v-model="editForm.additionalNotes" rows="3" placeholder="Anything else the I3H team should know or follow up on" />
+          </div>
+        </div>
+
+        <!-- Regulatory -->
+        <div class="em-section">
+          <div class="em-section-title">Regulatory</div>
+          <div class="em-field" style="margin-bottom:0.9rem;">
+            <label class="em-label">IRB Number</label>
+            <input v-model="editForm.irb" type="text">
+          </div>
+          <IntakeFields :fields="(fieldsBySection.find(g => g.section === 'Regulatory')?.fields ?? []).filter(f => f.key === 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Blood Collection -->
+        <div class="em-section">
+          <div class="em-section-title">Blood Collection</div>
+          <IntakeFields :fields="bloodCollectionFields" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Logistics -->
+        <div class="em-section">
+          <div class="em-section-title">Logistics</div>
+          <IntakeFields :fields="fieldsBySection.find(g => g.section === 'Scope')?.fields ?? []" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Billing -->
+        <div class="em-section">
+          <div class="em-section-title">Billing</div>
+          <div class="em-grid">
+            <div class="em-field">
+              <label class="em-label">Affiliation</label>
+              <select v-model="editForm.affiliation">
+                <option>Internal</option>
+                <option>External</option>
+                <option>Industry</option>
+              </select>
+            </div>
+            <div v-if="editForm.affiliation === 'Internal'" class="em-field">
+              <label class="em-label">Budget account number</label>
+              <input v-model="editForm.accountCode" type="text" placeholder="400-____-_-______-____-____-____">
+            </div>
+            <div v-else class="em-field">
+              <label class="em-label">Institution</label>
+              <input v-model="editForm.affiliationOrg" type="text">
+            </div>
+            <div v-if="editForm.affiliation !== 'Internal'" class="em-field">
+              <label class="em-label">Contracting / grants office contact</label>
+              <input v-model="editForm.contractingContact" type="email" placeholder="contracts@institution.edu">
+            </div>
+            <template v-if="editForm.affiliation === 'Internal'">
+              <div class="em-field em-full">
+                <label class="em-label">Funding source name (in CAMS)</label>
+                <input v-model="editForm.fundingName" type="text" placeholder="Project title as listed in CAMS">
+              </div>
+              <div class="em-field">
+                <label class="em-label">Business administrator name</label>
+                <input v-model="editForm.baName" type="text">
+              </div>
+              <div class="em-field">
+                <label class="em-label">BA contact email</label>
+                <input v-model="editForm.baEmail" type="email">
+              </div>
+            </template>
+          </div>
         </div>
       </div>
       <div class="em-foot">

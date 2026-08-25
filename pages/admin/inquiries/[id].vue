@@ -46,8 +46,8 @@ const canSendIntake = computed(() => {
 })
 const sendIntakeTip = computed(() => {
   if (canSendIntake.value) return undefined
-  if (!feasibilityComplete.value) return 'Complete the lead checklist below before sending the intake form'
-  return 'Select “Proceed to next step” below before sending the intake form'
+  if (!feasibilityComplete.value) return 'Complete the lead checklist below before sending the billing form'
+  return 'Select “Proceed to next step” below before sending the billing form'
 })
 
 // Intro-meeting go/no-go decision (radio + follow-up date), see verifyLink panel
@@ -132,6 +132,12 @@ const fieldsBySection = INTAKE_SECTIONS.map(section => ({
   section,
   fields: INTAKE_FIELDS.filter(f => f.section === section),
 }))
+// Blood Collection combines the Regulatory volume fields with the Samples
+// section (tube types / counts) under one heading.
+const bloodCollectionFields = [
+  ...(fieldsBySection.find(g => g.section === 'Regulatory')?.fields ?? []).filter(f => f.key !== 'irbStatus'),
+  ...(fieldsBySection.find(g => g.section === 'Samples')?.fields ?? []),
+]
 
 const visits = computed(() => inquiry.value?.collectionVisits || [])
 const collectionGroups = computed(() => inquiry.value?.collectionGroups || [])
@@ -175,18 +181,28 @@ async function postNote() {
   }
 }
 
-async function toggleFeasibility(item: { label: string; checked: boolean }) {
+// Toggles fire their own independent request. If two land close together,
+// out-of-order responses can silently overwrite each other's checklist
+// state, so saves are chained to run strictly one at a time — each request
+// reads inquiry.value.feasibility only once it's its turn, always
+// capturing every toggle made while it waited.
+let feasibilitySaveChain = Promise.resolve()
+
+function toggleFeasibility(item: { label: string; checked: boolean }) {
   if (!inquiry.value) return
+  const inquiryId = inquiry.value.id
   item.checked = !item.checked
-  try {
-    await $fetch('/api/admin/update-inquiry-feasibility', {
-      method: 'POST',
-      body: { inquiryId: inquiry.value.id, feasibility: inquiry.value.feasibility },
-    })
-  }
-  catch {
-    item.checked = !item.checked
-  }
+  feasibilitySaveChain = feasibilitySaveChain.then(async () => {
+    try {
+      await $fetch('/api/admin/update-inquiry-feasibility', {
+        method: 'POST',
+        body: { inquiryId, feasibility: inquiry.value?.feasibility },
+      })
+    }
+    catch {
+      item.checked = !item.checked
+    }
+  })
 }
 
 async function approveAndSend() {
@@ -287,10 +303,7 @@ const editForm = reactive({
   baName: '',
   baEmail: '',
   contractingContact: '',
-  objectives: '',
-  phlebotomy: '',
-  metadata: '',
-  cohortSampleType: '',
+  additionalNotes: '',
   servicesDetail: [] as ServiceLine[],
   intakeDetails: {} as Record<string, unknown>,
   collectionGroups: [] as Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>,
@@ -401,11 +414,8 @@ const hasChanges = computed(() => {
   if (editForm.baName.trim() !== (q.baName ?? '')) return true
   if (editForm.baEmail.trim() !== (q.baEmail ?? '')) return true
   if (editForm.contractingContact.trim() !== (q.contractingContact ?? '')) return true
-  if (editForm.objectives.trim() !== (q.objectives ?? '')) return true
-  if (editForm.phlebotomy !== (q.phlebotomy ?? '')) return true
-  if (editForm.metadata !== (q.metadata ?? '')) return true
+  if (editForm.additionalNotes.trim() !== (q.additionalNotes ?? '')) return true
   if (editMatrixSubjects.value !== q.cohortSubjects) return true
-  if (editForm.cohortSampleType !== (q.sampleType ?? '')) return true
   if (editForm.servicesDetail.length !== q.servicesDetail.length) return true
   for (let i = 0; i < editForm.servicesDetail.length; i++) {
     if (editForm.servicesDetail[i].name !== q.servicesDetail[i].name || editForm.servicesDetail[i].qty !== q.servicesDetail[i].qty) return true
@@ -438,10 +448,7 @@ function openEdit() {
   editForm.baName = q.baName ?? ''
   editForm.baEmail = q.baEmail ?? ''
   editForm.contractingContact = q.contractingContact ?? ''
-  editForm.objectives = q.objectives ?? ''
-  editForm.phlebotomy = q.phlebotomy ?? ''
-  editForm.metadata = q.metadata ?? ''
-  editForm.cohortSampleType = q.sampleType ?? ''
+  editForm.additionalNotes = q.additionalNotes ?? ''
   editForm.servicesDetail = q.servicesDetail.map(s => ({ ...s }))
   editForm.intakeDetails = JSON.parse(JSON.stringify(q.intakeDetails ?? {}))
   editForm.visits = (q.collectionVisits ?? []).map(v => ({ ...v }))
@@ -463,10 +470,7 @@ function buildChangeNote(): string | undefined {
   if (editForm.affiliation !== q.affiliation) changes.push('affiliation')
   if (editForm.affiliationOrg.trim() !== (q.affiliationOrg ?? '')) changes.push('institution')
   if (editForm.irb.trim() !== (q.irb ?? '')) changes.push('IRB')
-  if (editForm.objectives.trim() !== (q.objectives ?? '')) changes.push('objectives')
-  if (editForm.phlebotomy !== (q.phlebotomy ?? '')) changes.push('phlebotomy')
-  if (editForm.metadata !== (q.metadata ?? '')) changes.push('metadata plan')
-  if (editForm.cohortSampleType !== (q.sampleType ?? '')) changes.push('sample type')
+  if (editForm.additionalNotes.trim() !== (q.additionalNotes ?? '')) changes.push('additional notes')
   if (editForm.budgetCode.trim() !== (q.budgetCode ?? '')) changes.push('budget code')
   if (editForm.fundingName.trim() !== (q.fundingName ?? '')) changes.push('funding source')
   if (editForm.baName.trim() !== (q.baName ?? '') || editForm.baEmail.trim() !== (q.baEmail ?? '')) changes.push('business administrator')
@@ -501,10 +505,7 @@ async function saveEdit() {
       affiliation: editForm.affiliation,
       affiliationOrg: editForm.affiliationOrg.trim(),
       irb: editForm.irb.trim(),
-      objectives: editForm.objectives.trim() || undefined,
-      phlebotomy: editForm.phlebotomy || undefined,
-      metadata: editForm.metadata || undefined,
-      sampleType: editForm.cohortSampleType || undefined,
+      additionalNotes: editForm.additionalNotes.trim() || undefined,
       cohortSubjects: editMatrixSubjects.value,
       servicesDetail,
       budgetCode: editForm.affiliation === 'Internal' ? (editForm.budgetCode.trim() || undefined) : undefined,
@@ -600,10 +601,6 @@ async function saveEdit() {
             <span class="meta-label">Estimate</span>
             <span class="meta-val">${{ inquiry.estimate.toLocaleString() }}</span>
           </div>
-          <div v-if="inquiry.sampleType" class="meta-item">
-            <span class="meta-label">Sample type</span>
-            <span class="meta-val">{{ inquiry.sampleType }}</span>
-          </div>
         </div>
       </div>
       <div class="hero-actions">
@@ -619,7 +616,7 @@ async function saveEdit() {
               :disabled="isSendingIntake || isDeclining || !canSendIntake"
               @click="sendIntakeForm"
             >
-              {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Intake Sent' ? 'Re-send full intake form ✉' : 'Send full intake form ✉') }}
+              {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Intake Sent' ? 'Re-send billing form ✉' : 'Send billing form ✉') }}
             </button>
           </span>
           <div v-if="intakeSentMessage" style="font-size:0.78rem; color:var(--green); text-align:center;">{{ intakeSentMessage }}</div>
@@ -685,7 +682,7 @@ async function saveEdit() {
             </template>
 
             <template v-if="isLead">
-              <div class="info-lbl">Full intake</div>
+              <div class="info-lbl">Billing form</div>
               <div>
                 <template v-if="inquiry.status === 'Intake Sent'">
                   Form sent {{ inquiry.intakeSentDate }} — awaiting submission.
@@ -694,24 +691,22 @@ async function saveEdit() {
                   Paused — following up {{ formatHoldDate(inquiry.holdUntil) }} while the investigator sorts out funding / next steps.
                 </template>
                 <template v-else>
-                  Not sent yet. After your conversation with the lead, use “Send full intake form” to email them the study questionnaire.
+                  Not sent yet. After your conversation with the lead, use “Send billing form” to email them the billing form.
                 </template>
               </div>
             </template>
           </div>
         </div>
 
-        <!-- Intake snapshot (full study questionnaire). Shown once submitted, or
-             for a lead once the admin has started capturing study details. -->
+        <!-- Intake snapshot (study details). Shown once submitted, or for a
+             lead once the admin has started capturing study details — this is
+             entered directly by the I3H team, not emailed to/filled by the PI. -->
         <div v-if="!isLead || hasStudyData" class="panel">
           <div class="panel-head">
             <h3>Intake submission</h3>
-            <span class="ctx">{{ isLead ? 'captured during intake — sends with the form link' : 'submitted via the emailed intake form' }}</span>
+            <span class="ctx">captured internally by the I3H team</span>
           </div>
           <div class="study-info-grid">
-            <div class="info-lbl">Study objectives</div>
-            <div>{{ inquiry.objectives || '—' }}</div>
-
           <template v-if="inquiry.studyLead">
             <div class="info-lbl">Project lead</div>
             <div>{{ inquiry.studyLead.name }} · <span class="mono">{{ inquiry.studyLead.email }}</span></div>
@@ -737,16 +732,6 @@ async function saveEdit() {
                 </tbody>
               </table>
             </div>
-          </template>
-
-          <template v-if="inquiry.phlebotomy">
-            <div class="info-lbl">Phlebotomy</div>
-            <div>{{ inquiry.phlebotomy }}</div>
-          </template>
-
-          <template v-if="inquiry.metadata">
-            <div class="info-lbl">Metadata plan</div>
-            <div>{{ inquiry.metadata }}</div>
           </template>
 
           <div class="info-lbl">Services</div>
@@ -952,120 +937,70 @@ async function saveEdit() {
               </div>
             </div>
           </div>
+
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <label class="em-label">Key Personnel</label>
+            <div class="em-hint" style="margin-bottom:0.6rem;">CRCs, other physicians, etc. who'll help launch the study on the clinician's side</div>
+            <div style="overflow-x:auto;">
+              <table class="em-matrix">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Name</th>
+                    <th style="text-align:left;">Role</th>
+                    <th style="text-align:left;">Email</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(p, i) in editForm.keyPersonnel" :key="i">
+                    <td><input v-model="p.name" type="text" placeholder="Full name"></td>
+                    <td><input v-model="p.role" type="text" placeholder="e.g. CRC"></td>
+                    <td><input v-model="p.email" type="email" placeholder="name@pennmedicine.upenn.edu"></td>
+                    <td><button class="em-srv-remove" type="button" @click="removeEditPerson(i)">✕</button></td>
+                  </tr>
+                  <tr v-if="!editForm.keyPersonnel.length">
+                    <td colspan="4" class="em-srv-empty">No key personnel added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="em-matrix-foot">
+              <button class="btn btn-ghost btn-sm" type="button" @click="addEditPerson">+ Add another person</button>
+            </div>
+          </div>
+
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <IntakeFields :fields="INTAKE_FIELDS.filter(f => f.key === 'collectionSites')" :model="editForm.intakeDetails" variant="modal" show-all />
+          </div>
         </div>
 
-        <!-- Key personnel -->
+        <!-- Defining Groups -->
         <div class="em-section">
-          <div class="em-section-title">Key Personnel</div>
-          <div class="em-section-hint">CRCs, other physicians, etc. who'll help launch the study on the clinician's side</div>
+          <div class="em-section-title">Defining Groups</div>
+          <div class="em-section-hint">The cohorts/groups being studied — these drive the rows in the cohort sample matrix below</div>
           <div style="overflow-x:auto;">
             <table class="em-matrix">
               <thead>
                 <tr>
-                  <th style="text-align:left;">Name</th>
-                  <th style="text-align:left;">Role</th>
-                  <th style="text-align:left;">Email</th>
+                  <th style="text-align:left;">Group</th>
+                  <th style="text-align:left;">Description</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(p, i) in editForm.keyPersonnel" :key="i">
-                  <td><input v-model="p.name" type="text" placeholder="Full name"></td>
-                  <td><input v-model="p.role" type="text" placeholder="e.g. CRC"></td>
-                  <td><input v-model="p.email" type="email" placeholder="name@pennmedicine.upenn.edu"></td>
-                  <td><button class="em-srv-remove" type="button" @click="removeEditPerson(i)">✕</button></td>
+                <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
+                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td><input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
                 </tr>
-                <tr v-if="!editForm.keyPersonnel.length">
-                  <td colspan="4" class="em-srv-empty">No key personnel added yet.</td>
+                <tr v-if="!editForm.collectionGroups.length">
+                  <td colspan="3" class="em-srv-empty">No groups defined yet.</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div class="em-matrix-foot">
-            <button class="btn btn-ghost btn-sm" type="button" @click="addEditPerson">+ Add another person</button>
-          </div>
-        </div>
-
-        <!-- Study details -->
-        <div class="em-section">
-          <div class="em-section-title">Study details</div>
-          <div class="em-field em-full" style="margin-bottom:0.75rem;">
-            <label class="em-label">Objectives</label>
-            <textarea v-model="editForm.objectives" rows="3" />
-          </div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Phlebotomy</label>
-              <select v-model="editForm.phlebotomy">
-                <option value="">—</option>
-                <option>IH phlebotomist on campus</option>
-                <option>Remote phlebotomy needed</option>
-                <option>Study team will collect and transfer</option>
-                <option>N/A – using stored samples</option>
-              </select>
-            </div>
-            <div class="em-field">
-              <label class="em-label">Metadata plan</label>
-              <select v-model="editForm.metadata">
-                <option value="">—</option>
-                <option>REDCap</option>
-                <option>Other system</option>
-                <option>To be discussed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- Services -->
-        <div class="em-section">
-          <div class="em-section-title">Services</div>
-          <div class="em-service-lines">
-            <div v-for="(line, i) in editForm.servicesDetail" :key="i" class="em-service-row">
-              <span class="em-srv-name">{{ line.name }}</span>
-              <span class="em-srv-rate">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${line.rate}/ea` : 'Contact' }}</span>
-              <input
-                v-model.number="editForm.servicesDetail[i].qty"
-                type="number"
-                min="0"
-                style="width:72px;"
-              >
-              <span class="em-srv-committed">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${(line.rate * Math.max(0, (editForm.servicesDetail[i].qty as number) || 0)).toLocaleString()}` : '—' }}</span>
-              <button class="em-srv-remove" type="button" @click="removeServiceLine(i)">✕</button>
-            </div>
-            <div v-if="editForm.servicesDetail.length === 0" class="em-srv-empty">No services added yet.</div>
-          </div>
-          <select
-            v-if="availableToAdd.length > 0"
-            v-model="newServiceId"
-            style="width:auto; margin-top:0.4rem;"
-            @change="addServiceLine"
-          >
-            <option value="">+ Add service…</option>
-            <option v-for="svc in availableToAdd" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
-          </select>
-        </div>
-
-        <!-- Cohort -->
-        <div class="em-section">
-          <div class="em-section-title">Cohort</div>
-          <div class="em-grid">
-            <div class="em-field">
-              <label class="em-label">Sample type</label>
-              <select v-model="editForm.cohortSampleType">
-                <option value="">—</option>
-                <option>Fresh whole blood</option>
-                <option>Stored PBMCs (cryopreserved)</option>
-                <option>Tissue</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div class="em-field">
-              <label class="em-label">Total samples</label>
-              <div class="em-computed">
-                {{ editMatrixTotal.toLocaleString() }}
-                <span class="em-computed-note">from matrix below</span>
-              </div>
-            </div>
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add another group</button>
           </div>
         </div>
 
@@ -1114,10 +1049,7 @@ async function saveEdit() {
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
-                  <td>
-                    <input v-model="g.name" type="text" placeholder="Cohort name">
-                    <input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20" style="margin-top:0.4rem;">
-                  </td>
+                  <td style="text-align:left;">{{ g.name || 'Untitled group' }}</td>
                   <td><input v-model.number="g.subjects" type="number" min="0"></td>
                   <td v-for="v in editForm.visits" :key="v.id">
                     <input v-model.number="g.samples[v.id]" type="number" min="0">
@@ -1131,28 +1063,68 @@ async function saveEdit() {
             </table>
           </div>
           <div class="em-matrix-foot">
-            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add cohort</button>
             <span class="em-matrix-total">{{ editMatrixSubjects.toLocaleString() }} subjects · {{ editMatrixTotal.toLocaleString() }} samples</span>
           </div>
         </div>
 
-        <!-- Expanded intake answers — rendered from the shared schema -->
-        <div v-for="group in fieldsBySection" :key="group.section" class="em-section">
-          <div class="em-section-title">{{ group.section }}</div>
-          <template v-if="group.section === 'Regulatory'">
-            <IntakeFields :fields="group.fields.filter(f => f.key === 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
-            <div class="em-field">
-              <label class="em-label">IRB Number</label>
-              <input v-model="editForm.irb" type="text">
+        <!-- Services -->
+        <div class="em-section">
+          <div class="em-section-title">Services</div>
+          <div class="em-service-lines">
+            <div v-for="(line, i) in editForm.servicesDetail" :key="i" class="em-service-row">
+              <span class="em-srv-name">{{ line.name }}</span>
+              <span class="em-srv-rate">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${line.rate}/ea` : 'Contact' }}</span>
+              <input
+                v-model.number="editForm.servicesDetail[i].qty"
+                type="number"
+                min="0"
+                style="width:72px;"
+              >
+              <span class="em-srv-committed">{{ typeof line.rate === 'number' && line.rate > 0 ? `$${(line.rate * Math.max(0, (editForm.servicesDetail[i].qty as number) || 0)).toLocaleString()}` : '—' }}</span>
+              <button class="em-srv-remove" type="button" @click="removeServiceLine(i)">✕</button>
             </div>
-            <IntakeFields :fields="group.fields.filter(f => f.key !== 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
-          </template>
-          <IntakeFields v-else :fields="group.fields" :model="editForm.intakeDetails" variant="modal" show-all />
+            <div v-if="editForm.servicesDetail.length === 0" class="em-srv-empty" style="padding-bottom:0;">No services added yet.</div>
+          </div>
+          <select
+            v-if="availableToAdd.length > 0"
+            v-model="newServiceId"
+            style="width:auto; margin-top:0.9rem;"
+            @change="addServiceLine"
+          >
+            <option value="">+ Add service…</option>
+            <option v-for="svc in availableToAdd" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
+          </select>
+          <div class="em-field em-full" style="margin-top:0.9rem;">
+            <label class="em-label">Additional notes or questions</label>
+            <textarea v-model="editForm.additionalNotes" rows="3" placeholder="Anything else the I3H team should know or follow up on" />
+          </div>
         </div>
 
-        <!-- Funding & Affiliation -->
+        <!-- Regulatory -->
         <div class="em-section">
-          <div class="em-section-title">Funding & Affiliation</div>
+          <div class="em-section-title">Regulatory</div>
+          <div class="em-field" style="margin-bottom:0.9rem;">
+            <label class="em-label">IRB Number</label>
+            <input v-model="editForm.irb" type="text">
+          </div>
+          <IntakeFields :fields="(fieldsBySection.find(g => g.section === 'Regulatory')?.fields ?? []).filter(f => f.key === 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Blood Collection -->
+        <div class="em-section">
+          <div class="em-section-title">Blood Collection</div>
+          <IntakeFields :fields="bloodCollectionFields" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Logistics -->
+        <div class="em-section">
+          <div class="em-section-title">Logistics</div>
+          <IntakeFields :fields="fieldsBySection.find(g => g.section === 'Scope')?.fields ?? []" :model="editForm.intakeDetails" variant="modal" show-all />
+        </div>
+
+        <!-- Billing -->
+        <div class="em-section">
+          <div class="em-section-title">Billing</div>
           <div class="em-grid">
             <div class="em-field">
               <label class="em-label">Affiliation</label>

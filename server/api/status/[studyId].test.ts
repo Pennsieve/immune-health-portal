@@ -4,7 +4,10 @@ import handler from './[studyId].get'
 
 // The public study-status page is token-gated. This handler verifies the status
 // token (signature, matching studyId + PI email, and current version), then
-// returns a PI-safe view with internal billing stripped. Tests exercise that
+// returns a PI-safe view — the funding/affiliation details the PI themselves
+// submitted via the billing form pass through, and per-line services are
+// shaped down to service/rate/planned (no tracked committed/invoiced figures —
+// there's no real invoicing system behind this app). Tests exercise that
 // auth chain and the shaping against a fake Supabase client (no network).
 
 const SECRET = 'test-secret'
@@ -34,21 +37,20 @@ function study(overrides: Record<string, unknown> = {}) {
     stage: 'Processing',
     cohort: { subjects: 10 },
     budget: {
-      committed: 4600,
-      invoiced: 1000,
       accountCode: 'ACCT-1',
+      fundingName: 'GI Chemoprevention Program',
       baName: 'Business Admin',
-      lines: [{ service: 'CyTOF', rate: 1200, planned: 3, completed: 1, committed: 3600, invoiced: 1200 }],
+      baEmail: 'admin@pennmedicine.upenn.edu',
+      contractingContact: null,
+      lines: [{ service: 'CyTOF', rate: 1200, planned: 3 }],
     },
     lifecycle: [
       { label: 'A', date: 'Jan 1', status: 'active' },
       { label: 'B', date: 'Jan 5', status: 'done' },
     ],
-    objectives: 'obj',
     additional_notes: null,
-    phlebotomy: null,
-    metadata_desc: null,
     intake_details: {},
+    key_personnel: [{ name: 'Jane CRC', email: 'jane@example.com', role: 'CRC' }],
     status_token_version: 1,
     agreements: [
       { id: 'ua', name: 'User Agreement', status: 'Pending', signed_by: null, signed_date: null },
@@ -68,21 +70,34 @@ function run(data: Record<string, unknown> | null, token: string | undefined, st
 const validToken = () => createStatusToken(STUDY_ID, 'lee@example.com', 1, SECRET)
 
 describe('status — successful read', () => {
-  it('returns a PI-safe view with internal billing stripped', async () => {
+  it('returns a PI-safe view including their own funding/affiliation details', async () => {
     const res = await run(study(), validToken()) as {
       name: string
       piEmail: string
-      budget: { committed: number; invoiced: number; accountCode?: string; lines: Array<Record<string, unknown>> }
+      budget: {
+        accountCode: string | null; fundingName: string | null
+        baName: string | null; baEmail: string | null; contractingContact: string | null
+        lines: Array<Record<string, unknown>>
+      }
     }
     expect(res.name).toBe('Immune Aging')
     expect(res.piEmail).toBe('Lee@Example.com')
-    expect(res.budget.committed).toBe(4600)
-    expect(res.budget.invoiced).toBe(1000)
-    // internal-only fields must not leak to the PI
-    expect(res.budget.accountCode).toBeUndefined()
-    expect(res.budget).not.toHaveProperty('baName')
-    // per-line billing figures are stripped to service/rate/planned/completed
-    expect(res.budget.lines[0]).toEqual({ service: 'CyTOF', rate: 1200, planned: 3, completed: 1 })
+    // the PI's own billing-form submission passes through
+    expect(res.budget.accountCode).toBe('ACCT-1')
+    expect(res.budget.fundingName).toBe('GI Chemoprevention Program')
+    expect(res.budget.baName).toBe('Business Admin')
+    expect(res.budget.baEmail).toBe('admin@pennmedicine.upenn.edu')
+    expect(res.budget.contractingContact).toBeNull()
+    // per-line services are shaped down to service/rate/planned only
+    expect(res.budget.lines[0]).toEqual({ service: 'CyTOF', rate: 1200, planned: 3 })
+  })
+
+  it('includes key personnel, defaulting to an empty array when absent', async () => {
+    const res = await run(study(), validToken()) as { keyPersonnel: Array<Record<string, unknown>> }
+    expect(res.keyPersonnel).toEqual([{ name: 'Jane CRC', email: 'jane@example.com', role: 'CRC' }])
+
+    const resNone = await run(study({ key_personnel: undefined }), validToken()) as { keyPersonnel: unknown[] }
+    expect(resNone.keyPersonnel).toEqual([])
   })
 
   it('includes sign URLs for pending agreements only, and filters ids no longer in AGREEMENT_IDS', async () => {

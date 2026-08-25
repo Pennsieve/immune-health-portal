@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CollectionVisit } from '~/types/index'
-import { intakeDetailRows } from '~/utils/intakeFields'
+import { INTAKE_FIELDS, intakeDisplayValue } from '~/utils/intakeFields'
 
 definePageMeta({ layout: false })
 
@@ -21,7 +21,6 @@ interface Cohort {
   subjects: number
   totalSamples: number
   processedSamples: number
-  sampleType: string
   groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
   visits?: CollectionVisit[]
 }
@@ -36,12 +35,14 @@ interface BudgetLine {
   service: string
   rate: number
   planned: number
-  completed: number
 }
 
 interface BudgetSummary {
-  committed: number
-  invoiced: number
+  accountCode: string | null
+  fundingName: string | null
+  baName: string | null
+  baEmail: string | null
+  contractingContact: string | null
   lines: BudgetLine[]
 }
 
@@ -58,11 +59,9 @@ interface StudyStatus {
   cohort: Cohort
   budget: BudgetSummary | null
   lifecycle: LifecycleStep[]
-  objectives: string
   additionalNotes: string
-  phlebotomy: string
-  metadata: string
   intakeDetails: Record<string, unknown>
+  keyPersonnel: Array<{ name: string; email: string; role: string }>
   agreements: Agreement[]
 }
 
@@ -105,17 +104,45 @@ const affiliationLabel = computed(() => {
   return s.affiliationOrg ? `${s.affiliation} · ${s.affiliationOrg}` : s.affiliation
 })
 
+// Funding & Affiliation — what the PI submitted via the billing form
+const isInternal = computed(() => study.value?.affiliation === 'Internal')
+const ilabsId = computed(() => (study.value?.intakeDetails?.ilabsId as string) || '')
+
 // Study-defined visit columns for the cohort sample matrix
 const visits = computed(() => study.value?.cohort.visits ?? [])
 const cohortGroups = computed(() => study.value?.cohort.groups ?? [])
 const groupTotal = (g: { subjects: number; samples: Record<string, number> }, visitList: CollectionVisit[]) =>
   (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
+const matrixSubjectsTotal = computed(() =>
+  cohortGroups.value.reduce((s, g) => s + (Number(g.subjects) || 0), 0),
+)
+const visitTotal = (visitId: string) =>
+  cohortGroups.value.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[visitId]) || 0), 0)
 
-// Expanded intake questionnaire answers, resolved to labels via the shared schema
-const detailRows = computed(() => intakeDetailRows(study.value?.intakeDetails))
+const keyPersonnel = computed(() => study.value?.keyPersonnel ?? [])
+
+// Regulatory / Blood Collection / Logistics groupings mirror the admin
+// edit-inquiry / edit-study forms exactly (utils/intakeFields.ts), so the
+// order and grouping of fields here matches that form section-for-section.
+function fieldRows(fields: typeof INTAKE_FIELDS) {
+  const details = study.value?.intakeDetails
+  return fields
+    .map(f => ({ label: f.label, value: intakeDisplayValue(f.key, details) }))
+    .filter(r => r.value !== '')
+}
+const collectionSitesValue = computed(() => intakeDisplayValue('collectionSites', study.value?.intakeDetails))
+const regulatoryRows = computed(() => fieldRows(INTAKE_FIELDS.filter(f => f.section === 'Regulatory' && f.key === 'irbStatus')))
+const bloodCollectionRows = computed(() => fieldRows([
+  ...INTAKE_FIELDS.filter(f => f.section === 'Regulatory' && f.key !== 'irbStatus'),
+  ...INTAKE_FIELDS.filter(f => f.section === 'Samples'),
+]))
+const logisticsRows = computed(() => fieldRows(INTAKE_FIELDS.filter(f => f.section === 'Scope')))
 
 // Services requested and their planned quantities (PI-facing cost summary)
 const budgetLines = computed(() => study.value?.budget?.lines ?? [])
+const servicesGrandTotal = computed(() =>
+  budgetLines.value.reduce((s, l) => s + l.rate * l.planned, 0),
+)
 const currency = (n: number) => `$${(n || 0).toLocaleString()}`
 </script>
 
@@ -257,19 +284,19 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
           </div>
         </div>
 
-        <!-- Study details -->
+        <!-- Study info -->
         <div class="status-card">
           <div class="status-card-head">
-            <h2>Study details</h2>
+            <h2>Study info</h2>
           </div>
           <div class="status-details-grid">
-            <div v-if="study.objectives">
-              <div class="status-detail-lbl">Objectives</div>
-              <div class="status-detail-val">{{ study.objectives }}</div>
+            <div>
+              <div class="status-detail-lbl">Study name</div>
+              <div class="status-detail-val">{{ study.name }}</div>
             </div>
-            <div v-if="study.additionalNotes">
-              <div class="status-detail-lbl">Additional notes</div>
-              <div class="status-detail-val">{{ study.additionalNotes }}</div>
+            <div v-if="study.abbreviation">
+              <div class="status-detail-lbl">Project Acronym / ID</div>
+              <div class="status-detail-val">{{ study.abbreviation }}</div>
             </div>
             <div>
               <div class="status-detail-lbl">Principal Investigator</div>
@@ -279,32 +306,30 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
               <div class="status-detail-lbl">Study lead</div>
               <div class="status-detail-val">{{ study.studyLead.name }}<template v-if="study.studyLead.email"> · {{ study.studyLead.email }}</template></div>
             </div>
-            <div v-if="affiliationLabel">
-              <div class="status-detail-lbl">Affiliation</div>
-              <div class="status-detail-val">{{ affiliationLabel }}</div>
-            </div>
+          </div>
+          <div v-if="keyPersonnel.length" class="status-table-wrap" style="margin-top:0.4rem;">
+            <div class="status-detail-lbl" style="margin-bottom:0.5rem;">Key personnel</div>
+            <table class="status-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Name</th>
+                  <th style="text-align:left;">Role</th>
+                  <th style="text-align:left;">Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(p, i) in keyPersonnel" :key="i">
+                  <td style="text-align:left;">{{ p.name || '—' }}</td>
+                  <td style="text-align:left;">{{ p.role || '—' }}</td>
+                  <td style="text-align:left;">{{ p.email || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="collectionSitesValue" class="status-details-grid" style="padding-top:1.2rem;">
             <div>
-              <div class="status-detail-lbl">IRB protocol</div>
-              <div class="status-detail-val">{{ study.irb || '—' }}</div>
-            </div>
-            <div>
-              <div class="status-detail-lbl">Cohort scope</div>
-              <div class="status-detail-val">
-                {{ study.cohort.subjects }} subjects · {{ study.cohort.groups?.length ?? 0 }} cohorts ·
-                {{ study.cohort.totalSamples }} total samples
-              </div>
-            </div>
-            <div v-if="study.cohort.sampleType">
-              <div class="status-detail-lbl">Sample type</div>
-              <div class="status-detail-val">{{ study.cohort.sampleType }}</div>
-            </div>
-            <div v-if="study.phlebotomy">
-              <div class="status-detail-lbl">Phlebotomy</div>
-              <div class="status-detail-val">{{ study.phlebotomy }}</div>
-            </div>
-            <div v-if="study.metadata">
-              <div class="status-detail-lbl">Metadata plan</div>
-              <div class="status-detail-val">{{ study.metadata }}</div>
+              <div class="status-detail-lbl">Collection Site(s)</div>
+              <div class="status-detail-val">{{ collectionSitesValue }}</div>
             </div>
           </div>
         </div>
@@ -333,25 +358,32 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
                   <td class="status-matrix-total">{{ groupTotal(g, visits).toLocaleString() }}</td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td style="text-align:left;">Total</td>
+                  <td>{{ matrixSubjectsTotal.toLocaleString() }}</td>
+                  <td v-for="v in visits" :key="v.id">{{ visitTotal(v.id).toLocaleString() }}</td>
+                  <td class="status-matrix-total">{{ study.cohort.totalSamples.toLocaleString() }}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
-          <p class="status-matrix-note">Values are tubes / parent samples collected per subject at each visit.</p>
         </div>
 
         <!-- Services & estimated cost -->
-        <div v-if="budgetLines.length" class="status-card">
+        <div v-if="budgetLines.length || study.additionalNotes" class="status-card">
           <div class="status-card-head">
             <h2>Services &amp; estimated cost</h2>
-            <span v-if="study.budget" class="status-card-ctx">{{ currency(study.budget.committed) }} committed</span>
+            <span v-if="budgetLines.length" class="status-card-ctx">{{ currency(servicesGrandTotal) }} estimated</span>
           </div>
-          <div class="status-table-wrap">
+          <div v-if="budgetLines.length" class="status-table-wrap">
             <table class="status-matrix">
               <thead>
                 <tr>
                   <th style="text-align:left;">Service</th>
-                  <th>Rate</th>
-                  <th>Planned</th>
-                  <th>Completed</th>
+                  <th>Cost</th>
+                  <th>Number</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -359,23 +391,104 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
                   <td style="text-align:left;">{{ l.service }}</td>
                   <td>{{ currency(l.rate) }}</td>
                   <td>{{ l.planned }}</td>
-                  <td>{{ l.completed }}</td>
+                  <td>{{ currency(l.rate * l.planned) }}</td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <td style="text-align:left;">Total</td>
+                  <td />
+                  <td />
+                  <td class="status-matrix-total">{{ currency(servicesGrandTotal) }}</td>
+                </tr>
+              </tfoot>
             </table>
+          </div>
+          <div v-if="study.additionalNotes" class="status-details-grid" style="padding-top:1.2rem;">
+            <div>
+              <div class="status-detail-lbl">Additional notes</div>
+              <div class="status-detail-val">{{ study.additionalNotes }}</div>
+            </div>
           </div>
         </div>
 
-        <!-- Intake questionnaire -->
-        <div v-if="detailRows.length" class="status-card">
+        <!-- Regulatory -->
+        <div class="status-card">
           <div class="status-card-head">
-            <h2>Intake questionnaire</h2>
+            <h2>Regulatory</h2>
           </div>
           <div class="status-details-grid">
-            <div v-for="row in detailRows" :key="row.label">
+            <div>
+              <div class="status-detail-lbl">IRB protocol</div>
+              <div class="status-detail-val">{{ study.irb || '—' }}</div>
+            </div>
+            <div v-for="row in regulatoryRows" :key="row.label">
               <div class="status-detail-lbl">{{ row.label }}</div>
               <div class="status-detail-val">{{ row.value }}</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Blood Collection -->
+        <div v-if="bloodCollectionRows.length" class="status-card">
+          <div class="status-card-head">
+            <h2>Blood Collection</h2>
+          </div>
+          <div class="status-details-grid">
+            <div v-for="row in bloodCollectionRows" :key="row.label">
+              <div class="status-detail-lbl">{{ row.label }}</div>
+              <div class="status-detail-val">{{ row.value }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logistics -->
+        <div v-if="logisticsRows.length" class="status-card">
+          <div class="status-card-head">
+            <h2>Logistics</h2>
+          </div>
+          <div class="status-details-grid">
+            <div v-for="row in logisticsRows" :key="row.label">
+              <div class="status-detail-lbl">{{ row.label }}</div>
+              <div class="status-detail-val">{{ row.value }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Funding & Affiliation — as submitted via the billing form -->
+        <div v-if="affiliationLabel" class="status-card">
+          <div class="status-card-head">
+            <h2>Funding &amp; Affiliation</h2>
+          </div>
+          <div class="status-details-grid">
+            <div>
+              <div class="status-detail-lbl">Affiliation</div>
+              <div class="status-detail-val">{{ affiliationLabel }}</div>
+            </div>
+            <template v-if="isInternal">
+              <div v-if="study.budget?.accountCode">
+                <div class="status-detail-lbl">Budget Account Number</div>
+                <div class="status-detail-val">{{ study.budget.accountCode }}</div>
+              </div>
+              <div v-if="study.budget?.fundingName">
+                <div class="status-detail-lbl">Funding Source (CAMS)</div>
+                <div class="status-detail-val">{{ study.budget.fundingName }}</div>
+              </div>
+              <div v-if="study.budget?.baName || study.budget?.baEmail">
+                <div class="status-detail-lbl">Business Administrator</div>
+                <div class="status-detail-val">{{ study.budget?.baName }}<template v-if="study.budget?.baEmail"> · {{ study.budget.baEmail }}</template></div>
+              </div>
+              <div v-if="ilabsId">
+                <div class="status-detail-lbl">iLab Service Request ID</div>
+                <div class="status-detail-val">{{ ilabsId }}</div>
+              </div>
+            </template>
+            <template v-else>
+              <div v-if="study.budget?.contractingContact">
+                <div class="status-detail-lbl">Contracting / Grants Office Contact</div>
+                <div class="status-detail-val">{{ study.budget.contractingContact }}</div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -703,13 +816,12 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
   font-variant-numeric: tabular-nums;
 }
 .status-matrix tbody tr:last-child td { border-bottom: none; }
-.status-matrix-total { font-weight: 600; color: #011F5B; }
-.status-matrix-note {
-  padding: 0.3rem 1.6rem 1.1rem;
-  margin: 0;
-  font-size: 0.72rem;
-  color: #999;
+.status-matrix tfoot td {
+  font-weight: 600;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  border-bottom: none;
 }
+.status-matrix-total { font-weight: 600; color: #011F5B; }
 
 /* ── Footer ── */
 .status-footer {

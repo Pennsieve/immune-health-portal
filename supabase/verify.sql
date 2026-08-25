@@ -15,29 +15,32 @@ expected_cols(tbl, col) as (
     -- inquiries
     ('inquiries','id'),('inquiries','study_name'),('inquiries','abbreviation'),
     ('inquiries','status'),('inquiries','submitted_date'),('inquiries','submitted_relative'),
-    ('inquiries','objectives'),('inquiries','pi'),
+    ('inquiries','pi'),
     ('inquiries','study_lead'),('inquiries','affiliation'),('inquiries','affiliation_org'),
     ('inquiries','irb'),('inquiries','cohort_subjects'),
     ('inquiries','services'),('inquiries','services_detail'),('inquiries','estimate'),
-    ('inquiries','sample_type'),('inquiries','phlebotomy'),('inquiries','metadata'),
     ('inquiries','budget_code'),('inquiries','funding_name'),('inquiries','ba_name'),
     ('inquiries','ba_email'),('inquiries','contracting_contact'),('inquiries','additional_notes'),
     ('inquiries','notes'),('inquiries','feasibility'),('inquiries','intake_details'),
-    ('inquiries','sample_schedule'),('inquiries','created_at'),('inquiries','updated_at'),
+    ('inquiries','sample_schedule'),('inquiries','collection_visits'),('inquiries','lead_details'),
+    ('inquiries','key_personnel'),('inquiries','intake_sent_date'),('inquiries','lead_decision'),
+    ('inquiries','hold_until'),('inquiries','activity'),
+    ('inquiries','created_at'),('inquiries','updated_at'),
     -- studies
     ('studies','id'),('studies','name'),('studies','abbreviation'),('studies','pi'),
     ('studies','study_lead'),('studies','affiliation'),('studies','affiliation_org'),
     ('studies','irb'),('studies','stage'),('studies','is_locked'),('studies','cohort'),
     ('studies','budget'),('studies','integrations'),('studies','started_date'),
-    ('studies','department'),('studies','objectives'),('studies','phlebotomy'),
-    ('studies','metadata_desc'),('studies','lifecycle'),('studies','updated_relative'),
+    ('studies','department'),
+    ('studies','lifecycle'),('studies','updated_relative'),
     ('studies','activity'),('studies','status_token_version'),
-    ('studies','intake_details'),('studies','additional_notes'),('studies','created_at'),('studies','updated_at'),
+    ('studies','intake_details'),('studies','additional_notes'),('studies','key_personnel'),
+    ('studies','created_at'),('studies','updated_at'),
     -- agreements
     ('agreements','id'),('agreements','study_id'),('agreements','name'),
     ('agreements','description'),('agreements','status'),('agreements','signed_by'),
     ('agreements','signed_date'),('agreements','signed_email'),('agreements','sent_date'),
-    ('agreements','reminder_date')
+    ('agreements','reminder_date'),('agreements','snapshot')
 ),
 expected_tables(tbl) as (
   values ('inquiries'),('studies'),('agreements')

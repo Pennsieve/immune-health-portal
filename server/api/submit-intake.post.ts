@@ -57,10 +57,10 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
-  // The lead row must exist and still be awaiting its full intake. Fetch the
+  // The lead row must exist and still be awaiting its billing form. Fetch the
   // whole row — everything the confirmation emails need (study name, PI,
-  // objectives, scope, services) was already captured internally, so it's
-  // read from the database rather than trusted from the request body.
+  // scope, services) was already captured internally, so it's read from the
+  // database rather than trusted from the request body.
   const { data: existing, error: fetchErr } = await supabase
     .from('inquiries')
     .select('*')
@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
   }
   if (existing.status !== 'Lead' && existing.status !== 'Intake Sent') {
-    throw createError({ statusCode: 409, statusMessage: 'The intake form for this inquiry has already been submitted' })
+    throw createError({ statusCode: 409, statusMessage: 'The billing form for this inquiry has already been submitted' })
   }
 
   const submittedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', year: 'numeric' })
@@ -91,9 +91,7 @@ export default defineEventHandler(async (event) => {
   const studyLead = existing.study_lead as { name: string; email: string } | null
   const studyName = (existing.study_name as string) || ''
   const abbreviation = (existing.abbreviation as string) || ''
-  const objectives = (existing.objectives as string) || ''
   const notes = (existing.additional_notes as string) || ''
-  const sampleTypeLabel = (existing.sample_type as string) || ''
   const servicesText = (existing.services as string) || ''
   const estimatedTotal = (existing.estimate as number) || null
   const affiliationLabel = AFFILIATION_LABELS[affiliation] || (existing.affiliation as string) || 'External'
@@ -172,11 +170,11 @@ export default defineEventHandler(async (event) => {
     contracting_contact: affiliation !== 'internal' ? (externalContact || null) : null,
     intake_details: intakeDetails,
     // The lead-phase meeting checklist is replaced by the full onboarding
-    // feasibility checklist now that the intake form is in
+    // feasibility checklist now that the billing form is in
     feasibility: ONBOARDING_CHECKLIST.map((label, i) => ({ label, checked: i === 0 })),
     // Log the submission in the inquiry's activity history
     activity: [
-      { dotClass: 'g', title: 'Full intake form submitted', date: `${submittedDate} · by ${pi.name}`, ts: Date.now() },
+      { dotClass: 'g', title: 'Billing form submitted', date: `${submittedDate} · by ${pi.name}`, ts: Date.now() },
       ...((existing.activity as unknown[]) || []),
     ],
   }).eq('id', inquiryId)
@@ -214,7 +212,7 @@ export default defineEventHandler(async (event) => {
 
           <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">New study inquiry submitted</h3>
 
-          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${studyName}</strong> was just submitted by <strong>${pi.name}</strong> (${affiliationLabel}). Quick summary below — full intake is available in the console.</p>
+          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${studyName}</strong> was just submitted by <strong>${pi.name}</strong> (${affiliationLabel}). Quick summary below — full study details are available in the console.</p>
 
           <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
             <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
@@ -222,16 +220,11 @@ export default defineEventHandler(async (event) => {
               <tr><td style="padding:3px 0;color:#7f8c8d;">PI</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${pi.name} · ${pi.email}</td></tr>
               ${studyLead?.name ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Study lead</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${studyLead.name} · ${studyLead.email}</td></tr>` : ''}
               <tr><td style="padding:3px 0;color:#7f8c8d;">Affiliation</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${affiliationLabel}${affiliation !== 'internal' && externalInstitution ? ` · ${externalInstitution}` : ''}</td></tr>
-              <tr><td style="padding:3px 0;color:#7f8c8d;">Scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${scopeSubjects} subjects · ${cohortLabel} · ${totalSamples} samples · ${sampleTypeLabel || '—'}</td></tr>
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Scope</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${scopeSubjects} subjects · ${cohortLabel} · ${totalSamples} samples</td></tr>
               <tr><td style="padding:3px 0;color:#7f8c8d;">Services</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${servicesText}</td></tr>
               ${estimatedTotal ? `<tr><td style="padding:3px 0;color:#7f8c8d;">Est. revenue</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">$${estimatedTotal.toLocaleString()}</td></tr>` : ''}
             </table>
           </div>
-
-          ${objectives ? `
-          <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Objectives (PI's words):</strong></p>
-          <p style="font-size:0.85rem;font-style:italic;color:#555;margin-bottom:1rem">"${objectives}"</p>
-          ` : ''}
 
           ${notes ? `
           <p style="font-size:0.86rem;margin:0.8rem 0 0"><strong>Additional notes on file:</strong></p>
@@ -241,7 +234,7 @@ export default defineEventHandler(async (event) => {
           <a href="${config.public.appDomain ? `https://${config.public.appDomain}` : 'http://localhost:3000'}/admin/inquiries/${inquiryId}" style="display:inline-block;background:#011f5b;color:#fff;padding:0.7rem 1.3rem;border-radius:4px;text-decoration:none;font-weight:600;font-size:0.88rem;margin:0.6rem 0;">Open in Admin Console →</a>
 
           <p style="font-size:0.8rem;color:#7f8c8d;margin-top:1.4rem;font-weight:300;">
-            This is an automated alert from the Immune Health platform. Inquiry status, notes, and the full intake form are available in the console.
+            This is an automated alert from the Immune Health platform. Inquiry status, notes, and full study details are available in the console.
           </p>
 
           <div style="font-size:0.7rem;color:#7f8c8d;margin-top:1.6rem;padding-top:1rem;border-top:1px solid #e8e4dc;">

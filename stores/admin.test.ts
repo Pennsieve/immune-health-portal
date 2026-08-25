@@ -22,7 +22,6 @@ describe('mapInquiry', () => {
       abbreviation: 'IMA',
       submitted_date: '2026-07-01',
       created_at: '2026-07-01T12:00:00Z',
-      objectives: 'Study immune aging',
       pi: { name: 'Dr. Lee', email: 'lee@example.com' },
       affiliation: 'Internal',
       affiliation_org: 'Penn',
@@ -161,8 +160,8 @@ describe('mapStudy', () => {
     irb: 'IRB-1',
     stage: 'Processing',
     is_locked: false,
-    cohort: { subjects: 10, totalSamples: 30, processedSamples: 0, sampleType: 'Fresh blood' },
-    budget: { committed: 4600, invoiced: 0, remaining: 4600, pctInvoiced: 0, lines: [] },
+    cohort: { subjects: 10, totalSamples: 30, processedSamples: 0 },
+    budget: { lines: [] },
     updated_at: '2026-07-10T00:00:00Z',
   }
 

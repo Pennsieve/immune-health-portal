@@ -64,38 +64,16 @@ const YES_NO: IntakeOption[] = [
   { value: 'no', label: 'No' },
 ]
 
-export const INTAKE_SECTIONS = ['Study design', 'Regulatory', 'Scope', 'Samples', 'Assays', 'Data & compliance', 'Logistics'] as const
+export const INTAKE_SECTIONS = ['Regulatory', 'Scope', 'Samples'] as const
 
 export const INTAKE_FIELDS: IntakeField[] = [
-  // ── Study design ──
-  {
-    key: 'clinicalQuestion', label: 'Clinical Question', section: 'Study design', type: 'textarea',
-    hint: "The specific clinical question you're trying to answer",
-    placeholder: 'e.g. Does treatment X restore immune cell populations in irAE patients?',
-  },
+  // ── Study design ── (section retained only as metadata; no longer rendered
+  // as its own admin group — collectionSites is shown as a standalone field)
   {
     key: 'collectionSites', label: 'Collection Site(s)', section: 'Study design', type: 'multiselect',
     hint: 'Where will samples be collected?',
     options: ['HUP', 'PAH', 'Presby', 'Radnor', 'CHOP', 'Remote / off-site'].map(v => ({ value: v, label: v })),
     otherValue: 'Remote / off-site', otherKey: 'collectionSiteOther', otherPlaceholder: 'Where?',
-  },
-  {
-    key: 'participantNaming', label: 'Participant Naming Convention', section: 'Study design', type: 'text',
-    placeholder: 'e.g. STUDY-001, STUDY-002',
-  },
-  {
-    key: 'cohortCount', label: 'Number of Cohorts', section: 'Study design', type: 'text',
-    placeholder: 'e.g. 3',
-  },
-  {
-    key: 'cohortNames', label: 'Cohort Names', section: 'Study design', type: 'text',
-    placeholder: 'e.g. SLE, SSc, irAE',
-  },
-  {
-    key: 'pilotData', label: 'Preliminary / Pilot Data', section: 'Study design', type: 'yesno',
-    options: YES_NO,
-    detailKey: 'pilotDataDetail', detailShowIf: 'yes',
-    detailLabel: 'Pilot data detail', detailPlaceholder: 'Briefly describe your preliminary data',
   },
 
   // ── Regulatory ──
@@ -127,30 +105,28 @@ export const INTAKE_FIELDS: IntakeField[] = [
   },
   {
     key: 'firstSampleDate', label: 'First Samples Expected', section: 'Scope', type: 'month',
-    hint: 'Drives the projected dates in the estimator',
   },
   {
     key: 'sampleArrivalCadence', label: 'Anticipated Cadence of Sample Arrival', section: 'Scope', type: 'text',
     placeholder: 'e.g. estimated 10 subjects per week for 8 weeks',
-  },
-  {
-    key: 'statisticalJustification', label: 'Statistical Justification', section: 'Scope', type: 'textarea',
-    hint: 'Power calculation or rationale for the sample size',
-    placeholder: 'e.g. Powered at 80% to detect a 1.5-fold difference…',
   },
 
   // ── Samples ──
   {
     key: 'tubeTypes', label: 'Collection Tube Type(s)', section: 'Samples', type: 'multiselect',
     hint: 'CBC with differential provided with PBMC processing services requires a small EDTA collection tube. CyTOF requires heparin collection tubes. Minimum 4 mL sodium heparin tube if only requesting CyTOF services; otherwise, 300 microliters of whole blood can be taken for CyTOF prior to processing heparin PBMCs.',
-    options: ['EDTA', 'Sodium heparin', 'Lithium heparin', 'ACD', 'Serum (SST)', 'Other'].map(v => ({ value: v, label: v })),
+    options: ['EDTA', 'Sodium heparin', 'Serum (SST)', 'Other'].map(v => ({ value: v, label: v })),
     otherValue: 'Other', otherKey: 'tubeTypeOther', otherPlaceholder: 'Specify tube type',
     showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
   },
   {
-    key: 'tubeCountEdta4ml', label: '4 mL EDTA Tubes Needed', section: 'Samples', type: 'number',
-    hint: 'Distribution of volume across tube types, per visit',
+    key: 'tubeCountEdta3ml', label: '3 mL EDTA Tubes Needed', section: 'Samples', type: 'number',
     placeholder: 'e.g. 2', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'EDTA',
+  },
+  {
+    key: 'tubeCountEdta10ml', label: '10 mL EDTA Tubes Needed', section: 'Samples', type: 'number',
+    placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
     requiresKey: 'tubeTypes', requiresValue: 'EDTA',
   },
   {
@@ -168,66 +144,15 @@ export const INTAKE_FIELDS: IntakeField[] = [
     placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
     requiresKey: 'tubeTypes', requiresValue: 'Serum (SST)',
   },
-  {
-    key: 'specialHandling', label: 'Special Handling Requirements', section: 'Samples', type: 'multiselect',
-    options: [
-      'Time-sensitive processing window',
-      'Pediatric / low-volume draws',
-      'Infectious / biohazard samples',
-      'Rare or irreplaceable samples',
-    ].map(v => ({ value: v, label: v })),
-    detailKey: 'specialHandlingNotes', detailShowIf: '__always__',
-    detailLabel: 'Special handling notes', detailPlaceholder: 'Any other handling notes',
-  },
 
-  // ── Assays ──
-  {
-    key: 'customAssays', label: 'Custom Panels or Assays', section: 'Assays', type: 'text',
-    hint: "Anything beyond our standard menu you're interested in?",
-    placeholder: 'e.g. custom CyTOF panel, spectral flow',
-  },
-  {
-    key: 'clinicalVariables', label: 'Clinical Variables Tracked', section: 'Assays', type: 'multiselect',
-    options: ['Demographics', 'Treatment arms', 'Clinical outcomes', 'Biomarkers', 'Medications', 'Other'].map(v => ({ value: v, label: v })),
-    otherValue: 'Other', otherKey: 'clinicalVariableOther', otherPlaceholder: 'Specify variable',
-  },
-
-  // ── Data & compliance ──
+  // ── Data & compliance ── (section retained only as metadata; ilabsId is
+  // edited exclusively via the PI-facing billing form, never rendered here —
+  // kept in the schema so cleanIntakeDetails() doesn't drop it on admin saves)
   {
     key: 'ilabsId', label: 'iLab Service Request ID', section: 'Data & compliance', type: 'text',
     hint: 'If you already have an iLab request open',
     placeholder: 'e.g. IL-123456',
     showIfKey: 'affiliation', showIfEquals: 'internal',
-  },
-  {
-    key: 'pennsieveStatus', label: 'Pennsieve Account', section: 'Data & compliance', type: 'select',
-    hint: 'Data is delivered via the Pennsieve platform',
-    options: [
-      { value: 'has-account', label: 'Has an account' },
-      { value: 'need-setup', label: 'Needs setup' },
-      { value: 'unsure', label: 'Not sure' },
-    ],
-  },
-  {
-    key: 'dataSharing', label: 'Data Sharing Restrictions', section: 'Data & compliance', type: 'yesno',
-    hint: 'Any restrictions on how data may be shared?',
-    options: YES_NO,
-    detailKey: 'dataSharingNotes', detailShowIf: 'yes',
-    detailLabel: 'Data sharing detail', detailPlaceholder: 'Describe the restriction',
-  },
-
-  // ── Logistics ──
-  {
-    key: 'sampleArrival', label: 'Sample Arrival', section: 'Logistics', type: 'select',
-    options: [
-      { value: 'single-batch', label: 'Single batch' },
-      { value: 'rolling', label: 'Rolling basis' },
-    ],
-  },
-  {
-    key: 'hardDeadlines', label: 'Hard Deadlines', section: 'Logistics', type: 'text',
-    hint: 'Grant reporting dates, conference deadlines, etc.',
-    placeholder: 'e.g. R01 renewal due March 2027',
   },
 ]
 
@@ -262,7 +187,7 @@ export function intakeDisplayValue(key: string, details: Record<string, unknown>
   const raw = details?.[key]
   const rawEmpty = raw === undefined || raw === null || raw === ''
     || (Array.isArray(raw) && raw.length === 0)
-  // A conditional companion (e.g. specialHandlingNotes) can carry text even when
+  // A conditional companion (e.g. irbTimeline) can carry text even when
   // the parent field has no selection, so factor it in before bailing out.
   const detailText = field?.detailKey ? String(details?.[field.detailKey] ?? '') : ''
   if (rawEmpty && !detailText) return ''

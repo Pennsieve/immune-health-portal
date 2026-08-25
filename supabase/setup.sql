@@ -8,8 +8,8 @@
 
 -- Inquiries: one row per lead / PI intake submission.
 -- A row starts as a bare lead (status 'Lead', no study fields) and is
--- upgraded in place when the full intake form is submitted via the
--- emailed token link (status 'New').
+-- upgraded in place when the billing form is submitted via the emailed
+-- token link (status 'New').
 create table inquiries (
   id                 text primary key,
   study_name         text,            -- null until the full intake is submitted
@@ -17,7 +17,6 @@ create table inquiries (
   status             text not null default 'New',
   submitted_date     text,
   submitted_relative text,
-  objectives         text,
   pi                 jsonb,           -- { name, email }
   study_lead         jsonb,           -- { name, email }
   affiliation        text,
@@ -27,9 +26,6 @@ create table inquiries (
   services           text,
   services_detail    jsonb default '[]'::jsonb,
   estimate           numeric,
-  sample_type        text,
-  phlebotomy         text,
-  metadata           text,
   budget_code        text,
   funding_name       text,
   ba_name            text,
@@ -68,10 +64,7 @@ create table studies (
   integrations     jsonb default '{}'::jsonb,
   started_date     text,
   department       text,
-  objectives       text,
   additional_notes text,                              -- PI's additional notes carried from the inquiry
-  phlebotomy       text,
-  metadata_desc    text,
   key_personnel    jsonb default '[]'::jsonb,          -- carried from the inquiry
   lifecycle        jsonb default '[]'::jsonb,
   updated_relative text,

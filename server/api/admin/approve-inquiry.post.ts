@@ -48,18 +48,11 @@ export default defineEventHandler(async (event) => {
 
   // Build budget lines from services_detail
   const servicesDetail = (inquiry.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || []
-  const lines = servicesDetail.map(svc => {
-    const rate = parseRate(svc.rate)
-    return {
-      service: svc.name,
-      rate,
-      planned: svc.qty,
-      completed: 0,
-      committed: rate * svc.qty,
-      invoiced: 0,
-    }
-  })
-  const committed = lines.reduce((sum, l) => sum + l.committed, 0)
+  const lines = servicesDetail.map(svc => ({
+    service: svc.name,
+    rate: parseRate(svc.rate),
+    planned: svc.qty,
+  }))
 
   // True projected sample total from the cohort matrix (sample_schedule),
   // keyed by the study-defined visit schedule (collection_visits) rather
@@ -83,15 +76,10 @@ export default defineEventHandler(async (event) => {
     subjects: inquiry.cohort_subjects,
     totalSamples,
     processedSamples: 0,
-    sampleType: inquiry.sample_type || 'TBD',
     groups: cohortGroups,
     visits,
   }
   const budget = {
-    committed,
-    invoiced: 0,
-    remaining: committed,
-    pctInvoiced: 0,
     accountCode: (inquiry.budget_code as string) || null,
     fundingName: (inquiry.funding_name as string) || null,
     baName: (inquiry.ba_name as string) || null,
@@ -116,10 +104,7 @@ export default defineEventHandler(async (event) => {
     budget,
     integrations: {},
     intake_details: inquiry.intake_details || {},
-    objectives: inquiry.objectives,
     additional_notes: inquiry.additional_notes || null,
-    phlebotomy: inquiry.phlebotomy,
-    metadata_desc: inquiry.metadata,
     key_personnel: inquiry.key_personnel || [],
     lifecycle: [
       { label: 'Inquiry',    date: inquiry.submitted_date, status: 'done' },
@@ -149,14 +134,12 @@ export default defineEventHandler(async (event) => {
     name: inquiry.study_name as string,
     abbreviation: inquiry.abbreviation as string,
     irb: inquiry.irb as string,
+    affiliation: inquiry.affiliation as string,
     affiliation_org: inquiry.affiliation_org as string,
     pi: inquiry.pi as { name: string; email: string },
     study_lead: inquiry.study_lead as { name: string; email: string } | null,
     cohort,
     budget,
-    objectives: inquiry.objectives as string,
-    phlebotomy: inquiry.phlebotomy as string,
-    metadata_desc: inquiry.metadata as string,
     intake_details: inquiry.intake_details as Record<string, unknown>,
   }, approvedDate)
 
