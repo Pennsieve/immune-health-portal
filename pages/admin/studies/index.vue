@@ -81,6 +81,11 @@ const displayedStudies = computed(() => {
 
 const signedCount = (study: typeof adminStore.studies[0]) =>
   study.agreements.filter(a => a.status === 'Signed').length
+
+// Estimated total (rate × planned) — computed live rather than tracked,
+// since there's no real invoicing system behind this app.
+const estimatedBudget = (study: typeof adminStore.studies[0]) =>
+  study.budget.lines.reduce((sum, l) => sum + l.rate * l.planned, 0)
 </script>
 
 <template>
@@ -180,11 +185,9 @@ const signedCount = (study: typeof adminStore.studies[0]) =>
             </td>
             <td>
               <div class="mono" style="font-size:0.82rem">
-                {{ study.budget.invoiced > 0 ? '$' + (study.budget.invoiced / 1000).toFixed(1) + 'K' : '—' }}
+                {{ estimatedBudget(study) > 0 ? '$' + (estimatedBudget(study) / 1000).toFixed(1) + 'K' : '—' }}
               </div>
-              <div class="study-pi" style="font-size:0.7rem">
-                {{ study.stage === 'Complete' ? 'final' : 'est. $' + (study.budget.committed / 1000).toFixed(0) + 'K' }}
-              </div>
+              <div class="study-pi" style="font-size:0.7rem">est.</div>
             </td>
             <td class="mono" style="font-size:0.78rem; color:var(--muted)">{{ relativeTime(study.updatedAt) }}</td>
           </tr>

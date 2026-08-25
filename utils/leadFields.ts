@@ -8,7 +8,7 @@
 // utils/intakeFields.ts in miniature.
 // ============================================================
 
-export type LeadFieldType = 'text' | 'textarea' | 'select'
+export type LeadFieldType = 'text' | 'textarea' | 'select' | 'multiselect'
 
 export interface LeadField {
   key: string
@@ -49,6 +49,12 @@ export const LEAD_FIELDS: LeadField[] = [
     key: 'researchSummary', label: 'Tell us some about your research, idea, or any questions', type: 'textarea',
     placeholder: 'A few sentences about your research, the idea you’re exploring, or anything you’d like to ask',
   },
+  {
+    // Options aren't listed here — the service catalog is fetched live from
+    // Contentful (see stores/services.ts), so the form renders checkboxes
+    // directly from that list and stores the service names as the raw value.
+    key: 'servicesInterested', label: 'What services are you interested in learning more about?', type: 'multiselect',
+  },
 ]
 
 // All keys that live inside lead_details (field values + their companions)
@@ -60,8 +66,12 @@ export const LEAD_DETAIL_KEYS: string[] = LEAD_FIELDS.flatMap(f =>
 export function leadDisplayValue(key: string, details: Record<string, unknown> | undefined): string {
   const field = LEAD_FIELDS.find(f => f.key === key)
   const raw = details?.[key]
-  if (raw === undefined || raw === null || raw === '') return ''
+  if (raw === undefined || raw === null || raw === '' || (Array.isArray(raw) && raw.length === 0)) return ''
   if (!field) return String(raw)
+  if (field.type === 'multiselect') {
+    const arr = Array.isArray(raw) ? raw : []
+    return arr.map(v => field.options?.find(o => o.value === v)?.label ?? String(v)).join(', ')
+  }
   const opt = field.options?.find(o => o.value === raw)
   let label = opt?.label ?? String(raw)
   if (field.otherValue && raw === field.otherValue && field.otherKey) {
@@ -81,7 +91,7 @@ export function leadDetailRows(details: Record<string, unknown> | undefined): Ar
 // Build a clean lead_details object from the raw form: drops empties and only
 // keeps the "other" companion when it applies.
 export function cleanLeadDetails(src: Record<string, unknown>): Record<string, unknown> {
-  const keep = (v: unknown) => v !== undefined && v !== null && v !== ''
+  const keep = (v: unknown) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)
   const out: Record<string, unknown> = {}
   for (const field of LEAD_FIELDS) {
     if (keep(src[field.key])) out[field.key] = src[field.key]

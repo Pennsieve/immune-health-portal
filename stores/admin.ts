@@ -20,7 +20,6 @@ export interface Inquiry {
   abbreviation: string
   submittedDate: string
   createdAt: string
-  objectives: string
   pi: { name: string; email: string }
   studyLead?: { name: string; email: string }
   affiliation: Affiliation
@@ -36,9 +35,6 @@ export interface Inquiry {
   servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
   status: InquiryStatus
   estimate?: number
-  sampleType?: string
-  phlebotomy?: string
-  metadata?: string
   additionalNotes?: string
   intakeDetails?: Record<string, unknown>
   leadDetails?: Record<string, unknown>
@@ -91,31 +87,23 @@ export interface Study {
     subjects: number
     totalSamples: number
     processedSamples: number
-    sampleType: string
     groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
     visits?: CollectionVisit[]
   }
   budget: {
-    committed: number
-    invoiced: number
-    remaining: number
-    pctInvoiced: number
     accountCode?: string | null
     fundingName?: string | null
     baName?: string | null
     baEmail?: string | null
     contractingContact?: string | null
     billingContact?: string
-    lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
+    lines: Array<{ service: string; rate: number; planned: number }>
   }
   integrations: { redcap?: string; labvantage?: string; pennsieve?: string }
   intakeDetails?: Record<string, unknown>
   startedDate?: string
   department?: string
-  objectives?: string
   additionalNotes?: string
-  phlebotomy?: string
-  metadata?: string
   keyPersonnel?: Array<{ name: string; email: string; role: string }>
   activity: ActivityItem[]
   lifecycle: Array<{ label: string; date: string; status: 'done' | 'active' | 'pending' }>
@@ -132,7 +120,6 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     abbreviation: row.abbreviation as string,
     submittedDate: row.submitted_date as string,
     createdAt: row.created_at as string,
-    objectives: row.objectives as string,
     pi: row.pi as { name: string; email: string },
     studyLead: row.study_lead as { name: string; email: string } | undefined,
     affiliation: row.affiliation as Affiliation,
@@ -148,9 +135,6 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     servicesDetail: (row.services_detail as Array<{ name: string; qty: number; rate: string | number }>) || [],
     status: row.status as InquiryStatus,
     estimate: row.estimate as number | undefined,
-    sampleType: row.sample_type as string | undefined,
-    phlebotomy: row.phlebotomy as string | undefined,
-    metadata: row.metadata as string | undefined,
     additionalNotes: row.additional_notes as string | undefined,
     intakeDetails: (row.intake_details as Record<string, unknown>) || {},
     leadDetails: (row.lead_details as Record<string, unknown>) || {},
@@ -199,10 +183,7 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     intakeDetails: (row.intake_details as Record<string, unknown>) || {},
     startedDate: row.started_date as string | undefined,
     department: row.department as string | undefined,
-    objectives: row.objectives as string | undefined,
     additionalNotes: row.additional_notes as string | undefined,
-    phlebotomy: row.phlebotomy as string | undefined,
-    metadata: row.metadata_desc as string | undefined,
     keyPersonnel: (row.key_personnel as Array<{ name: string; email: string; role: string }>) || [],
     activity: (row.activity as ActivityItem[]) || [],
     lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
@@ -381,14 +362,26 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async updateProcessedSamples(studyId: string, processedSamples: number) {
-      const result = await $fetch<{ success: boolean; cohort: Study['cohort']; budget: Study['budget']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
+      const result = await $fetch<{ success: boolean; cohort: Study['cohort']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
         method: 'POST',
         body: { studyId, processedSamples, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
         study.cohort = result.cohort
-        study.budget = result.budget
+        study.activity.unshift(result.activityItem)
+      }
+    },
+
+    async updateStudyStage(studyId: string, stage: 'Processing' | 'Complete') {
+      const result = await $fetch<{ success: boolean; stage: StudyStage; lifecycle: Study['lifecycle']; activityItem: ActivityItem }>('/api/admin/update-study-stage', {
+        method: 'POST',
+        body: { studyId, stage, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      })
+      const study = this.studies.find(s => s.id === studyId)
+      if (study) {
+        study.stage = result.stage
+        study.lifecycle = result.lifecycle
         study.activity.unshift(result.activityItem)
       }
     },
@@ -402,12 +395,11 @@ export const useAdminStore = defineStore('admin', {
       affiliationOrg: string
       irb: string
       stage: StudyStage
-      objectives?: string
-      phlebotomy?: string
-      metadata?: string
+      additionalNotes?: string
       cohort: Study['cohort']
       budget: Study['budget']
       intakeDetails?: Record<string, unknown>
+      keyPersonnel?: Array<{ name: string; email: string; role: string }>
     }, changeNote?: string) {
       const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle'] }>('/api/admin/update-study', {
         method: 'POST',
@@ -423,12 +415,11 @@ export const useAdminStore = defineStore('admin', {
         study.affiliationOrg = fields.affiliationOrg
         study.irb = fields.irb
         study.stage = fields.stage
-        study.objectives = fields.objectives
-        study.phlebotomy = fields.phlebotomy
-        study.metadata = fields.metadata
+        study.additionalNotes = fields.additionalNotes
         Object.assign(study.cohort, fields.cohort)
         Object.assign(study.budget, fields.budget)
         if (fields.intakeDetails !== undefined) study.intakeDetails = fields.intakeDetails
+        if (fields.keyPersonnel !== undefined) study.keyPersonnel = fields.keyPersonnel
         study.lifecycle = result.lifecycle
         study.activity.unshift(result.activityItem)
       }
@@ -465,10 +456,6 @@ export const useAdminStore = defineStore('admin', {
       affiliation: Affiliation
       affiliationOrg: string
       irb: string
-      objectives?: string
-      phlebotomy?: string
-      metadata?: string
-      sampleType?: string
       cohortSubjects: number
       servicesDetail: Array<{ name: string; qty: number; rate: string | number }>
       budgetCode?: string
@@ -477,6 +464,7 @@ export const useAdminStore = defineStore('admin', {
       baEmail?: string
       contractingContact?: string
       estimate?: number
+      additionalNotes?: string
       intakeDetails?: Record<string, unknown>
       collectionGroups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
       collectionVisits?: CollectionVisit[]
@@ -495,10 +483,7 @@ export const useAdminStore = defineStore('admin', {
         inquiry.affiliation = fields.affiliation
         inquiry.affiliationOrg = fields.affiliationOrg
         inquiry.irb = fields.irb
-        inquiry.objectives = fields.objectives || ''
-        inquiry.phlebotomy = fields.phlebotomy
-        inquiry.metadata = fields.metadata
-        inquiry.sampleType = fields.sampleType
+        inquiry.additionalNotes = fields.additionalNotes
         inquiry.cohortSubjects = fields.cohortSubjects
         inquiry.servicesDetail = fields.servicesDetail
         inquiry.services = fields.servicesDetail.map(s => s.name).join(', ')

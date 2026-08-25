@@ -61,7 +61,7 @@ describe('send-intake-link — happy path & status transition', () => {
     const res = await result as { success: boolean; sentDate: string; activityItem: { title: string } }
     expect(res.success).toBe(true)
     expect(res.sentDate).toBeTruthy()
-    expect(res.activityItem.title).toBe('Full intake form sent to lead')
+    expect(res.activityItem.title).toBe('Billing form sent to lead')
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
     expect(db.updates[0].status).toBe('Intake Sent')
     expect(db.updates[0].intake_sent_date).toBe(res.sentDate)
@@ -70,7 +70,7 @@ describe('send-intake-link — happy path & status transition', () => {
   it('labels the activity as a re-send when already Intake Sent', async () => {
     const { result } = run(inquiry({ status: 'Intake Sent' }))
     const res = await result as { activityItem: { title: string } }
-    expect(res.activityItem.title).toBe('Full intake form re-sent to lead')
+    expect(res.activityItem.title).toBe('Billing form re-sent to lead')
   })
 })
 
@@ -85,7 +85,7 @@ describe('send-intake-link — gating', () => {
     await expect(result).rejects.toMatchObject({ statusCode: 404 })
   })
 
-  it('rejects an inquiry that already submitted the full intake (New) with 409', async () => {
+  it('rejects an inquiry that already submitted the billing form (New) with 409', async () => {
     const { result } = run(inquiry({ status: 'New' }))
     await expect(result).rejects.toMatchObject({ statusCode: 409 })
   })

@@ -2,22 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Mock } from 'vitest'
 import handler from './approve-inquiry.post'
 
-// approve-inquiry turns a reviewed inquiry into a study: it derives the budget
-// (rate x qty per line, summed) and the projected sample total (cohort matrix),
-// then inserts the study + agreements and emails the PI. These tests exercise
-// that logic through the handler with a fake Supabase client that captures the
-// insert payloads — no network, no real email (see test/setup-server-globals).
+// approve-inquiry turns a reviewed inquiry into a study: it derives budget
+// lines (service/rate/planned per service — rate parsed from strings like
+// "$1,200") and the projected sample total (cohort matrix), then inserts the
+// study + agreements and emails the PI. No committed/invoiced tracking is
+// stored — there's no real invoicing system behind this app. These tests
+// exercise that logic through the handler with a fake Supabase client that
+// captures the insert payloads — no network, no real email (see
+// test/setup-server-globals).
 
 const sendEmailMock = (globalThis as unknown as { sendEmail: Mock }).sendEmail
 
 interface StudyInsert {
   id: string
   budget: {
-    committed: number
-    invoiced: number
-    remaining: number
-    pctInvoiced: number
-    lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
+    lines: Array<{ service: string; rate: number; planned: number }>
   }
   cohort: {
     totalSamples: number
@@ -80,7 +79,6 @@ function baseInquiry(overrides: Record<string, unknown> = {}) {
       { name: 'Cohort B', subjects: 5, samples: { v1: 1, v2: 1, v3: 1 } },
     ],
     cohort_subjects: 15,
-    sample_type: 'Fresh blood',
     intake_details: {},
     activity: [],
     ...overrides,
@@ -98,22 +96,22 @@ beforeEach(() => {
 })
 
 describe('approve-inquiry — budget math', () => {
-  it('computes per-line committed as rate x qty (parsing "$1,200" strings)', async () => {
+  it('maps each service to service/rate/planned (parsing "$1,200" strings)', async () => {
     const { db, result } = invoke(baseInquiry())
     await result
     const { lines } = db.inserts.studies[0].budget
-    expect(lines[0]).toEqual({ service: 'CyTOF', rate: 1200, planned: 3, completed: 0, committed: 3600, invoiced: 0 })
-    expect(lines[1]).toEqual({ service: 'Processing', rate: 500, planned: 2, completed: 0, committed: 1000, invoiced: 0 })
+    expect(lines[0]).toEqual({ service: 'CyTOF', rate: 1200, planned: 3 })
+    expect(lines[1]).toEqual({ service: 'Processing', rate: 500, planned: 2 })
   })
 
-  it('sums committed across lines and seeds remaining = committed, invoiced = 0', async () => {
+  it('does not persist any committed/invoiced/remaining tracking figures', async () => {
     const { db, result } = invoke(baseInquiry())
     await result
-    const { budget } = db.inserts.studies[0]
-    expect(budget.committed).toBe(4600)
-    expect(budget.remaining).toBe(4600)
-    expect(budget.invoiced).toBe(0)
-    expect(budget.pctInvoiced).toBe(0)
+    const budget = db.inserts.studies[0].budget as Record<string, unknown>
+    expect(budget).not.toHaveProperty('committed')
+    expect(budget).not.toHaveProperty('invoiced')
+    expect(budget).not.toHaveProperty('remaining')
+    expect(budget).not.toHaveProperty('pctInvoiced')
   })
 
   it('treats an unparseable rate as 0', async () => {
@@ -121,15 +119,13 @@ describe('approve-inquiry — budget math', () => {
       services_detail: [{ name: 'Consult', qty: 2, rate: 'call for pricing' }],
     }))
     await result
-    expect(db.inserts.studies[0].budget.lines[0].committed).toBe(0)
-    expect(db.inserts.studies[0].budget.committed).toBe(0)
+    expect(db.inserts.studies[0].budget.lines[0].rate).toBe(0)
   })
 
-  it('handles an empty services_detail (zero committed, no lines)', async () => {
+  it('handles an empty services_detail (no lines)', async () => {
     const { db, result } = invoke(baseInquiry({ services_detail: [] }))
     await result
     expect(db.inserts.studies[0].budget.lines).toEqual([])
-    expect(db.inserts.studies[0].budget.committed).toBe(0)
   })
 })
 

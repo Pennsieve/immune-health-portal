@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: study, error: fetchErr } = await supabase
     .from('studies')
-    .select('cohort, budget, activity')
+    .select('cohort, activity')
     .eq('id', studyId)
     .single()
 
@@ -21,32 +21,10 @@ export default defineEventHandler(async (event) => {
 
   const cohort = study.cohort as {
     subjects: number; totalSamples: number
-    processedSamples: number; sampleType: string
-  }
-  const budget = study.budget as {
-    committed: number; invoiced: number; remaining: number; pctInvoiced: number
-    accountCode?: string; billingContact?: string
-    lines: Array<{ service: string; rate: number; planned: number; completed: number; committed: number; invoiced: number }>
+    processedSamples: number
   }
 
   const clamped = Math.min(processedSamples, cohort.totalSamples)
-
-  // Recalculate per-sample lines (those whose planned qty equals totalSamples)
-  const updatedLines = budget.lines.map(line => {
-    if (line.planned !== cohort.totalSamples) return line
-    const completed = Math.min(clamped, line.planned)
-    return { ...line, completed, invoiced: completed * line.rate }
-  })
-
-  const totalInvoiced = updatedLines.reduce((sum, l) => sum + l.invoiced, 0)
-  const updatedBudget = {
-    ...budget,
-    lines: updatedLines,
-    invoiced: totalInvoiced,
-    remaining: budget.committed - totalInvoiced,
-    pctInvoiced: budget.committed > 0 ? Math.round(totalInvoiced / budget.committed * 100) : 0,
-  }
-
   const updatedCohort = { ...cohort, processedSamples: clamped }
 
   const now = new Date()
@@ -65,12 +43,12 @@ export default defineEventHandler(async (event) => {
 
   const { error: updateErr } = await supabase
     .from('studies')
-    .update({ cohort: updatedCohort, budget: updatedBudget, activity: updatedActivity })
+    .update({ cohort: updatedCohort, activity: updatedActivity })
     .eq('id', studyId)
 
   if (updateErr) {
     throw createError({ statusCode: 500, statusMessage: updateErr.message })
   }
 
-  return { success: true, cohort: updatedCohort, budget: updatedBudget, activityItem }
+  return { success: true, cohort: updatedCohort, activityItem }
 })

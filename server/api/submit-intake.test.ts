@@ -91,8 +91,6 @@ function leadRow(overrides: Record<string, unknown> = {}) {
     abbreviation: 'IMA',
     pi: { name: 'Dr. Lee', email: 'lee@example.com' },
     study_lead: null,
-    objectives: 'Study immune aging',
-    sample_type: 'Fresh whole blood',
     sample_schedule: [{ name: 'Cohort A', subjects: 10, samples: { v1: 1 } }],
     cohort_subjects: 10,
     services: 'CyTOF',

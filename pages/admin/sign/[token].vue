@@ -167,7 +167,6 @@ async function submitSigned() {
             <div class="r"><span class="l">Project Lead</span><span class="v">{{ fields.projectLeadName || '—' }}</span></div>
             <div class="r"><span class="l">IRB Protocol</span><span class="v">{{ fields.irb }}</span></div>
             <div class="r"><span class="l">Sample scope</span><span class="v">{{ fields.subjectCount }} subjects · {{ fields.cohortCount }} cohorts · {{ fields.totalSamples }} samples</span></div>
-            <div class="r"><span class="l">Sample type</span><span class="v">{{ fields.sampleType }}</span></div>
           </div>
 
           <h3>Pre-Launch Action Items</h3>
@@ -189,8 +188,6 @@ async function submitSigned() {
             <strong>Points of contact / project staff:</strong> {{ fields.pointOfContactLine }}<br>
             <strong>Date:</strong> {{ fields.generatedOn }}
           </p>
-          <p><strong>Objectives:</strong> {{ fields.objectivesText }}</p>
-
           <h3>Scope of Work</h3>
           <ol>
             <li>
@@ -198,7 +195,7 @@ async function submitSigned() {
               <ol type="a">
                 <li>{{ fields.scopeSubjectsLine }}</li>
                 <li>{{ fields.scopeVisitsLine }}</li>
-                <li>{{ fields.totalSamples }} total samples ({{ fields.sampleType }})</li>
+                <li>{{ fields.totalSamples }} total samples</li>
               </ol>
             </li>
             <li>
@@ -209,9 +206,6 @@ async function submitSigned() {
               <ol type="a">
                 <li v-for="line in fields.budgetLines" :key="line.service">
                   {{ line.service }} for {{ line.planned }} sample{{ line.planned === 1 ? '' : 's' }}
-                </li>
-                <li v-if="fields.hasTier1Service">
-                  Tier 1: comparison of your study subjects to other studies with their respective diseases/treatments run at Immune Health.
                 </li>
               </ol>
             </li>
@@ -301,8 +295,7 @@ async function submitSigned() {
             will be shared and stored only in UPHS-approved devices and storage methods that are approved to
             manage and protect anything considered patients' health information (PHI). Metadata should be
             collected and recorded using REDCap, and in case that is not possible, a feasible and reliable
-            alternative method needs to be agreed upon
-            <template v-if="fields.metadataDesc">&nbsp;(<strong>plan on file:</strong> {{ fields.metadataDesc }})</template>.
+            alternative method needs to be agreed upon.
             Ideally, the metadata will include:
           </p>
           <ul>
@@ -350,24 +343,6 @@ async function submitSigned() {
             is approved under a separate IRB at Penn Medicine IRB#26-6364. For more questions about I3H please
             contact IHCRCMP@pennmedicine.upenn.edu."
           </p>
-          <template v-if="fields.isRemotePhlebotomy">
-            <p><strong>Mobile Phlebotomy</strong> (included — this study uses remote phlebotomy):</p>
-            <p>
-              Getting your blood drawn is considered a minimal risk event. The most common risks with a blood
-              draw are brief pain and/or bruising. There are other minimal risks of inflammation or infection of
-              the vein, decreased blood pressure, dizziness, or fainting that can occur during or after your
-              sample is drawn. In this study you will have blood draws either on campus at the hospital or off
-              campus with Immune Health's mobile phlebotomy unit. This means a trained phlebotomist or clinician
-              may travel to you to do a blood draw. This service is optional and being provided as a convenience
-              due to the time constraints for blood collection after starting treatment in this study. You can
-              always choose to return to campus for all blood draws. Having blood drawn at a remote location does
-              not increase your risk in this study, but you acknowledge that if you have an adverse event, the
-              risks of which are minimal, you will not be in a hospital setting and you may need to get to a
-              hospital for further care. In signing this consent and agreeing to having visits outside of the
-              hospital, you acknowledge that risk. You should notify the study staff of any illness or adverse
-              effects that occur during this study as soon as possible.
-            </p>
-          </template>
 
           <h3>Data Sharing and Authorship</h3>
           <p>
@@ -436,11 +411,14 @@ async function submitSigned() {
           <p>
             <strong>Funding Support</strong> — budget account number(s) to be billed in support of the project:
           </p>
-          <div class="key-terms">
+          <div v-if="fields.isInternal" class="key-terms">
             <div class="r"><span class="l">Account / budget code</span><span class="v">{{ fields.fundingAccount }}</span></div>
             <div class="r"><span class="l">Funding source (CAMS)</span><span class="v">{{ fields.fundingName }}</span></div>
             <div class="r"><span class="l">Business Administrator</span><span class="v">{{ fields.baName }}</span></div>
             <div class="r"><span class="l">BA contact</span><span class="v">{{ fields.baEmail }}</span></div>
+          </div>
+          <div v-else class="key-terms">
+            <div class="r"><span class="l">Contracting / grants office contact</span><span class="v">{{ fields.contractingContact }}</span></div>
           </div>
           <p>
             <strong>Payment Terms:</strong> Monthly invoices will be billed through iLabs. Note that the rates

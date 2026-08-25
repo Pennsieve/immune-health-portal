@@ -3,10 +3,10 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 export default defineEventHandler(async (event) => {
   const {
     inquiryId, studyName, abbreviation, pi, studyLead,
-    affiliation, affiliationOrg, irb, objectives, phlebotomy,
-    metadata, sampleType, cohortSubjects,
+    affiliation, affiliationOrg, irb,
+    cohortSubjects,
     servicesDetail, budgetCode, fundingName, baName, baEmail, contractingContact, estimate,
-    intakeDetails, collectionGroups, collectionVisits, keyPersonnel, changeNote, author, timezone,
+    additionalNotes, intakeDetails, collectionGroups, collectionVisits, keyPersonnel, changeNote, author, timezone,
   } = await readBody(event)
 
   if (!inquiryId) {
@@ -54,10 +54,6 @@ export default defineEventHandler(async (event) => {
     affiliation,
     affiliation_org: affiliationOrg,
     irb,
-    objectives: objectives || null,
-    phlebotomy: phlebotomy || null,
-    metadata: metadata || null,
-    sample_type: sampleType || null,
     cohort_subjects: cohortSubjects,
     services,
     services_detail: servicesDetail,
@@ -67,6 +63,7 @@ export default defineEventHandler(async (event) => {
     ba_name: baName || null,
     ba_email: baEmail || null,
     contracting_contact: contractingContact || null,
+    additional_notes: additionalNotes || null,
   }
   // Expanded intake answers + cohort matrix (only overwrite when provided)
   if (intakeDetails !== undefined) updateData.intake_details = intakeDetails ?? {}

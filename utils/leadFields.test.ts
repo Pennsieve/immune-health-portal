@@ -36,6 +36,15 @@ describe('leadDisplayValue', () => {
   it('falls back to the raw value for an unknown option', () => {
     expect(leadDisplayValue('referralSource', { referralSource: 'tiktok' })).toBe('tiktok')
   })
+
+  it('joins a multiselect array of raw values', () => {
+    const details = { servicesInterested: ['CyTOF', 'Blood processing'] }
+    expect(leadDisplayValue('servicesInterested', details)).toBe('CyTOF, Blood processing')
+  })
+
+  it('treats an empty multiselect array as empty', () => {
+    expect(leadDisplayValue('servicesInterested', { servicesInterested: [] })).toBe('')
+  })
 })
 
 describe('leadDetailRows', () => {
@@ -65,6 +74,12 @@ describe('cleanLeadDetails', () => {
       researchSummary: undefined,
     })
     expect(out).toEqual({ role: 'PI' })
+  })
+
+  it('keeps a non-empty multiselect array and drops an empty one', () => {
+    expect(cleanLeadDetails({ servicesInterested: ['CyTOF'] }))
+      .toEqual({ servicesInterested: ['CyTOF'] })
+    expect(cleanLeadDetails({ servicesInterested: [] })).toEqual({})
   })
 
   it('keeps the "other" companion only when "other" is selected', () => {

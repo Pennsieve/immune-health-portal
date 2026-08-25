@@ -96,6 +96,21 @@
     }
   }
 
+  .btn-success-outline {
+    background: transparent;
+    color: var(--green);
+    border: 1px solid var(--green);
+
+    &:hover:not(:disabled) {
+      background: var(--green);
+      color: #fff;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
   .tip-left {
     position: relative;
     display: block;
@@ -1006,6 +1021,18 @@ table.data-table {
   .sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.2rem; }
 }
 
+.lifecycle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.2rem;
+
+  h3 { margin-bottom: 0; }
+}
+
+.lifecycle-stage-btn { width: 242px; }
+
 .life-timeline {
   display: flex;
   align-items: stretch;
@@ -1385,48 +1412,6 @@ table.data-table {
 /* =========================================================
    Budget tab
    ========================================================= */
-.budget-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.8rem;
-  padding: 0.4rem 1.4rem 1rem;
-}
-
-.budget-card {
-  background: var(--cream);
-  border-radius: var(--radius);
-  border: 1px solid rgba(0,0,0,0.04);
-  padding: 0.9rem 1rem;
-
-  .lbl {
-    font-size: 0.62rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    font-weight: 600;
-    margin-bottom: 0.3rem;
-  }
-
-  .val {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 1.15rem;
-    font-weight: 500;
-  }
-}
-
-.budget-prog {
-  margin: 0 1.4rem;
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(0,0,0,0.06);
-  overflow: hidden;
-
-  div {
-    height: 100%;
-    background: linear-gradient(90deg, var(--warm), var(--warm-light));
-  }
-}
-
 table.budget-table {
   width: 100%;
   border-collapse: collapse;
@@ -2272,13 +2257,6 @@ table.budget-table {
   border-bottom: 1px solid var(--line);
 }
 
-.em-section-opt {
-  font-weight: 400;
-  color: var(--muted);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 .em-section-hint {
   font-size: 0.78rem;
   color: var(--muted);
@@ -2326,23 +2304,8 @@ table.budget-table {
   margin-top: -0.15rem;
 }
 
-.em-computed {
-  padding: 0.45rem 0.6rem;
-  background: var(--cream);
-  border-radius: var(--radius);
-  font-size: 0.88rem;
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.em-computed-note {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 400;
-}
-
 .em-service-lines {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .em-service-row {
@@ -2415,6 +2378,7 @@ table.budget-table {
   td {
     padding: 0.2rem 0.25rem;
     vertical-align: middle;
+    text-align: center;
 
     input {
       width: 100%;
@@ -2437,7 +2401,7 @@ table.budget-table {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 0.5rem;
+  margin-top: 0.9rem;
 }
 .em-matrix-total {
   font-size: 0.82rem;

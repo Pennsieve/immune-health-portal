@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
         <p style="margin:0 0 1rem;font-size:0.88rem;">
           1. An I3H team member reaches out to schedule an introductory call.<br>
           2. We discuss your research, our services, and whether we're a good fit.<br>
-          3. If we move forward, we'll send you our full study intake form to begin feasibility review.
+          3. If we move forward, we'll capture your study details together and send you a short billing form to finish setting things up.
         </p>
 
         <p style="font-size:0.85rem;color:#7f8c8d;margin-top:1.4rem;font-weight:300;">
@@ -131,7 +131,7 @@ export default defineEventHandler(async (event) => {
 
           <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">New lead submitted</h3>
 
-          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${form.name}</strong> (${AFFILIATION_LABELS[form.affiliation] || form.affiliation}) just reached out via the public inquiry form. Reach out to schedule an introductory call, then send the full intake form from the console when you're ready.</p>
+          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${form.name}</strong> (${AFFILIATION_LABELS[form.affiliation] || form.affiliation}) just reached out via the public inquiry form. Reach out to schedule an introductory call, then send the billing form from the console when you're ready.</p>
 
           <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
             <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">

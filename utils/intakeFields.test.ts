@@ -37,7 +37,7 @@ describe('fieldOptionValues / fieldOptionLabel', () => {
 
   it('returns an empty array for an unknown or option-less field', () => {
     expect(fieldOptionValues('nope')).toEqual([])
-    expect(fieldOptionValues('clinicalQuestion')).toEqual([])
+    expect(fieldOptionValues('bloodVolumePerVisit')).toEqual([])
   })
 
   it('maps a raw value to its label', () => {
@@ -52,9 +52,9 @@ describe('fieldOptionValues / fieldOptionLabel', () => {
 
 describe('intakeDisplayValue', () => {
   it('returns empty string for missing/empty values', () => {
-    expect(intakeDisplayValue('clinicalQuestion', undefined)).toBe('')
-    expect(intakeDisplayValue('clinicalQuestion', {})).toBe('')
-    expect(intakeDisplayValue('clinicalQuestion', { clinicalQuestion: '' })).toBe('')
+    expect(intakeDisplayValue('bloodVolumePerVisit', undefined)).toBe('')
+    expect(intakeDisplayValue('bloodVolumePerVisit', {})).toBe('')
+    expect(intakeDisplayValue('bloodVolumePerVisit', { bloodVolumePerVisit: '' })).toBe('')
     expect(intakeDisplayValue('collectionSites', { collectionSites: [] })).toBe('')
   })
 
@@ -85,23 +85,19 @@ describe('intakeDisplayValue', () => {
     expect(intakeDisplayValue('irbStatus', details)).toBe('Submitted / pending — Q3 2027')
   })
 
-  it('shows __always__ companion text even when the parent field is empty', () => {
-    const details = { specialHandlingNotes: 'Keep on ice' }
-    expect(intakeDisplayValue('specialHandling', details)).toBe('Keep on ice')
-  })
 })
 
 describe('intakeDetailRows', () => {
   it('returns only non-empty rows, preserving field order', () => {
     const details = {
-      clinicalQuestion: 'Does X work?',
       irbStatus: 'approved',
+      bloodVolumePerVisit: '20 mL',
       // enrollmentPeriod intentionally omitted → should not appear
     }
     const rows = intakeDetailRows(details)
     expect(rows).toEqual([
-      { label: 'Clinical Question', value: 'Does X work?' },
       { label: 'IRB Status', value: 'Approved' },
+      { label: 'Target Blood Volume per Visit', value: '20 mL' },
     ])
   })
 
@@ -114,12 +110,12 @@ describe('intakeDetailRows', () => {
 describe('cleanIntakeDetails', () => {
   it('drops empty values', () => {
     const out = cleanIntakeDetails({
-      clinicalQuestion: 'Q',
-      participantNaming: '',
+      bloodVolumePerVisit: '20 mL',
+      firstSampleDate: '',
       collectionSites: [],
-      cohortCount: undefined,
+      enrollmentPeriod: undefined,
     })
-    expect(out).toEqual({ clinicalQuestion: 'Q' })
+    expect(out).toEqual({ bloodVolumePerVisit: '20 mL' })
   })
 
   it('keeps the "other" companion only when its option is selected', () => {
@@ -147,10 +143,6 @@ describe('cleanIntakeDetails', () => {
     expect(doesNot).toEqual({ irbStatus: 'approved' })
   })
 
-  it('keeps an __always__ companion even without a parent selection', () => {
-    const out = cleanIntakeDetails({ specialHandlingNotes: 'Note' })
-    expect(out).toEqual({ specialHandlingNotes: 'Note' })
-  })
 })
 
 describe('INTAKE_DETAIL_KEYS', () => {

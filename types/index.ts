@@ -123,6 +123,7 @@ export interface LeadFormData {
   referralSourceOther?: string
   callPurpose?: string
   researchSummary?: string
+  servicesInterested?: string[]
 }
 
 // Team Member Types

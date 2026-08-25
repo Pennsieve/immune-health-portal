@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
   const supabase = serverSupabaseServiceRole(event)
   const { data, error } = await supabase
     .from('studies')
-    .select('name, abbreviation, irb, pi, study_lead, affiliation, affiliation_org, stage, cohort, budget, lifecycle, objectives, additional_notes, phlebotomy, metadata_desc, intake_details, status_token_version, agreements(*)')
+    .select('name, abbreviation, irb, pi, study_lead, affiliation, affiliation_org, stage, cohort, budget, lifecycle, additional_notes, intake_details, key_personnel, status_token_version, agreements(*)')
     .eq('id', studyId)
     .single()
 
@@ -70,21 +70,30 @@ export default defineEventHandler(async (event) => {
 
   const studyLead = data.study_lead as { name: string; email: string } | null
 
-  // Budget is exposed to the PI as a services + cost summary only — internal
-  // billing details (account codes, BA / contracting contacts) are stripped.
+  // Services + estimated cost, plus the funding/affiliation details the PI
+  // submitted via the billing form (account code, funding source, BA or
+  // contracting contact) — this is the PI's own data, shown back to them.
+  // There's no real invoicing system behind this app, so only the real
+  // inputs (rate, planned) are sent — never a tracked committed/invoiced figure.
   const budget = data.budget as {
-    committed?: number; invoiced?: number
-    lines?: Array<{ service: string; rate: number; planned: number; completed: number }>
+    accountCode?: string | null
+    fundingName?: string | null
+    baName?: string | null
+    baEmail?: string | null
+    contractingContact?: string | null
+    lines?: Array<{ service: string; rate: number; planned: number }>
   } | null
   const budgetSummary = budget
     ? {
-        committed: budget.committed ?? 0,
-        invoiced: budget.invoiced ?? 0,
+        accountCode: budget.accountCode || null,
+        fundingName: budget.fundingName || null,
+        baName: budget.baName || null,
+        baEmail: budget.baEmail || null,
+        contractingContact: budget.contractingContact || null,
         lines: (budget.lines || []).map(l => ({
           service: l.service,
           rate: l.rate,
           planned: l.planned,
-          completed: l.completed,
         })),
       }
     : null
@@ -102,11 +111,9 @@ export default defineEventHandler(async (event) => {
     cohort: data.cohort,
     budget: budgetSummary,
     lifecycle: normalizeLifecycle((data.lifecycle as LifecycleStep[]) || []),
-    objectives: data.objectives,
     additionalNotes: data.additional_notes,
-    phlebotomy: data.phlebotomy,
-    metadata: data.metadata_desc,
     intakeDetails: (data.intake_details as Record<string, unknown>) || {},
+    keyPersonnel: (data.key_personnel as Array<{ name: string; email: string; role: string }>) || [],
     agreements,
   }
 })
