@@ -46,8 +46,12 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(recaptchaTimer))
 
+const TITLE_OPTIONS = ['Dr.', 'Prof.', 'MD', 'PhD']
+
 const form = reactive<LeadFormData>({
-  name: '',
+  title: '',
+  firstName: '',
+  lastName: '',
   email: '',
   role: '',
   affiliation: 'internal',
@@ -69,8 +73,8 @@ const submitSuccess = ref(false)
 const isSubmitting = ref(false)
 
 const submitForm = async () => {
-  if (!form.name || !form.email) {
-    submitMessage.value = '⚠ Please fill in your name and email.'
+  if (!form.firstName || !form.lastName || !form.email) {
+    submitMessage.value = '⚠ Please fill in your first name, last name, and email.'
     submitSuccess.value = false
     return
   }
@@ -147,7 +151,7 @@ const sidebarCards = [
         <div class="form-card">
           <!-- Success state replaces the form -->
           <div v-if="submitSuccess" class="lead-success">
-            <h3>✓ Thanks, {{ form.name }} — we've received your inquiry.</h3>
+            <h3>✓ Thanks, {{ form.firstName }} — we've received your inquiry.</h3>
             <p>Check your email for a confirmation. A member of the I3H team will reach out within <strong>3 business days</strong> to schedule a conversation.</p>
           </div>
 
@@ -156,15 +160,31 @@ const sidebarCards = [
               About you
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>Name <span class="req">*</span></label>
-                <input v-model="form.name" type="text" placeholder="First Last">
+            <div class="form-row name-row">
+              <div class="form-group form-group-title">
+                <label>Title</label>
+                <select v-model="form.title">
+                  <option value="">
+                    —
+                  </option>
+                  <option v-for="opt in TITLE_OPTIONS" :key="opt" :value="opt">
+                    {{ opt }}
+                  </option>
+                </select>
               </div>
               <div class="form-group">
-                <label>Email <span class="req">*</span></label>
-                <input v-model="form.email" type="email" placeholder="name@institution.edu">
+                <label>First name <span class="req">*</span></label>
+                <input v-model="form.firstName" type="text" placeholder="First name">
               </div>
+              <div class="form-group">
+                <label>Last name <span class="req">*</span></label>
+                <input v-model="form.lastName" type="text" placeholder="Last name">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Email <span class="req">*</span></label>
+              <input v-model="form.email" type="email" placeholder="name@institution.edu">
             </div>
 
             <div class="form-group">
@@ -375,6 +395,14 @@ const sidebarCards = [
 
 .mt-sm {
   margin-top: 0.6rem;
+}
+
+.name-row {
+  grid-template-columns: 110px 1fr 1fr;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .service-check-grid {

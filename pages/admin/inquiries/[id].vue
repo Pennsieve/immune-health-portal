@@ -911,6 +911,9 @@ async function saveEdit() {
               <label class="em-label">Study name</label>
               <input v-model="editForm.studyName" type="text" autofocus @keydown.escape="editOpen = false">
             </div>
+            <div class="em-field em-full synopsis-field">
+              <IntakeFields :fields="INTAKE_FIELDS.filter(f => f.key === 'studySynopsis')" :model="editForm.intakeDetails" variant="modal" show-all />
+            </div>
             <div class="em-field">
               <label class="em-label">Project Acronym / ID</label>
               <div class="em-hint">Must be limited to 20 characters for LIMS</div>
@@ -1088,7 +1091,7 @@ async function saveEdit() {
           <select
             v-if="availableToAdd.length > 0"
             v-model="newServiceId"
-            style="width:auto; margin-top:0.9rem;"
+            style="width:50%; margin-top:0.9rem;"
             @change="addServiceLine"
           >
             <option value="">+ Add service…</option>
@@ -1105,7 +1108,7 @@ async function saveEdit() {
           <div class="em-section-title">Regulatory</div>
           <div class="em-field" style="margin-bottom:0.9rem;">
             <label class="em-label">IRB Number</label>
-            <input v-model="editForm.irb" type="text">
+            <input v-model="editForm.irb" type="text" style="width:50%;">
           </div>
           <IntakeFields :fields="(fieldsBySection.find(g => g.section === 'Regulatory')?.fields ?? []).filter(f => f.key === 'irbStatus')" :model="editForm.intakeDetails" variant="modal" show-all />
         </div>

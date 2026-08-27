@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { buildAgreementFields, type AgreementFields } from '~/utils/agreementFields'
+import { buildAgreementFields, TBD, type AgreementFields } from '~/utils/agreementFields'
 
 definePageMeta({ layout: false })
 
@@ -52,9 +52,6 @@ const fields = computed<AgreementFields | null>(() => {
 })
 
 const showClerkModal = ref(false)
-// User Agreement requires the PI to confirm they've reviewed pricing before signing
-const pricingAcknowledged = ref(false)
-const canSign = computed(() => pricingAcknowledged.value)
 const isSigned = ref(false)
 const isSubmitted = ref(false)
 const isSubmitting = ref(false)
@@ -158,15 +155,15 @@ async function submitSigned() {
 
           <p>
             This agreement is entered into between the <strong>University of Pennsylvania, Institute for Immunology &amp; Immune Health (I3H)</strong>
-            and <strong>{{ fields.affiliationOrg }}</strong>, represented by {{ fields.piName }}.
+            and <strong><AgreementValue :value="fields.affiliationOrg" /></strong>, represented by <AgreementValue :value="fields.piName" />.
           </p>
 
           <div class="key-terms">
             <div class="r"><span class="l">Study</span><span class="v">{{ fields.studyName }}</span></div>
-            <div class="r"><span class="l">Principal Investigator</span><span class="v">{{ fields.piName }}</span></div>
+            <div class="r"><span class="l">Principal Investigator</span><span class="v"><AgreementValue :value="fields.piName" /></span></div>
             <div class="r"><span class="l">Project Lead</span><span class="v">{{ fields.projectLeadName || '—' }}</span></div>
-            <div class="r"><span class="l">IRB Protocol</span><span class="v">{{ fields.irb }}</span></div>
-            <div class="r"><span class="l">Sample scope</span><span class="v">{{ fields.subjectCount }} subjects · {{ fields.cohortCount }} cohorts · {{ fields.totalSamples }} samples</span></div>
+            <div class="r"><span class="l">IRB Protocol</span><span class="v"><AgreementValue :value="fields.irb" /></span></div>
+            <div class="r"><span class="l">Sample scope</span><span class="v"><AgreementValue :value="fields.subjectCount" /> subjects · {{ fields.cohortCount }} cohorts · <AgreementValue :value="fields.totalSamples" /> samples</span></div>
           </div>
 
           <h3>Pre-Launch Action Items</h3>
@@ -185,21 +182,41 @@ async function submitSigned() {
           <p>
             <strong>Study title:</strong> {{ fields.studyName }}<span v-if="fields.abbreviation"> ({{ fields.abbreviation }})</span><br>
             <strong>Investigator:</strong> {{ fields.piName }} &lt;{{ fields.piEmail }}&gt;<br>
-            <strong>Points of contact / project staff:</strong> {{ fields.pointOfContactLine }}<br>
+            <strong>Points of contact / project staff:</strong> <AgreementValue :value="fields.pointOfContactLine" /><br>
             <strong>Date:</strong> {{ fields.generatedOn }}
           </p>
+          <h3>Study Synopsis</h3>
+          <p><AgreementValue :value="fields.studySynopsis" /></p>
           <h3>Scope of Work</h3>
           <ol>
             <li>
               The number of subjects, timepoints, and total samples:
               <ol type="a">
-                <li>{{ fields.scopeSubjectsLine }}</li>
-                <li>{{ fields.scopeVisitsLine }}</li>
-                <li>{{ fields.totalSamples }} total samples</li>
+                <!-- Reads naturally whether the underlying data is fully filled in
+                     (dynamic numbers) or still incomplete, instead of gluing a TBD
+                     placeholder into a number's position, e.g. "35 subjects
+                     recruited (enrollment period <to be finalized ... >)" rather
+                     than "35 subjects recruited over <to be finalized ... >". -->
+                <li v-if="fields.enrollmentPeriod === TBD">
+                  <AgreementValue :value="fields.subjectCount" /> subjects recruited (enrollment period <AgreementValue :value="fields.enrollmentPeriod" />)
+                </li>
+                <li v-else>
+                  <AgreementValue :value="fields.subjectCount" /> subjects recruited over {{ fields.enrollmentPeriod }}
+                </li>
+                <li v-if="fields.visitCount === TBD">
+                  Visit schedule <AgreementValue :value="fields.visitCount" />
+                </li>
+                <li v-else>{{ fields.visitCount }} visits</li>
+                <li><AgreementValue :value="fields.totalSamples" /> total samples</li>
               </ol>
             </li>
             <li>
-              {{ fields.scopeTubeLine }}.
+              <template v-if="fields.tubeType === TBD">
+                Collection tube type <AgreementValue :value="fields.tubeType" />.
+              </template>
+              <template v-else>
+                Fresh whole blood in {{ fields.tubeType }}<template v-if="fields.tubesPerVisit">, {{ fields.tubesPerVisit }} tube(s) per visit</template>.
+              </template>
             </li>
             <li v-if="fields.budgetLines.length">
               Selected services:
@@ -343,6 +360,26 @@ async function submitSigned() {
             is approved under a separate IRB at Penn Medicine IRB#26-6364. For more questions about I3H please
             contact IHCRCMP@pennmedicine.upenn.edu."
           </p>
+          <p v-if="fields.hasBloodDrawService">
+            Mobile Phlebotomy:<br>
+            <p class="quote-block">
+              "Getting your blood drawn in considered a minimal risk event. The most common risks with a blood draw
+              are brief pain and/or bruising. There are other minimal risks of inflammation or infection of the
+              vein, decreased blood pressure, dizziness, or fainting that can occur during or after your sample is
+              drawn.<br><br>
+              In this study you will have blood draws either on campus at the hospital or off campus with Immune
+              Health’s mobile phlebotomy unit. This means a trained phlebotomist or clinician may travel to you to
+              do a blood draw.  This service is optional and being provided as a convenience due to the time
+              constrains for blood collection after starting treatment in this study. You can always choose to
+              return to campus for all blood draws. Having blood drawn at a remote location does not increase your
+              risk in this study, but you acknowledge that if you have an adverse event, the risks of which are
+              minimal, you will not be in a hospital setting and you may need to get to a hospital for further
+              care. In signing this consent and agreeing to having visits outside of the hospital, you acknowledge
+              that risk.<br><br>
+              You should notify the study staff of any illness or adverse effects that occur during this study as
+              soon as possible."
+            </p>
+          </p>
 
           <h3>Data Sharing and Authorship</h3>
           <p>
@@ -379,13 +416,12 @@ async function submitSigned() {
               The estimated timeline for the project is as follows:
               <ul>
                 <li>
-                  Estimated enrollment date of first subject: {{ fields.firstSampleDate }}.
+                  Estimated enrollment date of first subject: <AgreementValue :value="fields.firstSampleDate" />.
                 </li>
                 <li>
-                  After approximately {{ fields.subjectCount }} subjects and {{ fields.visitCount }}
+                  After approximately <AgreementValue :value="fields.subjectCount" /> subjects and <AgreementValue :value="fields.visitCount" />
                   timepoints/subject, the project is completed and will depend on participant retention and
-                  available funds. We estimate that this will occur around {{ fields.enrollmentPeriod }} after
-                  the start of initial recruitment.
+                  available funds.
                 </li>
               </ul>
             </li>
@@ -393,7 +429,7 @@ async function submitSigned() {
 
           <h3>Budget</h3>
           <p>
-            The total budget for the project is <strong>{{ fields.totalBudget }}</strong>. A budget code is
+            The total budget for the project is <strong><AgreementValue :value="fields.totalBudget" /></strong>. A budget code is
             required to begin any work. No services will be provided, including phlebotomy or sample processing,
             without a budget code.
           </p>
@@ -407,18 +443,18 @@ async function submitSigned() {
               {{ line.service }} — {{ line.planned }} units at ${{ line.rate }}/unit (est. ${{ line.committed.toLocaleString() }})
             </li>
           </ol>
-          <p><strong>Estimated grand total: {{ fields.totalBudget }}</strong></p>
+          <p><strong>Estimated grand total: <AgreementValue :value="fields.totalBudget" /></strong></p>
           <p>
             <strong>Funding Support</strong> — budget account number(s) to be billed in support of the project:
           </p>
           <div v-if="fields.isInternal" class="key-terms">
-            <div class="r"><span class="l">Account / budget code</span><span class="v">{{ fields.fundingAccount }}</span></div>
-            <div class="r"><span class="l">Funding source (CAMS)</span><span class="v">{{ fields.fundingName }}</span></div>
-            <div class="r"><span class="l">Business Administrator</span><span class="v">{{ fields.baName }}</span></div>
-            <div class="r"><span class="l">BA contact</span><span class="v">{{ fields.baEmail }}</span></div>
+            <div class="r"><span class="l">Account / budget code</span><span class="v"><AgreementValue :value="fields.fundingAccount" /></span></div>
+            <div class="r"><span class="l">Funding source (CAMS)</span><span class="v"><AgreementValue :value="fields.fundingName" /></span></div>
+            <div class="r"><span class="l">Business Administrator</span><span class="v"><AgreementValue :value="fields.baName" /></span></div>
+            <div class="r"><span class="l">BA contact</span><span class="v"><AgreementValue :value="fields.baEmail" /></span></div>
           </div>
           <div v-else class="key-terms">
-            <div class="r"><span class="l">Contracting / grants office contact</span><span class="v">{{ fields.contractingContact }}</span></div>
+            <div class="r"><span class="l">Contracting / grants office contact</span><span class="v"><AgreementValue :value="fields.contractingContact" /></span></div>
           </div>
           <p>
             <strong>Payment Terms:</strong> Monthly invoices will be billed through iLabs. Note that the rates
@@ -536,17 +572,6 @@ async function submitSigned() {
             all parties must be notified within 5 business days, and an addendum will be added to this user
             agreement.
           </p>
-
-          <div class="pricing-ack" :class="{ unchecked: !pricingAcknowledged }">
-            <label>
-              <input v-model="pricingAcknowledged" type="checkbox">
-              <span>
-                I have reviewed and am aware of the pricing outlined on the
-                <a href="/services" target="_blank" rel="noopener">I3H services page</a>.
-                <span class="req-mark">*</span>
-              </span>
-            </label>
-          </div>
         </div>
 
         <div class="sign-doc-foot">
@@ -585,16 +610,13 @@ async function submitSigned() {
               By signing, you confirm that you have read these terms and intend to proceed. This
               acknowledgment is not a final contract — I3H will formalize the agreement through your
               institution's contracting process before work begins.
-              <template v-if="!pricingAcknowledged && !isSigned">
-                <br><strong style="color:#b7950b;">Please confirm the pricing acknowledgment above before signing.</strong>
-              </template>
             </p>
             <div class="cta-btns">
               <button class="btn-back" @click="$router.back()">← Back</button>
               <button
                 v-if="!isSigned"
                 class="btn-sign"
-                :disabled="isPreview || !canSign"
+                :disabled="isPreview"
                 @click="openClerk"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
