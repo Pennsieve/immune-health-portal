@@ -33,13 +33,19 @@ export default defineEventHandler(async (event) => {
   const form = body?.form as LeadFormData | undefined
   const tz = body?.timezone || DEFAULT_TIMEZONE
 
-  if (!form || !form.name || !form.email) {
+  if (!form || !form.firstName || !form.lastName || !form.email) {
     throw createError({ statusCode: 400, statusMessage: 'Missing required form data' })
   }
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(form.email)) {
     throw createError({ statusCode: 400, statusMessage: 'Email address is invalid' })
   }
+
+  // Combined "Title First Last" — pi.name has always been a single display
+  // string throughout the app (agreements, admin console, etc.), so the
+  // three form fields are joined here rather than rippling a name/firstName/
+  // lastName split through every downstream consumer.
+  const contactName = [form.title, form.firstName, form.lastName].filter(Boolean).join(' ')
 
   const supabase = serverSupabaseServiceRole(event)
   const inquiryId = crypto.randomUUID()
@@ -57,7 +63,7 @@ export default defineEventHandler(async (event) => {
     status: 'Lead',
     submitted_date: submittedDate,
     submitted_relative: 'just now',
-    pi: { name: form.name, email: form.email },
+    pi: { name: contactName, email: form.email },
     affiliation: AFFILIATION_LABELS[form.affiliation] || 'External',
     affiliation_org: affiliationOrg,
     services: '',
@@ -84,7 +90,7 @@ export default defineEventHandler(async (event) => {
           <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;"><font color="#011f5b">Immune Health</font></span>
         </div>
 
-        <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Thanks, ${form.name} — we've received your inquiry.</font></h3>
+        <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Thanks, ${form.firstName} — we've received your inquiry.</font></h3>
 
         <p style="margin:0 0 0.6rem;">Thank you for reaching out to the Institute for Immunology &amp; Immune Health. A member of our team will review your inquiry and reach out within <strong>3 business days</strong> to schedule a conversation.</p>
 
@@ -110,7 +116,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     await sendEmail({
-      to: [{ email: form.email, name: form.name }],
+      to: [{ email: form.email, name: contactName }],
       subject: `We've received your inquiry — Immune Health (I3H)`,
       html: confirmationHtml,
     })
@@ -131,12 +137,12 @@ export default defineEventHandler(async (event) => {
 
           <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">New lead submitted</h3>
 
-          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${form.name}</strong> (${AFFILIATION_LABELS[form.affiliation] || form.affiliation}) just reached out via the public inquiry form. Reach out to schedule an introductory call, then send the billing form from the console when you're ready.</p>
+          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${contactName}</strong> (${AFFILIATION_LABELS[form.affiliation] || form.affiliation}) just reached out via the public inquiry form. Reach out to schedule an introductory call, then send the billing form from the console when you're ready.</p>
 
           <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
             <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
               <tr><td style="padding:3px 0;color:#7f8c8d;width:170px;">Submitted</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${submittedAt}</td></tr>
-              <tr><td style="padding:3px 0;color:#7f8c8d;">Name</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${form.name} · ${form.email}</td></tr>
+              <tr><td style="padding:3px 0;color:#7f8c8d;">Name</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${contactName} · ${form.email}</td></tr>
               <tr><td style="padding:3px 0;color:#7f8c8d;">Affiliation</td><td style="padding:3px 0;color:#011f5b;font-weight:500;">${AFFILIATION_LABELS[form.affiliation] || form.affiliation}${affiliationOrg && form.affiliation !== 'internal' ? ` · ${affiliationOrg}` : ''}</td></tr>
               ${leadRows}
             </table>
@@ -157,7 +163,7 @@ export default defineEventHandler(async (event) => {
 
     await sendEmail({
       to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
-      subject: `🆕 New lead — ${form.name} · ${AFFILIATION_LABELS[form.affiliation] || form.affiliation}`,
+      subject: `🆕 New lead — ${contactName} · ${AFFILIATION_LABELS[form.affiliation] || form.affiliation}`,
       html: staffHtml,
     })
   }

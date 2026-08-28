@@ -114,7 +114,9 @@ export interface CollectionGroup {
 // detailed study questionnaire is captured internally by the I3H team after
 // that conversation (see utils/intakeFields.ts), not via a PI-facing form.
 export interface LeadFormData {
-  name: string
+  title?: string
+  firstName: string
+  lastName: string
   email: string
   role?: string
   affiliation: AffiliationType

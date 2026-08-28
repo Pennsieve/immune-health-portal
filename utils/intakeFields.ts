@@ -57,6 +57,9 @@ export interface IntakeField {
   // the array stored at model[requiresKey].
   requiresKey?: string
   requiresValue?: string
+  // Render the input at half width (e.g. short values like a status or a
+  // single volume figure don't need the full row).
+  halfWidth?: boolean
 }
 
 const YES_NO: IntakeOption[] = [
@@ -70,6 +73,10 @@ export const INTAKE_FIELDS: IntakeField[] = [
   // ── Study design ── (section retained only as metadata; no longer rendered
   // as its own admin group — collectionSites is shown as a standalone field)
   {
+    key: 'studySynopsis', label: 'Study synopsis', section: 'Study design', type: 'textarea',
+    placeholder: 'A brief description of the study',
+  },
+  {
     key: 'collectionSites', label: 'Collection Site(s)', section: 'Study design', type: 'multiselect',
     hint: 'Where will samples be collected?',
     options: ['HUP', 'PAH', 'Presby', 'Radnor', 'CHOP', 'Remote / off-site'].map(v => ({ value: v, label: v })),
@@ -78,7 +85,7 @@ export const INTAKE_FIELDS: IntakeField[] = [
 
   // ── Regulatory ──
   {
-    key: 'irbStatus', label: 'IRB Status', section: 'Regulatory', type: 'select',
+    key: 'irbStatus', label: 'IRB Status', section: 'Regulatory', type: 'select', halfWidth: true,
     options: [
       { value: 'approved', label: 'Approved' },
       { value: 'pending', label: 'Submitted / pending' },
@@ -88,7 +95,7 @@ export const INTAKE_FIELDS: IntakeField[] = [
     detailLabel: 'Expected IRB timeline', detailPlaceholder: 'Expected timeline for approval / submission',
   },
   {
-    key: 'bloodVolumePerVisit', label: 'Target Blood Volume per Visit', section: 'Regulatory', type: 'text',
+    key: 'bloodVolumePerVisit', label: 'Target Blood Volume per Visit', section: 'Regulatory', type: 'text', halfWidth: true,
     hint: 'Total volume to be drawn from the subject at each visit',
     placeholder: 'e.g. 20 mL',
   },
@@ -104,7 +111,7 @@ export const INTAKE_FIELDS: IntakeField[] = [
     hint: 'Over what timeframe?', placeholder: 'e.g. 18',
   },
   {
-    key: 'firstSampleDate', label: 'First Samples Expected', section: 'Scope', type: 'month',
+    key: 'firstSampleDate', label: 'First Samples Expected', section: 'Scope', type: 'month', halfWidth: true,
   },
   {
     key: 'sampleArrivalCadence', label: 'Anticipated Cadence of Sample Arrival', section: 'Scope', type: 'text',
@@ -113,9 +120,18 @@ export const INTAKE_FIELDS: IntakeField[] = [
 
   // ── Samples ──
   {
+    key: 'sampleType', label: 'Sample type', section: 'Samples', type: 'select', halfWidth: true,
+    options: [
+      { value: 'fresh-blood', label: 'Fresh whole blood' },
+      { value: 'stored-pbmc', label: 'Stored PBMCs (cryopreserved)' },
+      { value: 'tissue', label: 'Tissue' },
+      { value: 'other', label: 'Other' },
+    ],
+  },
+  {
     key: 'tubeTypes', label: 'Collection Tube Type(s)', section: 'Samples', type: 'multiselect',
     hint: 'CBC with differential provided with PBMC processing services requires a small EDTA collection tube. CyTOF requires heparin collection tubes. Minimum 4 mL sodium heparin tube if only requesting CyTOF services; otherwise, 300 microliters of whole blood can be taken for CyTOF prior to processing heparin PBMCs.',
-    options: ['EDTA', 'Sodium heparin', 'Serum (SST)', 'Other'].map(v => ({ value: v, label: v })),
+    options: ['EDTA', 'Sodium heparin', 'Serum (SST)', 'Streck', 'Other'].map(v => ({ value: v, label: v })),
     otherValue: 'Other', otherKey: 'tubeTypeOther', otherPlaceholder: 'Specify tube type',
     showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
   },
@@ -140,9 +156,14 @@ export const INTAKE_FIELDS: IntakeField[] = [
     requiresKey: 'tubeTypes', requiresValue: 'Sodium heparin',
   },
   {
-    key: 'tubeCountSerum10ml', label: '10 mL Serum (SST) Tubes Needed', section: 'Samples', type: 'number',
+    key: 'tubeCountSerum6ml', label: '6 mL Serum (SST) Tubes Needed', section: 'Samples', type: 'number',
     placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
     requiresKey: 'tubeTypes', requiresValue: 'Serum (SST)',
+  },
+  {
+    key: 'tubeCountStreck10ml', label: '10 mL Streck Tubes Needed', section: 'Samples', type: 'number',
+    placeholder: 'e.g. 1', showIfKey: 'sampleType', showIfEquals: 'fresh-blood',
+    requiresKey: 'tubeTypes', requiresValue: 'Streck',
   },
 
   // ── Data & compliance ── (section retained only as metadata; ilabsId is
@@ -180,6 +201,14 @@ export function fieldOptionLabel(key: string, value: string): string {
   return FIELD_BY_KEY.get(key)?.options?.find(o => o.value === value)?.label ?? value
 }
 
+// "month" fields are stored as "YYYY-MM" (native <input type="month"> format)
+// but should always be displayed as "Month YYYY" — e.g. on the user agreement.
+function formatMonthYear(raw: string): string {
+  const [year, month] = raw.split('-').map(Number)
+  if (!year || !month) return raw
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
 // Resolve a stored raw value to its human label (arrays joined, options mapped).
 // Companion "other"/detail text is appended where present.
 export function intakeDisplayValue(key: string, details: Record<string, unknown> | undefined): string {
@@ -209,6 +238,7 @@ export function intakeDisplayValue(key: string, details: Record<string, unknown>
     const opt = field.options?.find(o => o.value === raw)
     label = opt?.label ?? String(raw)
     if (field.type === 'months') label = `${raw} months`
+    if (field.type === 'month') label = formatMonthYear(String(raw))
   }
   // Append the conditional companion text (works for every field type now).
   if (detailText) label = `${label}${label ? ' — ' : ''}${detailText}`

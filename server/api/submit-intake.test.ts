@@ -124,8 +124,8 @@ describe('submit-intake — happy path', () => {
     expect(sendEmailMock).toHaveBeenCalledTimes(2)
   })
 
-  it('also accepts an Intake Sent inquiry', async () => {
-    const { db, result } = run(leadRow({ status: 'Intake Sent' }), body())
+  it('also accepts a Billing Sent inquiry', async () => {
+    const { db, result } = run(leadRow({ status: 'Billing Sent' }), body())
     await result
     expect(db.updates[0].status).toBe('New')
   })

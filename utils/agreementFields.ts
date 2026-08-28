@@ -14,7 +14,9 @@
 // ============================================================
 import { intakeDisplayValue } from '~/utils/intakeFields'
 
-const TBD = 'to be finalized with the I3H team'
+// Exported so the sign page can detect an unfilled field and render the
+// bold "< to be finalized with the I3H team >" placeholder instead of plain text.
+export const TBD = 'to be finalized with the I3H team'
 
 // Distribution of draw volume across tube types, per visit (utils/intakeFields.ts).
 const TUBE_COUNT_FIELDS: Array<{ key: string; label: string }> = [
@@ -22,7 +24,8 @@ const TUBE_COUNT_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'tubeCountEdta10ml', label: '10 mL EDTA' },
   { key: 'tubeCountHeparin10ml', label: '10 mL Sodium Heparin' },
   { key: 'tubeCountHeparin6ml', label: '6 mL Sodium Heparin' },
-  { key: 'tubeCountSerum10ml', label: '10 mL Serum (SST)' },
+  { key: 'tubeCountSerum6ml', label: '6 mL Serum (SST)' },
+  { key: 'tubeCountStreck10ml', label: '10 mL Streck' },
 ]
 
 function tubesPerVisitText(details: Record<string, unknown>): string {
@@ -35,27 +38,6 @@ function tubesPerVisitText(details: Record<string, unknown>): string {
     .join(', ')
 }
 
-// The Scope of Work list items read naturally whether the underlying study
-// data is fully filled in (dynamic numbers) or still incomplete (falls back
-// to a plain-English TBD sentence instead of gluing the TBD phrase into a
-// number's position, e.g. "35 subjects recruited (enrollment period TBD)"
-// rather than "35 subjects recruited over TBD").
-function scopeSubjectsLine(subjectCount: string, enrollmentPeriod: string): string {
-  return enrollmentPeriod === TBD
-    ? `${subjectCount} subjects recruited (enrollment period ${TBD})`
-    : `${subjectCount} subjects recruited over ${enrollmentPeriod}`
-}
-
-function scopeVisitsLine(visitCount: string): string {
-  return visitCount === TBD ? `Visit schedule ${TBD}` : `${visitCount} visits`
-}
-
-function scopeTubeLine(tubeType: string, tubesPerVisit: string): string {
-  return tubeType === TBD
-    ? `Collection tube type ${TBD}`
-    : `Fresh whole blood in ${tubeType}${tubesPerVisit ? `, ${tubesPerVisit} tube(s) per visit` : ''}`
-}
-
 export interface AgreementBudgetLine {
   service: string
   rate: number
@@ -66,6 +48,7 @@ export interface AgreementBudgetLine {
 export interface AgreementFields {
   studyName: string
   abbreviation: string
+  studySynopsis: string
   irb: string
   isInternal: boolean
   affiliationOrg: string
@@ -81,10 +64,8 @@ export interface AgreementFields {
   tubeType: string
   visitCount: string
   tubesPerVisit: string
-  scopeSubjectsLine: string
-  scopeVisitsLine: string
-  scopeTubeLine: string
   hasCytofService: boolean
+  hasBloodDrawService: boolean
   enrollmentPeriod: string
   firstSampleDate: string
   fundingAccount: string
@@ -153,10 +134,12 @@ export function buildAgreementFields(study: StudyForAgreement, generatedOn?: str
   }))
   const committed = budgetLines.reduce((sum, l) => sum + l.committed, 0)
   const hasCytofService = budgetLines.some(l => /cytof/i.test(l.service))
+  const hasBloodDrawService = budgetLines.some(l => /blood draw/i.test(l.service))
 
   return {
     studyName: study.name,
     abbreviation: study.abbreviation || '',
+    studySynopsis: intake('studySynopsis') || TBD,
     irb: study.irb || TBD,
     isInternal: study.affiliation === 'Internal',
     affiliationOrg: study.affiliation_org || TBD,
@@ -172,10 +155,8 @@ export function buildAgreementFields(study: StudyForAgreement, generatedOn?: str
     tubeType,
     visitCount,
     tubesPerVisit,
-    scopeSubjectsLine: scopeSubjectsLine(subjectCount, enrollmentPeriod),
-    scopeVisitsLine: scopeVisitsLine(visitCount),
-    scopeTubeLine: scopeTubeLine(tubeType, tubesPerVisit),
     hasCytofService,
+    hasBloodDrawService,
     enrollmentPeriod,
     firstSampleDate: intake('firstSampleDate') || TBD,
     fundingAccount: budget.accountCode || TBD,

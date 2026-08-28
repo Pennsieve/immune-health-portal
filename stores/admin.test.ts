@@ -209,7 +209,7 @@ describe('store getters', () => {
     store.inquiries = [
       { status: 'New' },
       { status: 'Lead' },
-      { status: 'Intake Sent' },
+      { status: 'Billing Sent' },
       { status: 'Approved' },
       { status: 'Declined' },
     ] as Inquiry[]

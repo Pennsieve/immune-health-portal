@@ -95,7 +95,7 @@ function onMonthInput(key: string, e: Event) {
         <div v-if="f.hint" class="if-hint">{{ f.hint }}</div>
 
         <!-- text -->
-        <input v-if="f.type === 'text'" v-model="model[f.key] as string" type="text" :placeholder="f.placeholder">
+        <input v-if="f.type === 'text'" v-model="model[f.key] as string" type="text" :class="{ 'if-half': f.halfWidth }" :placeholder="f.placeholder">
 
         <!-- textarea -->
         <textarea v-else-if="f.type === 'textarea'" v-model="model[f.key] as string" rows="2" :placeholder="f.placeholder" />
@@ -122,6 +122,7 @@ function onMonthInput(key: string, e: Event) {
           v-else-if="f.type === 'month'"
           :value="model[f.key]"
           type="month"
+          :class="{ 'if-half': f.halfWidth }"
           :min="currentMonth"
           :max="maxMonth"
           @input="onMonthInput(f.key, $event)"
@@ -129,7 +130,7 @@ function onMonthInput(key: string, e: Event) {
         >
 
         <!-- select -->
-        <select v-else-if="f.type === 'select'" v-model="model[f.key] as string">
+        <select v-else-if="f.type === 'select'" v-model="model[f.key] as string" :class="{ 'if-half': f.halfWidth }">
           <option value="">—</option>
           <option v-for="opt in f.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
@@ -261,6 +262,8 @@ function onMonthInput(key: string, e: Event) {
 }
 .if-seg button:last-child { border-right: none; }
 .if-seg button.active { background: var(--accent); color: #fff; }
+
+.if-field .if-half { width: 50%; }
 
 /* Numeric input with a "months" suffix */
 .if-num-suffix { display: flex; align-items: stretch; width: 50%; }

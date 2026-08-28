@@ -2,7 +2,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createIntakeToken } from '~/server/utils/signing'
 
 // Email the billing form link to a lead. Only valid while the inquiry is
-// still in the lead phase ('Lead' or 'Intake Sent' — re-sending generates a
+// still in the lead phase ('Lead' or 'Billing Sent' — re-sending generates a
 // fresh 30-day token).
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   if (fetchErr || !inquiry) {
     throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
   }
-  if (inquiry.status !== 'Lead' && inquiry.status !== 'Intake Sent') {
+  if (inquiry.status !== 'Lead' && inquiry.status !== 'Billing Sent') {
     throw createError({ statusCode: 409, statusMessage: 'This inquiry has already submitted the billing form' })
   }
 
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // A fresh lead must be explicitly cleared to proceed (vs. paused/undecided).
-  // Re-sends (status 'Intake Sent') are already past this gate.
+  // Re-sends (status 'Billing Sent') are already past this gate.
   if (inquiry.status === 'Lead' && inquiry.lead_decision !== 'proceed') {
     throw createError({ statusCode: 409, statusMessage: 'Select "Proceed to next step" before sending the billing form' })
   }
@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
     html,
   })
 
-  const resent = inquiry.status === 'Intake Sent'
+  const resent = inquiry.status === 'Billing Sent'
   const activityItem = {
     dotClass: '',
     title: resent ? 'Billing form re-sent to lead' : 'Billing form sent to lead',
@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
 
   const { error: updateErr } = await supabase
     .from('inquiries')
-    .update({ status: 'Intake Sent', intake_sent_date: sentDate, activity: updatedActivity })
+    .update({ status: 'Billing Sent', intake_sent_date: sentDate, activity: updatedActivity })
     .eq('id', inquiryId)
 
   if (updateErr) {
