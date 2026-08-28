@@ -3,7 +3,7 @@ import type { Mock } from 'vitest'
 import handler from './send-intake-link.post'
 
 // send-intake-link emails the tokenized full-intake link to a lead. It is only
-// valid while the inquiry is still in the lead phase ('Lead' or 'Intake Sent')
+// valid while the inquiry is still in the lead phase ('Lead' or 'Billing Sent')
 // AND the intro-meeting checklist is complete. These tests pin that gating and
 // the status transition, against a fake Supabase client (no network/email).
 
@@ -56,19 +56,19 @@ beforeEach(() => {
 })
 
 describe('send-intake-link — happy path & status transition', () => {
-  it('sends the link from Lead status and flips to Intake Sent', async () => {
+  it('sends the link from Lead status and flips to Billing Sent', async () => {
     const { db, result } = run(inquiry())
     const res = await result as { success: boolean; sentDate: string; activityItem: { title: string } }
     expect(res.success).toBe(true)
     expect(res.sentDate).toBeTruthy()
     expect(res.activityItem.title).toBe('Billing form sent to lead')
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
-    expect(db.updates[0].status).toBe('Intake Sent')
+    expect(db.updates[0].status).toBe('Billing Sent')
     expect(db.updates[0].intake_sent_date).toBe(res.sentDate)
   })
 
-  it('labels the activity as a re-send when already Intake Sent', async () => {
-    const { result } = run(inquiry({ status: 'Intake Sent' }))
+  it('labels the activity as a re-send when already Billing Sent', async () => {
+    const { result } = run(inquiry({ status: 'Billing Sent' }))
     const res = await result as { activityItem: { title: string } }
     expect(res.activityItem.title).toBe('Billing form re-sent to lead')
   })
@@ -120,8 +120,8 @@ describe('send-intake-link — gating', () => {
     await expect(result).rejects.toMatchObject({ statusCode: 409 })
   })
 
-  it('allows a re-send (Intake Sent) even without an explicit proceed flag', async () => {
-    const { result } = run(inquiry({ status: 'Intake Sent', lead_decision: null }))
+  it('allows a re-send (Billing Sent) even without an explicit proceed flag', async () => {
+    const { result } = run(inquiry({ status: 'Billing Sent', lead_decision: null }))
     const res = await result as { success: boolean }
     expect(res.success).toBe(true)
   })

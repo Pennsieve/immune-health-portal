@@ -25,7 +25,7 @@ function makeDb(inquiry: Record<string, unknown> | null) {
 function inquiry(overrides: Record<string, unknown> = {}) {
   return {
     id: INQUIRY_ID,
-    status: 'Intake Sent',
+    status: 'Billing Sent',
     affiliation: 'Internal',
     affiliation_org: 'Penn',
     budget_code: '400-1234-5-678901-2345-6789-0123',

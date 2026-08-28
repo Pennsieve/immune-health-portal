@@ -2,12 +2,12 @@ import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 import type { CollectionVisit } from '~/types/index'
 
-// Lifecycle: 'Lead' (simple lead form submitted) → 'Intake Sent' (full-intake
-// link emailed) → 'New' (full intake received, awaiting review) → terminal.
+// Lifecycle: 'Lead' (simple lead form submitted) → 'Billing Sent' (billing
+// form link emailed) → 'New' (billing form received, awaiting review) → terminal.
 // 'On Hold' is a paused lead: after the intro meeting the investigator needs
 // time (funding, etc.), so it drops out of the active queue with a follow-up
 // date until an admin resumes it (see leadDecision / holdUntil).
-export type InquiryStatus = 'Lead' | 'Intake Sent' | 'On Hold' | 'New' | 'Approved' | 'Declined'
+export type InquiryStatus = 'Lead' | 'Billing Sent' | 'On Hold' | 'New' | 'Approved' | 'Declined'
 // A study is created at 'Awaiting Signature' (approve-inquiry), moves to
 // 'Processing' once all agreements are signed, then 'Complete'. The former
 // 'Review' and 'Agreement' stages were never assigned by any code path.
@@ -509,7 +509,7 @@ export const useAdminStore = defineStore('admin', {
       })
       const inquiry = this.inquiries.find(i => i.id === inquiryId)
       if (inquiry) {
-        inquiry.status = 'Intake Sent'
+        inquiry.status = 'Billing Sent'
         inquiry.intakeSentDate = sentDate
         if (activityItem) inquiry.activity.unshift(activityItem)
       }

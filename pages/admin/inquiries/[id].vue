@@ -34,7 +34,7 @@ const feasibilityComplete = computed(() =>
 // paused lead — still pre-intake, so it shows the lead panel and checklist).
 const isLead = computed(() =>
   inquiry.value?.status === 'Lead'
-  || inquiry.value?.status === 'Intake Sent'
+  || inquiry.value?.status === 'Billing Sent'
   || inquiry.value?.status === 'On Hold',
 )
 
@@ -42,7 +42,7 @@ const isLead = computed(() =>
 // lead was explicitly cleared to proceed (a re-send is already past that gate).
 const canSendIntake = computed(() => {
   if (!feasibilityComplete.value) return false
-  if (inquiry.value?.status === 'Intake Sent') return true
+  if (inquiry.value?.status === 'Billing Sent') return true
   return inquiry.value?.leadDecision === 'proceed'
 })
 const sendIntakeTip = computed(() => {
@@ -648,8 +648,8 @@ async function saveEdit() {
           <span v-else-if="inquiry.status === 'Lead'" class="adm-badge b-lead">
             <span class="dot" /> New lead
           </span>
-          <span v-else-if="inquiry.status === 'Intake Sent'" class="adm-badge b-agreement">
-            <span class="dot" /> Intake sent
+          <span v-else-if="inquiry.status === 'Billing Sent'" class="adm-badge b-agreement">
+            <span class="dot" /> Billing sent
           </span>
           <span v-else-if="inquiry.status === 'On Hold'" class="adm-badge b-hold">
             <span class="dot" /> On hold
@@ -675,8 +675,8 @@ async function saveEdit() {
             <span class="meta-label">Cohort scope</span>
             <span class="meta-val">{{ inquiry.cohortSubjects }} subjects · {{ matrixGrandTotal.toLocaleString() }} samples</span>
           </div>
-          <div v-if="inquiry.status === 'Intake Sent' && inquiry.intakeSentDate" class="meta-item">
-            <span class="meta-label">Intake sent</span>
+          <div v-if="inquiry.status === 'Billing Sent' && inquiry.intakeSentDate" class="meta-item">
+            <span class="meta-label">Billing sent</span>
             <span class="meta-val">{{ inquiry.intakeSentDate }}</span>
           </div>
           <div v-if="inquiry.status === 'On Hold' && inquiry.holdUntil" class="meta-item">
@@ -702,7 +702,7 @@ async function saveEdit() {
               :disabled="isSendingIntake || isDeclining || !canSendIntake"
               @click="sendIntakeForm"
             >
-              {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Intake Sent' ? 'Re-send billing form ✉' : 'Send billing form ✉') }}
+              {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Billing Sent' ? 'Re-send billing form ✉' : 'Send billing form ✉') }}
             </button>
           </span>
           <div v-if="intakeSentMessage" style="font-size:0.78rem; color:var(--green); text-align:center;">{{ intakeSentMessage }}</div>
@@ -770,7 +770,7 @@ async function saveEdit() {
             <template v-if="isLead">
               <div class="info-lbl">Billing form</div>
               <div>
-                <template v-if="inquiry.status === 'Intake Sent'">
+                <template v-if="inquiry.status === 'Billing Sent'">
                   Form sent {{ inquiry.intakeSentDate }} — awaiting submission.
                 </template>
                 <template v-else-if="inquiry.status === 'On Hold'">

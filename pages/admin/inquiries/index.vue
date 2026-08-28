@@ -32,7 +32,7 @@ const adminStore = useAdminStore()
 
 // Allow deep-linking to a tab, e.g. /admin/inquiries?filter=Lead
 const route = useRoute()
-const FILTER_VALUES = ['Lead', 'Intake Sent', 'On Hold', 'New', 'Approved', 'Declined', 'All']
+const FILTER_VALUES = ['Lead', 'Billing Sent', 'On Hold', 'New', 'Approved', 'Declined', 'All']
 
 // Follow-up reminder for paused ('On Hold') leads. A lead whose follow-up date
 // has arrived is flagged so it "pops back up" for the admin to act on.
@@ -73,7 +73,7 @@ const searchQuery = ref('')
 // `value` is the underlying inquiry status; `label` is what the tab displays.
 const filters = computed(() => [
   { value: 'Lead',        label: 'New leads',       count: adminStore.inquiries.filter(i => i.status === 'Lead').length },
-  { value: 'Intake Sent', label: 'Intake sent',     count: adminStore.inquiries.filter(i => i.status === 'Intake Sent').length },
+  { value: 'Billing Sent', label: 'Billing sent',   count: adminStore.inquiries.filter(i => i.status === 'Billing Sent').length },
   { value: 'On Hold',     label: 'On hold',         count: adminStore.inquiries.filter(i => i.status === 'On Hold').length },
   { value: 'New',         label: 'In review',       count: adminStore.inquiries.filter(i => i.status === 'New').length },
   { value: 'Approved',    label: 'Approved',        count: adminStore.inquiries.filter(i => i.status === 'Approved').length },
@@ -91,7 +91,7 @@ const statusLabel = (status: string) => {
   if (status === 'Approved') return 'b-complete'
   if (status === 'Declined') return 'b-declined'
   if (status === 'Lead') return 'b-lead'
-  if (status === 'Intake Sent') return 'b-agreement'
+  if (status === 'Billing Sent') return 'b-agreement'
   if (status === 'On Hold') return 'b-hold'
   return 'b-review'
 }
@@ -99,7 +99,7 @@ const statusLabel = (status: string) => {
 const statusText = (status: string) => {
   if (status === 'New') return 'In review'
   if (status === 'Lead') return 'New lead'
-  if (status === 'Intake Sent') return 'Intake sent'
+  if (status === 'Billing Sent') return 'Billing sent'
   if (status === 'On Hold') return 'On hold'
   return status
 }

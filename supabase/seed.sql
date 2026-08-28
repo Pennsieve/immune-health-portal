@@ -5,7 +5,7 @@
 --
 -- Inquiry lifecycle covered:
 --   Lead         → simple lead-form submission, awaiting introductory contact
---   Intake Sent  → full-intake link emailed, awaiting the detailed form
+--   Billing Sent → billing form link emailed, awaiting the detailed form
 --   New          → full intake received, awaiting feasibility review
 --   Approved     → intake approved (also spun up as a study below)
 --   Declined     → intake declined
@@ -51,9 +51,9 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '[{"label":"Schedule introductory meeting","checked":true},{"label":"Introductory meeting complete","checked":true}]'
 ),
 
--- ── Intake Sent: full-intake link emailed, awaiting the detailed form ──
+-- ── Billing Sent: billing form link emailed, awaiting the detailed form ──
 (
-  'lumen-genoptix', null, null, 'Intake Sent', 'July 10, 2026', '1 week ago',
+  'lumen-genoptix', null, null, 'Billing Sent', 'July 10, 2026', '1 week ago',
   '{"name":"Dr. Maria Reyes","email":"mreyes@genoptix.com"}',
   null,
   'Industry', 'Genoptix', null,
@@ -77,7 +77,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null, null, null, 'researchcontracts@merck.com',
   'Please loop in Rachel Thompson on all scheduling emails — she coordinates sample logistics on our end.',
   null, null,
-  '{"collectionSites":["Remote / off-site"],"collectionSiteOther":"Merck multi-center trial sites","irbStatus":"pending","irbTimeline":"Merck IRB approval expected Q3 2026","bloodVolumePerVisit":"24 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":12,"firstSampleDate":"2026-08","sampleArrivalCadence":"estimated 5 subjects per week for 12 weeks","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}',
+  '{"studySynopsis":"Evaluating peripheral immune correlates of response to an investigational immuno-oncology therapy, comparing responders and non-responders across a 24-week treatment course.","collectionSites":["Remote / off-site"],"collectionSiteOther":"Merck multi-center trial sites","irbStatus":"pending","irbTimeline":"Merck IRB approval expected Q3 2026","bloodVolumePerVisit":"24 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":12,"firstSampleDate":"2026-08","sampleArrivalCadence":"estimated 5 subjects per week for 12 weeks","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}',
   '[{"name":"Responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}},{"name":"Non-responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}}]',
   '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"name":"Rachel Thompson","role":"CRC / Project Coordinator","email":"rthompson@merck.com"},{"name":"Dr. Amara Singh","role":"Co-Investigator","email":"singh@merck.com"}]'::jsonb,
@@ -97,7 +97,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '400-4720-1-608811-xxxx-2461-0000', 'Cardiology Immunometabolism Pilot Award', 'Denise Okafor', 'dokafor@pennmedicine.upenn.edu', null,
   'Flexible on start date — happy to align with core batch scheduling.',
   null, null,
-  '{"collectionSites":["HUP"],"irbStatus":"approved","bloodVolumePerVisit":"16 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":18,"firstSampleDate":"2026-07","sampleArrivalCadence":"estimated 2 subjects per week, ongoing","tubeTypes":["Sodium heparin"],"tubeCountHeparin10ml":1,"ilabsId":"IL-224417"}',
+  '{"studySynopsis":"Investigating immunometabolic profiles associated with cardiovascular risk in an ongoing cardiology pilot cohort.","collectionSites":["HUP"],"irbStatus":"approved","bloodVolumePerVisit":"16 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":18,"firstSampleDate":"2026-07","sampleArrivalCadence":"estimated 2 subjects per week, ongoing","tubeTypes":["Sodium heparin"],"tubeCountHeparin10ml":1,"ilabsId":"IL-224417"}',
   '[{"name":"CARDIA","subjects":24,"samples":{"base":1,"w24":1,"w52":1,"w104":0}}]',
   '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"name":"Priya Anand","role":"CRC","email":"panand@pennmedicine.upenn.edu"}]'::jsonb,
@@ -117,7 +117,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   '400-4655-1-609233-xxxx-2463-0000', 'IBD Program R01 (NIDDK)', 'Marcus Webb', 'mwebb@pennmedicine.upenn.edu', null,
   'Two subjects have single-timepoint archival samples only — flagged in cohort matrix as Active disease baseline draws.',
   null, null,
-  '{"collectionSites":["HUP","PAH"],"irbStatus":"approved","enrollmentPeriod":24,"firstSampleDate":"2026-06","sampleArrivalCadence":"batched monthly shipments of 8-10 cryovials from referring GI sites","ilabsId":"IL-231180"}',
+  '{"studySynopsis":"Characterizing peripheral immune signatures that distinguish remission from active disease in a longitudinal IBD cohort followed across four visits over two years.","collectionSites":["HUP","PAH"],"irbStatus":"approved","enrollmentPeriod":24,"firstSampleDate":"2026-06","sampleArrivalCadence":"batched monthly shipments of 8-10 cryovials from referring GI sites","ilabsId":"IL-231180"}',
   '[{"name":"Remission","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}},{"name":"Active disease","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}}]',
   '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"name":"Grace Liu","role":"CRC","email":"gliu@pennmedicine.upenn.edu"},{"name":"Dr. Owen Farrell","role":"Co-Investigator","email":"farrell@pennmedicine.upenn.edu"}]'::jsonb,
@@ -137,7 +137,7 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   null, null, null, null, 'researchcontracts@email.chop.edu',
   'Willing to revisit with a reduced panel if volume constraints can be worked around.',
   null, null,
-  '{"collectionSites":["CHOP"],"irbStatus":"pending","irbTimeline":"CHOP IRB submission planned Q4 2026","bloodVolumePerVisit":"6 mL","bloodVolumeConfirmed":"no","enrollmentPeriod":6,"firstSampleDate":"2026-09","sampleArrivalCadence":"single batch of 18 subjects over a 2-week vaccine visit window","tubeTypes":["Sodium heparin"],"tubeCountHeparin6ml":1}',
+  '{"studySynopsis":"Assessing vaccine-induced immune responses in a pediatric vaccine-series cohort.","collectionSites":["CHOP"],"irbStatus":"pending","irbTimeline":"CHOP IRB submission planned Q4 2026","bloodVolumePerVisit":"6 mL","bloodVolumeConfirmed":"no","enrollmentPeriod":6,"firstSampleDate":"2026-09","sampleArrivalCadence":"single batch of 18 subjects over a 2-week vaccine visit window","tubeTypes":["Sodium heparin"],"tubeCountHeparin6ml":1}',
   '[{"name":"Vaccine series","subjects":18,"samples":{"base":2,"w24":1,"w52":1,"w104":1}}]',
   '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
   '[{"name":"Dana Whitfield","role":"CRC","email":"whitfieldd@email.chop.edu"}]'::jsonb,
@@ -166,7 +166,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Jan 15, 2026', 'Division of Gastroenterology · Perelman School of Medicine',
   'Dr. Katona prefers batch processing on Tuesdays/Thursdays to align with clinic draw days.',
   '[{"name":"Hannah Diaz","role":"CRC","email":"diazh@pennmedicine.upenn.edu"}]'::jsonb,
-  '{"collectionSites":["HUP"],"irbStatus":"approved","bloodVolumePerVisit":"20 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":14,"firstSampleDate":"2026-01","sampleArrivalCadence":"estimated 3 subjects per week for 7 weeks","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":1,"tubeCountEdta3ml":1,"ilabsId":"IL-219004"}'::jsonb,
+  '{"studySynopsis":"Evaluating the immunomodulatory effects of beta-hydroxybutyrate (BHB) supplementation on peripheral immune cell populations over a 12-week course, as part of a colorectal cancer chemoprevention pilot.","collectionSites":["HUP"],"irbStatus":"approved","bloodVolumePerVisit":"20 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":14,"firstSampleDate":"2026-01","sampleArrivalCadence":"estimated 3 subjects per week for 7 weeks","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":1,"tubeCountEdta3ml":1,"ilabsId":"IL-219004"}'::jsonb,
   '[{"label":"Inquiry","date":"Jan 15","status":"done"},{"label":"Review","date":"Jan 18","status":"done"},{"label":"Approved","date":"Jan 22","status":"done"},{"label":"Agreements","date":"Jan 24","status":"done"},{"label":"Activated","date":"Jan 28","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Complete","date":"—","status":"pending"}]',
   '2h ago', (now() - interval '2 hours'),
   '[{"dotClass":"g","title":"14 processing events logged · CyTOF batch B-2026-018","date":"Apr 28, 2026 · logged by Hannah Pham (lab ops)"},{"dotClass":"g","title":"12 samples received at drop-off","date":"Feb 17, 2026 · logged by Sara Coleman (lab ops)"},{"dotClass":"g","title":"Study activated","date":"Jan 28, 2026 · LabVantage ID STU-2026-014"},{"dotClass":"g","title":"User Agreement countersigned — Dr. Katona","date":"Jan 24, 2026 · 2:48 PM"}]'
@@ -183,7 +183,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Feb 15, 2025', 'Abramson Cancer Center',
   'Study closed to enrollment; all data delivered on Pennsieve as of Jan 2026.',
   '[{"name":"Tom Reilly","role":"Study Coordinator","email":"reillyt@pennmedicine.upenn.edu"}]'::jsonb,
-  '{"collectionSites":["HUP","Presby"],"irbStatus":"approved","enrollmentPeriod":10,"firstSampleDate":"2025-02","sampleArrivalCadence":"monthly cryopreserved PBMC shipments from referring oncology sites","ilabsId":"IL-205621"}'::jsonb,
+  '{"studySynopsis":"Longitudinal immune profiling of patients receiving checkpoint inhibitor therapy, characterizing systemic immune reprogramming across baseline and two treatment cycles.","collectionSites":["HUP","Presby"],"irbStatus":"approved","enrollmentPeriod":10,"firstSampleDate":"2025-02","sampleArrivalCadence":"monthly cryopreserved PBMC shipments from referring oncology sites","ilabsId":"IL-205621"}'::jsonb,
   '[{"label":"Inquiry","date":"Feb 01","status":"done"},{"label":"Review","date":"Feb 05","status":"done"},{"label":"Approved","date":"Feb 10","status":"done"},{"label":"Agreements","date":"Feb 12","status":"done"},{"label":"Activated","date":"Feb 15","status":"done"},{"label":"Processing","date":"Dec 18","status":"done"},{"label":"Complete","date":"Jan 15","status":"done"}]',
   '3d ago', (now() - interval '3 days'),
   '[{"dotClass":"g","title":"All samples delivered on Pennsieve","date":"Jan 15, 2026 · N:dataset:3f12…aa42"},{"dotClass":"g","title":"135 CyTOF acquisitions complete","date":"Dec 18, 2025 · batch B-2025-041"}]'
@@ -200,7 +200,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Mar 28, 2026', 'Division of Oncology',
   'Coordinate tissue pickup directly with OR front desk — do not route through main sample drop-off.',
   '[{"name":"Nadia Farouk","role":"CRC","email":"farouk@pennmedicine.upenn.edu"},{"name":"Dr. Ben Ostrander","role":"Co-Investigator","email":"ostrander@pennmedicine.upenn.edu"}]'::jsonb,
-  '{"collectionSites":["HUP"],"irbStatus":"approved","enrollmentPeriod":12,"firstSampleDate":"2026-04","sampleArrivalCadence":"tissue collected at time of resection, batched weekly with OR schedule"}'::jsonb,
+  '{"studySynopsis":"Comparing peripheral and tumor-associated immune profiles before and after surgical resection in an oncologic surgery cohort.","collectionSites":["HUP"],"irbStatus":"approved","enrollmentPeriod":12,"firstSampleDate":"2026-04","sampleArrivalCadence":"tissue collected at time of resection, batched weekly with OR schedule"}'::jsonb,
   '[{"label":"Inquiry","date":"Mar 22","status":"done"},{"label":"Review","date":"Mar 25","status":"done"},{"label":"Approved","date":"Mar 28","status":"done"},{"label":"Agreements","date":"in progress","status":"active"},{"label":"Activated","date":"—","status":"pending"},{"label":"Processing","date":"—","status":"pending"},{"label":"Complete","date":"—","status":"pending"}]',
   'today', (now() - interval '30 minutes'),
   '[{"dotClass":"","title":"Agreement package sent to PI","date":"Apr 01, 2026 · 10:00 AM · MailerSend"},{"dotClass":"","title":"Intake approved","date":"Mar 28, 2026"},{"dotClass":"","title":"Intake submitted","date":"Mar 22, 2026 · via study intake form"}]'
@@ -217,7 +217,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Nov 15, 2025', 'Division of Rheumatology · Perelman School of Medicine',
   'All shipments go through the HMS core courier — do not use standard FedEx account.',
   '[{"name":"Sophie Lindqvist","role":"CRC","email":"lindqvist@hms.harvard.edu"}]'::jsonb,
-  '{"collectionSites":["Remote / off-site"],"collectionSiteOther":"HMS-affiliated clinical sites, shipped overnight","irbStatus":"approved","bloodVolumePerVisit":"24 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":20,"firstSampleDate":"2025-11","sampleArrivalCadence":"estimated 6 subjects per week, overnight shipped in batches of 3 sites","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}'::jsonb,
+  '{"collectionSites":["Remote / off-site"],"studySynopsis":"Comparative immune atlas across systemic lupus erythematosus, rheumatoid arthritis, and multiple sclerosis, tracking peripheral immune trajectories over a 12-month period.","collectionSiteOther":"HMS-affiliated clinical sites, shipped overnight","irbStatus":"approved","bloodVolumePerVisit":"24 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":20,"firstSampleDate":"2025-11","sampleArrivalCadence":"estimated 6 subjects per week, overnight shipped in batches of 3 sites","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}'::jsonb,
   '[{"label":"Inquiry","date":"Oct 28","status":"done"},{"label":"Review","date":"Oct 31","status":"done"},{"label":"Approved","date":"Nov 02","status":"done"},{"label":"Agreements","date":"Nov 06","status":"done"},{"label":"Activated","date":"Nov 15","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Complete","date":"—","status":"pending"}]',
   '5h ago', (now() - interval '5 hours'),
   '[{"dotClass":"g","title":"14 processing events logged · CyTOF batch B-2026-018","date":"May 11, 2026 · logged by Hannah Pham"},{"dotClass":"g","title":"Pennsieve dataset linked","date":"May 08, 2026 · N:dataset:0a83…cc11"},{"dotClass":"","title":"18 samples received at drop-off","date":"May 01, 2026 · logged by Sara Coleman"}]'
@@ -234,7 +234,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Mar 20, 2025', 'Division of Allergy and Immunology · Perelman School of Medicine',
   'Study complete — all samples processed and delivered on Pennsieve as of Jan 2026.',
   '[{"name":"Julia Marsh","role":"Study Coordinator","email":"jmarsh@stanford.edu"}]'::jsonb,
-  '{"collectionSites":["Remote / off-site"],"collectionSiteOther":"Stanford collection sites","irbStatus":"approved","enrollmentPeriod":12,"firstSampleDate":"2025-03","sampleArrivalCadence":"paired serum + PBMC shipments at each of 3 visits per subject"}'::jsonb,
+  '{"collectionSites":["Remote / off-site"],"studySynopsis":"Longitudinal immune monitoring of newly diagnosed SLE patients from diagnosis through 12 months of treatment.","collectionSiteOther":"Stanford collection sites","irbStatus":"approved","enrollmentPeriod":12,"firstSampleDate":"2025-03","sampleArrivalCadence":"paired serum + PBMC shipments at each of 3 visits per subject"}'::jsonb,
   '[{"label":"Inquiry","date":"Mar 10","status":"done"},{"label":"Review","date":"Mar 13","status":"done"},{"label":"Approved","date":"Mar 15","status":"done"},{"label":"Agreements","date":"Mar 15","status":"done"},{"label":"Activated","date":"Mar 20","status":"done"},{"label":"Processing","date":"Jan 10","status":"done"},{"label":"Complete","date":"Jan 28","status":"done"}]',
   '8d ago', (now() - interval '8 days'),
   '[{"dotClass":"g","title":"All data delivered on Pennsieve","date":"Jan 28, 2026"},{"dotClass":"g","title":"105 CyTOF acquisitions complete","date":"Jan 10, 2026"}]'
@@ -251,7 +251,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   'Jan 20, 2026', 'Biogen Research',
   'Biogen requires a signed CDA on file before any interim data summaries are shared externally.',
   '[{"name":"Marcus Chen","role":"Clinical Trial Manager","email":"mchen@biogen.com"}]'::jsonb,
-  '{"collectionSites":["Remote / off-site"],"collectionSiteOther":"Biogen clinical trial sites, shipped overnight","irbStatus":"approved","bloodVolumePerVisit":"20 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":9,"firstSampleDate":"2026-01","sampleArrivalCadence":"estimated 8 subjects per week across all trial sites","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}'::jsonb,
+  '{"collectionSites":["Remote / off-site"],"studySynopsis":"Randomized, placebo-controlled immune monitoring study evaluating an investigational therapeutic''s effect on peripheral immune populations over 6 months.","collectionSiteOther":"Biogen clinical trial sites, shipped overnight","irbStatus":"approved","bloodVolumePerVisit":"20 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":9,"firstSampleDate":"2026-01","sampleArrivalCadence":"estimated 8 subjects per week across all trial sites","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}'::jsonb,
   '[{"label":"Inquiry","date":"Dec 12","status":"done"},{"label":"Review","date":"Dec 18","status":"done"},{"label":"Approved","date":"Jan 02","status":"done"},{"label":"Agreements","date":"Jan 07","status":"done"},{"label":"Activated","date":"Jan 20","status":"done"},{"label":"Processing","date":"in progress","status":"active"},{"label":"Complete","date":"—","status":"pending"}]',
   'yesterday', (now() - interval '1 day'),
   '[{"dotClass":"g","title":"50 samples processed — first batch complete","date":"Apr 28, 2026 · CyTOF batch B-2026-016"},{"dotClass":"","title":"50 samples received at drop-off","date":"Apr 14, 2026"}]'

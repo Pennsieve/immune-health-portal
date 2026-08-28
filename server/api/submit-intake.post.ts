@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
   if (fetchErr || !existing) {
     throw createError({ statusCode: 404, statusMessage: 'Inquiry not found' })
   }
-  if (existing.status !== 'Lead' && existing.status !== 'Intake Sent') {
+  if (existing.status !== 'Lead' && existing.status !== 'Billing Sent') {
     throw createError({ statusCode: 409, statusMessage: 'The billing form for this inquiry has already been submitted' })
   }
 
