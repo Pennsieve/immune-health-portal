@@ -5,6 +5,7 @@ import { useServicesStore } from '~/stores/services'
 import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 import { leadDetailRows } from '~/utils/leadFields'
+import { buildAgreementFields, TBD, type AgreementFields, type StudyForAgreement } from '~/utils/agreementFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -148,6 +149,80 @@ const matrixGrandTotal = computed(() =>
   collectionGroups.value.reduce((s, g) => s + groupTotal(g, visits.value), 0),
 )
 
+// Mirrors approve-inquiry.post.ts's rate parsing — good enough for a
+// pre-approval preview; the real snapshot is computed authoritatively
+// server-side when the study is actually created.
+function parseRatePreview(rateVal: string | number): number {
+  if (typeof rateVal === 'number') return rateVal
+  const match = String(rateVal).match(/\$?([\d,]+)/)
+  return match ? parseInt(match[1].replace(/,/g, '')) : 0
+}
+
+// A live preview of what the User Agreement will look like if approved right
+// now — lets us warn the admin about fields that will show up blank
+// (as "< to be finalized with the I3H team >") before the study is created
+// and the agreement is emailed to the PI.
+const agreementPreviewFields = computed<AgreementFields | null>(() => {
+  if (!inquiry.value) return null
+  const q = inquiry.value
+  const study: StudyForAgreement = {
+    name: q.studyName,
+    abbreviation: q.abbreviation,
+    irb: q.irb,
+    affiliation: q.affiliation,
+    affiliation_org: q.affiliationOrg,
+    pi: q.pi,
+    study_lead: q.studyLead || null,
+    cohort: {
+      subjects: q.cohortSubjects,
+      totalSamples: matrixGrandTotal.value,
+      groups: collectionGroups.value,
+      visits: visits.value,
+    },
+    budget: {
+      accountCode: q.budgetCode || null,
+      fundingName: q.fundingName || null,
+      baName: q.baName || null,
+      baEmail: q.baEmail || null,
+      contractingContact: q.contractingContact || null,
+      lines: (q.servicesDetail || []).map(s => ({ service: s.name, rate: parseRatePreview(s.rate), planned: s.qty })),
+    },
+    intake_details: q.intakeDetails || {},
+  }
+  return buildAgreementFields(study)
+})
+
+const AGREEMENT_FIELD_LABELS: Array<{ key: keyof AgreementFields; label: string }> = [
+  { key: 'studySynopsis', label: 'Study synopsis' },
+  { key: 'irb', label: 'IRB number' },
+  { key: 'affiliationOrg', label: 'Affiliation / organization' },
+  { key: 'piName', label: 'Principal investigator name' },
+  { key: 'pointOfContactLine', label: 'Project lead / point of contact' },
+  { key: 'subjectCount', label: 'Subject count' },
+  { key: 'totalSamples', label: 'Total samples' },
+  { key: 'visitCount', label: 'Visit schedule' },
+  { key: 'tubeType', label: 'Collection tube type' },
+  { key: 'enrollmentPeriod', label: 'Enrollment period' },
+  { key: 'firstSampleDate', label: 'First samples expected' },
+  { key: 'totalBudget', label: 'Budget total' },
+]
+
+const blankAgreementFields = computed(() => {
+  const fields = agreementPreviewFields.value
+  if (!fields) return []
+  const labels = AGREEMENT_FIELD_LABELS.filter(f => fields[f.key] === TBD).map(f => f.label)
+  if (fields.isInternal) {
+    if (fields.fundingAccount === TBD) labels.push('Account / budget code')
+    if (fields.fundingName === TBD) labels.push('Funding source (CAMS)')
+    if (fields.baName === TBD) labels.push('Business Administrator')
+    if (fields.baEmail === TBD) labels.push('BA contact')
+  }
+  else if (fields.contractingContact === TBD) {
+    labels.push('Contracting / grants office contact')
+  }
+  return labels
+})
+
 // Generate a stable id for a new visit column (used as the key in every
 // group's `samples` map)
 function newVisitId(): string {
@@ -158,6 +233,7 @@ function newVisitId(): string {
 const isApproving = ref(false)
 const isDeclining = ref(false)
 const declineOpen = ref(false)
+const approveConfirmOpen = ref(false)
 
 const noteText = ref('')
 const isPostingNote = ref(false)
@@ -205,8 +281,18 @@ function toggleFeasibility(item: { label: string; checked: boolean }) {
   })
 }
 
+function onApproveClick() {
+  if (blankAgreementFields.value.length > 0) {
+    approveConfirmOpen.value = true
+  }
+  else {
+    approveAndSend()
+  }
+}
+
 async function approveAndSend() {
   if (!inquiry.value) return
+  approveConfirmOpen.value = false
   isApproving.value = true
   try {
     const { studyId } = await $fetch('/api/admin/approve-inquiry', {
@@ -631,7 +717,7 @@ async function saveEdit() {
               class="btn btn-success"
               style="width:100%"
               :disabled="isApproving || isDeclining || !feasibilityComplete"
-              @click="approveAndSend"
+              @click="onApproveClick"
             >
               {{ isApproving ? 'Approving…' : 'Approve &amp; send agreements ✓' }}
             </button>
@@ -1193,6 +1279,33 @@ async function saveEdit() {
         <button class="btn btn-ghost btn-sm" :disabled="isDeclining" @click="declineOpen = false">Cancel</button>
         <button class="btn btn-danger btn-sm" :disabled="isDeclining" @click="confirmDecline">
           {{ isDeclining ? 'Declining…' : 'Decline inquiry' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Approve confirmation modal — only shown when the resulting User
+       Agreement would still have blank fields -->
+  <div v-if="approveConfirmOpen" class="clerk-overlay" @click.self="approveConfirmOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Some fields are still blank</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0 0 0.6rem; font-size:0.88rem;">
+          The following will show up as <strong><em>&lt;to be finalized with the I3H team&gt;</em></strong> on the User Agreement:
+        </p>
+        <ul style="margin:0 0 0.6rem 1.2rem; font-size:0.85rem;">
+          <li v-for="label in blankAgreementFields" :key="label">{{ label }}</li>
+        </ul>
+        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+          You can go back and fill these in, or approve now and finalize them with the PI later.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isApproving" @click="approveConfirmOpen = false">Go back</button>
+        <button class="btn btn-success btn-sm" :disabled="isApproving" @click="approveAndSend">
+          {{ isApproving ? 'Approving…' : 'Approve anyway' }}
         </button>
       </div>
     </div>

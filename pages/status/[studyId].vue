@@ -131,6 +131,7 @@ function fieldRows(fields: typeof INTAKE_FIELDS) {
     .filter(r => r.value !== '')
 }
 const collectionSitesValue = computed(() => intakeDisplayValue('collectionSites', study.value?.intakeDetails))
+const studySynopsisValue = computed(() => intakeDisplayValue('studySynopsis', study.value?.intakeDetails))
 const regulatoryRows = computed(() => fieldRows(INTAKE_FIELDS.filter(f => f.section === 'Regulatory' && f.key === 'irbStatus')))
 const bloodCollectionRows = computed(() => fieldRows([
   ...INTAKE_FIELDS.filter(f => f.section === 'Regulatory' && f.key !== 'irbStatus'),
@@ -293,6 +294,10 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
             <div>
               <div class="status-detail-lbl">Study name</div>
               <div class="status-detail-val">{{ study.name }}</div>
+            </div>
+            <div v-if="studySynopsisValue">
+              <div class="status-detail-lbl">Study synopsis</div>
+              <div class="status-detail-val">{{ studySynopsisValue }}</div>
             </div>
             <div v-if="study.abbreviation">
               <div class="status-detail-lbl">Project Acronym / ID</div>
