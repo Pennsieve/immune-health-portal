@@ -401,7 +401,7 @@ export const useAdminStore = defineStore('admin', {
       intakeDetails?: Record<string, unknown>
       keyPersonnel?: Array<{ name: string; email: string; role: string }>
     }, changeNote?: string) {
-      const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle'] }>('/api/admin/update-study', {
+      const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle']; notified: boolean }>('/api/admin/update-study', {
         method: 'POST',
         body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, ...fields },
       })
@@ -423,6 +423,7 @@ export const useAdminStore = defineStore('admin', {
         study.lifecycle = result.lifecycle
         study.activity.unshift(result.activityItem)
       }
+      return { notified: result.notified }
     },
 
     async deleteStudy(studyId: string) {
