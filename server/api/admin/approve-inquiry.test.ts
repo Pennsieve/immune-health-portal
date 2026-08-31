@@ -179,6 +179,23 @@ describe('approve-inquiry — side effects & status gating', () => {
     expect((approvedUpdate?.payload as { status: string }).status).toBe('Approved')
   })
 
+  it('approves a "New" inquiry whose study details are still blank ("Approve anyway")', async () => {
+    const { db, result } = invoke(baseInquiry({ study_name: null, abbreviation: null }))
+    const res = await result as { success: boolean; studyId: string }
+    expect(res.success).toBe(true)
+    // No null name written (studies.name is NOT NULL); the fallback carries the
+    // PI so multiple untitled studies stay tellable apart.
+    expect(db.inserts.studies[0]).toMatchObject({ name: 'Untitled study — Dr. Lee' })
+    expect(res.studyId).toMatch(/^untitled-study-dr-lee-/)
+    expect(sendEmailMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives two blank-detail approvals distinct ids and the same readable name', async () => {
+    const a = await invoke(baseInquiry({ study_name: null, abbreviation: null })).result as { studyId: string }
+    const b = await invoke(baseInquiry({ study_name: null, abbreviation: null })).result as { studyId: string }
+    expect(a.studyId).not.toBe(b.studyId)
+  })
+
   it('rejects a missing inquiryId with 400', async () => {
     const { result } = invoke(baseInquiry(), {})
     await expect(result).rejects.toMatchObject({ statusCode: 400 })

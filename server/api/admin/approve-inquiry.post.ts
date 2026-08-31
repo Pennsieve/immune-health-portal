@@ -39,11 +39,25 @@ export default defineEventHandler(async (event) => {
   const tz = timezone || DEFAULT_TIMEZONE
   const approvedDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
 
-  // Generate a unique study ID from the abbreviation
-  const abbr = ((inquiry.abbreviation as string) || (inquiry.study_name as string))
+  // The admin can "Approve anyway" before the study details are filled in
+  // (they're finalized with the PI later), so study_name / abbreviation may
+  // still be blank here. Fall back so we never crash or write a null name
+  // (studies.name is NOT NULL) — the agreement renders these as TBD. The
+  // fallback name carries the PI so several untitled studies stay tellable
+  // apart in the admin list.
+  const pi = (inquiry.pi as { name: string; email: string } | null) || { name: '', email: '' }
+  const abbreviation = ((inquiry.abbreviation as string) || '').trim()
+  const studyName = ((inquiry.study_name as string) || '').trim()
+    || `Untitled study${pi.name ? ` — ${pi.name}` : ''}`
+
+  // Generate a study ID from the abbreviation (or study name), with a random
+  // suffix for uniqueness. `id` is the studies PK, so the astronomically
+  // unlikely suffix collision surfaces as a clean 500, never a silent dupe.
+  const abbr = (abbreviation || studyName)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+    || 'study'
   const studyId = `${abbr}-${Math.random().toString(36).slice(2, 6)}`
 
   // Build budget lines from services_detail
@@ -91,8 +105,8 @@ export default defineEventHandler(async (event) => {
   // 1. Create study
   const { error: studyErr } = await supabase.from('studies').insert({
     id: studyId,
-    name: inquiry.study_name,
-    abbreviation: inquiry.abbreviation,
+    name: studyName,
+    abbreviation: abbreviation || null,
     pi: inquiry.pi,
     study_lead: inquiry.study_lead,
     affiliation: inquiry.affiliation,
@@ -131,12 +145,12 @@ export default defineEventHandler(async (event) => {
   // frozen onto `snapshot` now, so the signed document stays a true record
   // even if the study's live values (budget, cohort size, etc.) change later.
   const agreementSnapshot = buildAgreementFields({
-    name: inquiry.study_name as string,
-    abbreviation: inquiry.abbreviation as string,
+    name: studyName,
+    abbreviation,
     irb: inquiry.irb as string,
     affiliation: inquiry.affiliation as string,
     affiliation_org: inquiry.affiliation_org as string,
-    pi: inquiry.pi as { name: string; email: string },
+    pi,
     study_lead: inquiry.study_lead as { name: string; email: string } | null,
     cohort,
     budget,
@@ -160,7 +174,6 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. Generate signing links for all agreements
-  const pi = inquiry.pi as { name: string; email: string }
   const origin = config.siteUrl
 
   const links = AGREEMENTS.map(a => ({
@@ -174,8 +187,8 @@ export default defineEventHandler(async (event) => {
   // 4. Email the PI
   await sendEmail({
     to: [{ email: pi.email, name: pi.name }],
-    subject: `Action required: Agreement package for ${inquiry.study_name as string}`,
-    html: buildApprovalEmail(pi.name, inquiry.study_name as string, inquiry.abbreviation as string, links, statusUrl),
+    subject: `Action required: Agreement package for ${studyName}`,
+    html: buildApprovalEmail(pi.name, studyName, abbreviation, links, statusUrl),
   })
 
   // 5. Update inquiry status + log the approval in its activity
