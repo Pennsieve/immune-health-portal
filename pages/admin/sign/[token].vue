@@ -360,8 +360,8 @@ async function submitSigned() {
             is approved under a separate IRB at Penn Medicine IRB#26-6364. For more questions about I3H please
             contact IHCRCMP@pennmedicine.upenn.edu."
           </p>
-          <p v-if="fields.hasBloodDrawService">
-            Mobile Phlebotomy:<br>
+          <template v-if="fields.hasBloodDrawService">
+            <p>Mobile Phlebotomy:</p>
             <p class="quote-block">
               "Getting your blood drawn in considered a minimal risk event. The most common risks with a blood draw
               are brief pain and/or bruising. There are other minimal risks of inflammation or infection of the
@@ -379,7 +379,7 @@ async function submitSigned() {
               You should notify the study staff of any illness or adverse effects that occur during this study as
               soon as possible."
             </p>
-          </p>
+          </template>
 
           <h3>Data Sharing and Authorship</h3>
           <p>

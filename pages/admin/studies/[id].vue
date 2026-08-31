@@ -4,6 +4,7 @@ import type { Affiliation, StudyStage } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
 import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
+import { diffStudyDetails, type StudyChange, type StudyDetailSnapshot } from '~/utils/studyChanges'
 
 definePageMeta({ layout: 'admin' })
 
@@ -375,77 +376,124 @@ function openEdit() {
   editOpen.value = true
 }
 
+// The exact field payload sent to the API. Also fed to diffStudyDetails()
+// for the pre-save preview, so the confirmation popup shows exactly what the
+// PI will be emailed (server-side diff lives in update-study.post.ts).
+function editedStudyFields() {
+  const s = study.value!
+  const lines = editForm.budgetLines.map(l => ({ ...l, planned: Math.max(0, l.planned || 0) }))
+  return {
+    name: editForm.name.trim(),
+    abbreviation: editForm.abbreviation.trim(),
+    pi: { name: editForm.piName.trim(), email: editForm.piEmail.trim() },
+    studyLead: editForm.studyLeadName.trim()
+      ? { name: editForm.studyLeadName.trim(), email: editForm.studyLeadEmail.trim() }
+      : undefined,
+    affiliation: editForm.affiliation,
+    affiliationOrg: editForm.affiliationOrg.trim(),
+    irb: editForm.irb.trim(),
+    stage: editForm.stage,
+    additionalNotes: editForm.additionalNotes.trim() || undefined,
+    cohort: {
+      ...s.cohort,
+      subjects: editMatrixSubjects.value,
+      totalSamples: editMatrixTotal.value,
+      groups: normalizeGroups(editForm.cohortGroups, editForm.visits),
+      visits: editForm.visits,
+    },
+    budget: {
+      ...s.budget,
+      lines,
+      accountCode: editForm.affiliation === 'Internal' ? (editForm.accountCode.trim() || null) : null,
+      fundingName: editForm.affiliation === 'Internal' ? (editForm.fundingName.trim() || null) : null,
+      baName: editForm.affiliation === 'Internal' ? (editForm.baName.trim() || null) : null,
+      baEmail: editForm.affiliation === 'Internal' ? (editForm.baEmail.trim() || null) : null,
+      contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || null) : null,
+    },
+    intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
+    keyPersonnel: normalizePersonnel(editForm.keyPersonnel),
+  }
+}
+
+// Short "Updated: name, IRB, …" line recorded on the study's activity log.
+function editChangeNote(): string | undefined {
+  const s = study.value!
+  const changes: string[] = []
+  if (editForm.name.trim() !== s.name) changes.push('name')
+  if (editForm.abbreviation.trim() !== (s.abbreviation ?? '')) changes.push('abbreviation')
+  if (editForm.affiliation !== s.affiliation) changes.push(`affiliation → ${editForm.affiliation}`)
+  if (editForm.piName.trim() !== s.pi.name || editForm.piEmail.trim() !== s.pi.email) changes.push('PI')
+  if (editForm.studyLeadName.trim() !== (s.studyLead?.name ?? '') || editForm.studyLeadEmail.trim() !== (s.studyLead?.email ?? '')) changes.push('study lead')
+  if (editForm.irb.trim() !== (s.irb ?? '')) changes.push('IRB')
+  if (editForm.additionalNotes.trim() !== (s.additionalNotes ?? '')) changes.push('additional notes')
+  if (editMatrixSubjects.value !== s.cohort.subjects) changes.push('cohort')
+  if (JSON.stringify(editForm.visits) !== JSON.stringify(s.cohort.visits ?? [])) changes.push('visit schedule')
+  if ([...editForm.budgetLines].map(l => l.service).sort().join('|') !== [...(s.budget.lines || [])].map(l => l.service).sort().join('|')) changes.push('services')
+  if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(s.keyPersonnel ?? []))) changes.push('key personnel')
+  return changes.length > 0 ? `Updated: ${changes.join(', ')}` : undefined
+}
+
+// ── Save confirmation ──
+// The study's agreement package was already emailed to the PI, so saving a
+// change here also emails them the specifics. Preview that list and confirm
+// before the write.
+const saveConfirmOpen = ref(false)
+const pendingChanges = ref<StudyChange[]>([])
+
+const notifyRecipients = computed(() => {
+  const names = [editForm.piName.trim() || study.value?.pi.name || 'the PI']
+  if (editForm.studyLeadName.trim()) names.push(editForm.studyLeadName.trim())
+  return names.join(' and ')
+})
+
+function previewStudyChanges(): StudyChange[] {
+  if (!study.value) return []
+  const s = study.value
+  const f = editedStudyFields()
+  const before: StudyDetailSnapshot = {
+    name: s.name, abbreviation: s.abbreviation, pi: s.pi, studyLead: s.studyLead,
+    affiliation: s.affiliation, affiliationOrg: s.affiliationOrg, irb: s.irb,
+    additionalNotes: s.additionalNotes,
+    cohort: {
+      subjects: s.cohort.subjects, totalSamples: s.cohort.totalSamples,
+      groups: s.cohort.groups ?? [], visits: s.cohort.visits ?? [],
+    },
+    budget: s.budget,
+    intakeDetails: cleanIntakeDetails(s.intakeDetails ?? {}),
+    keyPersonnel: normalizePersonnel(s.keyPersonnel ?? []),
+  }
+  const after: StudyDetailSnapshot = {
+    name: f.name, abbreviation: f.abbreviation, pi: f.pi, studyLead: f.studyLead,
+    affiliation: f.affiliation, affiliationOrg: f.affiliationOrg, irb: f.irb,
+    additionalNotes: f.additionalNotes, cohort: f.cohort, budget: f.budget,
+    intakeDetails: f.intakeDetails, keyPersonnel: f.keyPersonnel,
+  }
+  return diffStudyDetails(before, after)
+}
+
+function promptSave() {
+  if (!study.value || !editForm.name.trim() || !hasChanges.value) return
+  pendingChanges.value = previewStudyChanges()
+  saveConfirmOpen.value = true
+}
+
+function changeText(c: StudyChange): string {
+  return c.from !== undefined || c.to !== undefined ? `${c.from} → ${c.to}` : 'updated'
+}
+
 async function saveEdit() {
-  if (!study.value || !editForm.name.trim()) return
+  if (!study.value) return
   isSaving.value = true
   try {
-    const subjects = editMatrixSubjects.value
-    const totalSamples = editMatrixTotal.value
-    const lines = editForm.budgetLines.map(l => ({
-      ...l,
-      planned: Math.max(0, l.planned || 0),
-    }))
-
-    const snap = {
-      name: study.value.name,
-      abbreviation: study.value.abbreviation ?? '',
-      affiliation: study.value.affiliation,
-      piName: study.value.pi.name,
-      piEmail: study.value.pi.email,
-      leadName: study.value.studyLead?.name ?? '',
-      leadEmail: study.value.studyLead?.email ?? '',
-      irb: study.value.irb ?? '',
-      additionalNotes: study.value.additionalNotes ?? '',
-      cohortSubjects: study.value.cohort.subjects,
-      visits: study.value.cohort.visits ?? [],
-      services: [...(study.value.budget.lines || [])].map(l => l.service).sort().join('|'),
-    }
-    const changes: string[] = []
-    if (editForm.name.trim() !== snap.name) changes.push('name')
-    if (editForm.abbreviation.trim() !== snap.abbreviation) changes.push('abbreviation')
-    if (editForm.affiliation !== snap.affiliation) changes.push(`affiliation → ${editForm.affiliation}`)
-    if (editForm.piName.trim() !== snap.piName || editForm.piEmail.trim() !== snap.piEmail) changes.push('PI')
-    if (editForm.studyLeadName.trim() !== snap.leadName || editForm.studyLeadEmail.trim() !== snap.leadEmail) changes.push('study lead')
-    if (editForm.irb.trim() !== snap.irb) changes.push('IRB')
-    if (editForm.additionalNotes.trim() !== snap.additionalNotes) changes.push('additional notes')
-    if (subjects !== snap.cohortSubjects) changes.push('cohort')
-    if (JSON.stringify(editForm.visits) !== JSON.stringify(snap.visits)) changes.push('visit schedule')
-    if ([...editForm.budgetLines].map(l => l.service).sort().join('|') !== snap.services) changes.push('services')
-    if (JSON.stringify(normalizePersonnel(editForm.keyPersonnel)) !== JSON.stringify(normalizePersonnel(study.value.keyPersonnel ?? []))) changes.push('key personnel')
-    const changeNote = changes.length > 0 ? `Updated: ${changes.join(', ')}` : undefined
-
-    await adminStore.updateStudy(study.value.id, {
-      name: editForm.name.trim(),
-      abbreviation: editForm.abbreviation.trim(),
-      pi: { name: editForm.piName.trim(), email: editForm.piEmail.trim() },
-      studyLead: editForm.studyLeadName.trim()
-        ? { name: editForm.studyLeadName.trim(), email: editForm.studyLeadEmail.trim() }
-        : undefined,
-      affiliation: editForm.affiliation,
-      affiliationOrg: editForm.affiliationOrg.trim(),
-      irb: editForm.irb.trim(),
-      stage: editForm.stage,
-      additionalNotes: editForm.additionalNotes.trim() || undefined,
-      cohort: {
-        ...study.value.cohort,
-        subjects,
-        totalSamples,
-        groups: normalizeGroups(editForm.cohortGroups, editForm.visits),
-        visits: editForm.visits,
-      },
-      budget: {
-        ...study.value.budget,
-        lines,
-        accountCode: editForm.affiliation === 'Internal' ? (editForm.accountCode.trim() || null) : null,
-        fundingName: editForm.affiliation === 'Internal' ? (editForm.fundingName.trim() || null) : null,
-        baName: editForm.affiliation === 'Internal' ? (editForm.baName.trim() || null) : null,
-        baEmail: editForm.affiliation === 'Internal' ? (editForm.baEmail.trim() || null) : null,
-        contractingContact: editForm.affiliation !== 'Internal' ? (editForm.contractingContact.trim() || null) : null,
-      },
-      intakeDetails: cleanIntakeDetails(editForm.intakeDetails),
-      keyPersonnel: normalizePersonnel(editForm.keyPersonnel),
-    }, changeNote)
+    const changeCount = pendingChanges.value.length
+    const { notified } = await adminStore.updateStudy(study.value.id, editedStudyFields(), editChangeNote())
+    saveConfirmOpen.value = false
     editOpen.value = false
+    showToast(
+      notified
+        ? `Study updated — ${notifyRecipients.value} emailed about the ${changeCount === 1 ? 'change' : `${changeCount} changes`}.`
+        : 'Study updated.',
+    )
   }
   catch (err: unknown) {
     console.error('[saveEdit]', err)
@@ -460,6 +508,16 @@ async function saveEdit() {
     isSaving.value = false
   }
 }
+
+// Lightweight success toast (bottom-right, auto-dismiss).
+const toast = ref<string | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function showToast(msg: string) {
+  toast.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value = null }, 5000)
+}
+onBeforeUnmount(() => { if (toastTimer) clearTimeout(toastTimer) })
 
 const stageClass = computed(() => {
   if (!study.value) return ''
@@ -1278,10 +1336,101 @@ const affiliationClass = computed(() => {
       </div>
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isSaving" @click="editOpen = false">Cancel</button>
-        <button class="btn btn-primary btn-sm" :disabled="isSaving || !editForm.name.trim() || !hasChanges" @click="saveEdit">
-          {{ isSaving ? 'Saving…' : 'Save changes' }}
+        <button class="btn btn-primary btn-sm" :disabled="isSaving || !editForm.name.trim() || !hasChanges" @click="promptSave">
+          Save changes
         </button>
       </div>
     </div>
   </div>
+
+  <!-- Save confirmation — the PI already has the agreement package, so any
+       study-record change emails them the specifics. -->
+  <div v-if="saveConfirmOpen" class="clerk-overlay" @click.self="saveConfirmOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Save changes &amp; notify the PI?</h3>
+      </div>
+      <div class="em-body">
+        <template v-if="pendingChanges.length">
+          <p style="margin:0 0 0.75rem; font-size:0.88rem;">
+            {{ notifyRecipients }} will be emailed that the following
+            {{ pendingChanges.length === 1 ? 'value has' : 'values have' }} changed,
+            with a link to the study status page:
+          </p>
+          <ul class="save-confirm-list">
+            <li v-for="c in pendingChanges" :key="c.label">
+              <span class="scl-label">{{ c.label }}</span>
+              <span class="scl-detail">{{ changeText(c) }}</span>
+            </li>
+          </ul>
+        </template>
+        <p v-else style="margin:0; font-size:0.88rem;">
+          No PI-facing values changed, so no notification email will be sent. Save anyway?
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isSaving" @click="saveConfirmOpen = false">Go back</button>
+        <button class="btn btn-primary btn-sm" :disabled="isSaving" @click="saveEdit">
+          {{ isSaving ? 'Saving…' : (pendingChanges.length ? 'Save & send email' : 'Save') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success toast -->
+  <div v-if="toast" class="save-toast" role="status">{{ toast }}</div>
 </template>
+
+<style scoped>
+.save-confirm-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.save-confirm-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.83rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.save-confirm-list li:last-child {
+  border-bottom: none;
+}
+.scl-label {
+  font-weight: 600;
+  color: #011F5B;
+  white-space: nowrap;
+}
+.scl-detail {
+  color: #555;
+  text-align: right;
+  word-break: break-word;
+}
+
+.save-toast {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 100;
+  max-width: 380px;
+  background: #011F5B;
+  color: #fff;
+  padding: 0.85rem 1.15rem;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  animation: save-toast-in 0.25s ease;
+}
+@keyframes save-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
