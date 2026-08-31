@@ -115,9 +115,9 @@ export default defineEventHandler(async (event) => {
           <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;"><font color="#011f5b">Immune Health</font></span>
         </div>
 
-        <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Thanks, ${pi.name} — we've received your inquiry.</font></h3>
+        <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;"><font color="#011f5b">Thanks, ${pi.name} — we've received your billing information.</font></h3>
 
-        <p style="margin:0 0 0.6rem;">Your study request for <strong>${studyName}</strong> has been submitted to the Institute for Immunology &amp; Immune Health. A member of our team will review feasibility and reach out within <strong>3 business days</strong> with next steps.</p>
+        <p style="margin:0 0 0.6rem;">Your funding &amp; affiliation details for <strong>${studyName}</strong> have been submitted to the Institute for Immunology &amp; Immune Health. A member of our team will review feasibility and reach out within <strong>3 business days</strong> with next steps.</p>
 
         <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
           <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
@@ -195,7 +195,7 @@ export default defineEventHandler(async (event) => {
 
     await sendEmail({
       to: recipients,
-      subject: `We've received your I3H study inquiry — ${studyName}`,
+      subject: `We've received your I3H billing information — ${studyName}`,
       html: confirmationHtml,
     })
 
@@ -210,9 +210,9 @@ export default defineEventHandler(async (event) => {
             <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-weight:600;color:#011f5b;font-size:1rem;">Admin Console</span>
           </div>
 
-          <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">New study inquiry submitted</h3>
+          <h3 style="margin:0 0 0.8rem;font-size:1.1rem;font-weight:600;color:#011f5b;">Study billing information updated</h3>
 
-          <p style="font-size:0.86rem;margin:0 0 0.6rem;"><strong>${studyName}</strong> was just submitted by <strong>${pi.name}</strong> (${affiliationLabel}). Quick summary below — full study details are available in the console.</p>
+          <p style="font-size:0.86rem;margin:0 0 0.6rem;">Billing &amp; affiliation details for <strong>${studyName}</strong> were just submitted by <strong>${pi.name}</strong> (${affiliationLabel}). Quick summary below — full study details are available in the console.</p>
 
           <div style="background:#faf8f4;border-radius:4px;padding:0.9rem 1.1rem;margin:1rem 0;">
             <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
@@ -246,7 +246,7 @@ export default defineEventHandler(async (event) => {
 
     await sendEmail({
       to: [{ email: config.adminEmail, name: 'Immune Health Admin' }],
-      subject: `🆕 New inquiry — ${studyName} · ${pi.name} · ${affiliationLabel}`,
+      subject: `📝 Billing info updated — ${studyName} · ${pi.name} · ${affiliationLabel}`,
       html: staffHtml,
     })
   }
