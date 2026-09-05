@@ -186,15 +186,8 @@ export default defineEventHandler(async (event) => {
 
   // 2. Send emails
   try {
-    const recipients = [
-      { email: pi.email, name: pi.name },
-    ]
-    if (studyLead?.email && studyLead.email !== pi.email) {
-      recipients.push({ email: studyLead.email, name: studyLead.name })
-    }
-
     await sendEmail({
-      to: recipients,
+      to: piRecipients(pi, studyLead),
       subject: `We've received your I3H billing information — ${studyName}`,
       html: confirmationHtml,
     })

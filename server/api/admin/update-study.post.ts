@@ -128,14 +128,11 @@ export default defineEventHandler(async (event) => {
         const token = createStatusToken(studyId, piEmail, ver, config.signingSecret)
         const statusUrl = `${config.siteUrl}/status/${studyId}?token=${token}`
 
-        const recipients = [{ email: piEmail, name: (pi as { name?: string }).name || 'Principal Investigator' }]
-        const leadEmail = ((studyLead as { email?: string } | null)?.email || '').trim()
-        if (leadEmail && leadEmail !== piEmail) {
-          recipients.push({ email: leadEmail, name: (studyLead as { name?: string }).name || '' })
-        }
-
         await sendEmail({
-          to: recipients,
+          to: piRecipients(
+            { email: piEmail, name: (pi as { name?: string }).name || 'Principal Investigator' },
+            studyLead as { name?: string; email?: string } | null,
+          ),
           subject: `Study details updated — ${name.trim()}`,
           html: buildStudyUpdateEmail((pi as { name?: string }).name || '', name.trim(), changes, statusUrl),
         })

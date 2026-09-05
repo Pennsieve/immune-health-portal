@@ -67,6 +67,16 @@ describe('regenerate-status-link', () => {
     expect(db.updates[0].status_token_version).toBe(2)
   })
 
+  it('CCs the study lead when one is on file', async () => {
+    const { result } = run(study({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
+    await result
+    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([
+      { email: 'lee@example.com', name: 'Dr. Lee' },
+      { email: 'coord@example.com', name: 'Coordinator' },
+    ])
+  })
+
   it('rejects a missing studyId with 400', async () => {
     const { result } = run(study(), {})
     await expect(result).rejects.toMatchObject({ statusCode: 400 })

@@ -196,6 +196,16 @@ describe('approve-inquiry — side effects & status gating', () => {
     expect(a.studyId).not.toBe(b.studyId)
   })
 
+  it('CCs the study lead on the agreement email when one is on file', async () => {
+    const { result } = invoke(baseInquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
+    await result
+    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([
+      { email: 'lee@example.com', name: 'Dr. Lee' },
+      { email: 'coord@example.com', name: 'Coordinator' },
+    ])
+  })
+
   it('rejects a missing inquiryId with 400', async () => {
     const { result } = invoke(baseInquiry(), {})
     await expect(result).rejects.toMatchObject({ statusCode: 400 })

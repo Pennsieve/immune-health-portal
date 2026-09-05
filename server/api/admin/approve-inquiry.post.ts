@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
   // fallback name carries the PI so several untitled studies stay tellable
   // apart in the admin list.
   const pi = (inquiry.pi as { name: string; email: string } | null) || { name: '', email: '' }
+  const studyLead = inquiry.study_lead as { name?: string; email?: string } | null
   const abbreviation = ((inquiry.abbreviation as string) || '').trim()
   const studyName = ((inquiry.study_name as string) || '').trim()
     || `Untitled study${pi.name ? ` — ${pi.name}` : ''}`
@@ -184,9 +185,9 @@ export default defineEventHandler(async (event) => {
   const statusToken = createStatusToken(studyId, pi.email, 1, config.signingSecret)
   const statusUrl = `${origin}/status/${studyId}?token=${statusToken}`
 
-  // 4. Email the PI
+  // 4. Email the PI (and study lead, if one is on file)
   await sendEmail({
-    to: [{ email: pi.email, name: pi.name }],
+    to: piRecipients(pi, studyLead),
     subject: `Action required: Agreement package for ${studyName}`,
     html: buildApprovalEmail(pi.name, studyName, abbreviation, links, statusUrl),
   })

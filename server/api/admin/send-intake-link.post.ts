@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
   if (!lead?.email) {
     throw createError({ statusCode: 400, statusMessage: 'Inquiry has no contact email' })
   }
+  const studyLead = inquiry.study_lead as { name?: string; email?: string } | null
 
   const tz = timezone || DEFAULT_TIMEZONE
   const sentDate = new Date().toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
@@ -75,7 +76,7 @@ export default defineEventHandler(async (event) => {
 </div>`
 
   await sendEmail({
-    to: [{ email: lead.email, name: lead.name }],
+    to: piRecipients(lead, studyLead),
     subject: 'Next step: your I3H billing form',
     html,
   })
