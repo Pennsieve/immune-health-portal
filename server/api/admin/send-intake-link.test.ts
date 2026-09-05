@@ -72,6 +72,23 @@ describe('send-intake-link — happy path & status transition', () => {
     const res = await result as { activityItem: { title: string } }
     expect(res.activityItem.title).toBe('Billing form re-sent to lead')
   })
+
+  it('CCs the study lead when one is on file with a different email', async () => {
+    const { result } = run(inquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
+    await result
+    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([
+      { email: 'lee@example.com', name: 'Dr. Lee' },
+      { email: 'coord@example.com', name: 'Coordinator' },
+    ])
+  })
+
+  it('does not duplicate the recipient when the study lead shares the PI email', async () => {
+    const { result } = run(inquiry({ study_lead: { name: 'Dr. Lee', email: 'lee@example.com' } }))
+    await result
+    const { to } = sendEmailMock.mock.calls[0][0] as { to: unknown[] }
+    expect(to).toHaveLength(1)
+  })
 })
 
 describe('send-intake-link — gating', () => {

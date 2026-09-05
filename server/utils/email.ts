@@ -17,6 +17,26 @@ export interface EmailMessage {
   html: string
 }
 
+export interface StudyLeadContact {
+  name?: string
+  email?: string
+}
+
+// Every PI-facing email also CCs the study's point of contact / project lead
+// (`study_lead`) when one is on file with a different address, so admins never
+// have to remember to loop them in by hand. The lead is only added when its
+// email is present and differs from the PI's, so a shared contact never gets
+// two copies of the same message.
+export function piRecipients(pi: EmailRecipient, studyLead?: StudyLeadContact | null): EmailRecipient[] {
+  const piEmail = pi.email.trim()
+  const recipients: EmailRecipient[] = [{ email: piEmail, name: pi.name }]
+  const leadEmail = (studyLead?.email || '').trim()
+  if (leadEmail && leadEmail !== piEmail) {
+    recipients.push({ email: leadEmail, name: studyLead?.name })
+  }
+  return recipients
+}
+
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const config = useRuntimeConfig()
 

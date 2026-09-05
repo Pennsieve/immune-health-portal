@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: study, error: fetchErr } = await supabase
     .from('studies')
-    .select('name, pi, status_token_version')
+    .select('name, pi, study_lead, status_token_version')
     .eq('id', studyId)
     .single()
 
@@ -35,12 +35,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const pi = study.pi as { name: string; email: string }
+  const studyLead = study.study_lead as { name?: string; email?: string } | null
   const token = createStatusToken(studyId, pi.email, newVersion, config.signingSecret)
   const origin = config.siteUrl
   const statusUrl = `${origin}/status/${studyId}?token=${token}`
 
   await sendEmail({
-    to: [{ email: pi.email, name: pi.name }],
+    to: piRecipients(pi, studyLead),
     subject: `Your updated study status link — ${study.name as string}`,
     html: buildEmail(pi.name, study.name as string, statusUrl),
   })

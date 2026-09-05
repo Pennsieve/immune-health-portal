@@ -37,7 +37,7 @@ Open http://localhost:3000 and sign in with your Pennsieve credentials!
 
 ## Prerequisites
 
-- Node.js >= 18.0.0
+- Node.js >= 24.20.0
 - npm >= 9.0.0
 
 ## Local Setup
@@ -51,7 +51,7 @@ npm install
 **Using nvm (recommended for Node version management):**
 
 ```bash
-nvm use 18
+nvm use
 npm install
 ```
 
@@ -187,14 +187,14 @@ PORT=3001 npm run dev
 
 ### Node Version Issues
 
-Ensure you're using Node 18 or higher:
+Ensure you're using Node 24.20.0 or higher:
 
 ```bash
-node --version  # Should show v18.x.x or higher
+node --version  # Should show v24.20.0 or higher
 
 # Using nvm:
-nvm install 18
-nvm use 18
+nvm install
+nvm use
 rm -rf node_modules package-lock.json
 npm install
 ```

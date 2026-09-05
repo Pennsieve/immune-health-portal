@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: study, error } = await supabase
     .from('studies')
-    .select('name, abbreviation, pi')
+    .select('name, abbreviation, pi, study_lead')
     .eq('id', studyId)
     .single()
 
@@ -31,13 +31,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const pi = study.pi as { name: string; email: string }
+  const studyLead = study.study_lead as { name?: string; email?: string } | null
   const token = createSignToken(studyId, agreementId, pi.email, config.signingSecret)
   const origin = config.siteUrl
   const signUrl = `${origin}/admin/sign/${studyId}-${agreementId}?token=${token}`
   const agreementName = AGREEMENT_NAMES[agreementId] ?? 'Agreement'
 
   await sendEmail({
-    to: [{ email: pi.email, name: pi.name }],
+    to: piRecipients(pi, studyLead),
     subject: `Action required: Please sign the ${study.name} ${agreementName}`,
     html: buildEmail(pi.name, study.name, study.abbreviation as string, agreementName, signUrl),
   })
