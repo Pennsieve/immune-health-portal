@@ -85,6 +85,19 @@ function onMonthInput(key: string, e: Event) {
   else if (el.value && el.value > maxMonth.value) el.value = maxMonth.value
   props.model[key] = el.value
 }
+// Typing into a native month input is fiddly, so open the browser's month
+// picker whenever the user clicks anywhere in the field. showPicker() needs a
+// user gesture (the click provides it) and isn't in every browser — fall back
+// silently to the built-in calendar icon where it's missing or blocked.
+function openMonthPicker(e: Event) {
+  const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void }
+  try {
+    el.showPicker?.()
+  }
+  catch {
+    // unsupported or blocked (e.g. cross-origin iframe) — icon still works
+  }
+}
 </script>
 
 <template>
@@ -117,14 +130,17 @@ function onMonthInput(key: string, e: Event) {
           <span class="if-suffix">months</span>
         </div>
 
-        <!-- month picker -->
+        <!-- month picker — click anywhere in the field opens the calendar -->
         <input
           v-else-if="f.type === 'month'"
           :value="model[f.key]"
           type="month"
+          class="if-month"
           :class="{ 'if-half': f.halfWidth }"
           :min="currentMonth"
           :max="maxMonth"
+          @click="openMonthPicker"
+          @keydown.enter.prevent="openMonthPicker"
           @input="onMonthInput(f.key, $event)"
           @change="onMonthInput(f.key, $event)"
         >
@@ -264,6 +280,10 @@ function onMonthInput(key: string, e: Event) {
 .if-seg button.active { background: var(--accent); color: #fff; }
 
 .if-field .if-half { width: 50%; }
+
+/* Month field: the whole control opens the picker on click */
+.if-month { cursor: pointer; }
+.if-month::-webkit-calendar-picker-indicator { cursor: pointer; }
 
 /* Numeric input with a "months" suffix */
 .if-num-suffix { display: flex; align-items: stretch; width: 50%; }
