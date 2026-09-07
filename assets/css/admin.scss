@@ -2363,6 +2363,20 @@ table.budget-table {
   td:first-child input {
     min-width: 120px;
   }
+
+  /* Spanning header over the per-visit sample columns */
+  th.em-matrix-grouphdr {
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    padding-bottom: 0.3rem;
+  }
+
+  /* Live per-row sample total (subjects × per-visit counts) */
+  td.em-matrix-rowtotal {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
 }
 
 .em-matrix-foot {

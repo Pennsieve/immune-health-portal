@@ -1126,14 +1126,25 @@ async function saveEdit() {
         <!-- Cohort sample matrix -->
         <div class="em-section">
           <div class="em-section-title">Cohort sample matrix</div>
+          <div class="em-section-hint">
+            One row per cohort. Enter the number of <strong>subjects</strong>, then the samples collected
+            <strong>per subject at each visit</strong> (leave a visit at 0 if that cohort isn't sampled then).
+            Row samples = subjects × the per-visit numbers added up.
+          </div>
           <div style="overflow-x:auto;">
             <table class="em-matrix">
               <thead>
                 <tr>
-                  <th style="text-align:left;">Cohort / Group</th>
-                  <th>Subjects</th>
+                  <th rowspan="2" style="text-align:left;">Cohort / Group</th>
+                  <th rowspan="2">Subjects</th>
+                  <th v-if="editForm.visits.length" :colspan="editForm.visits.length" class="em-matrix-grouphdr">
+                    Samples per subject, by visit
+                  </th>
+                  <th rowspan="2">Row samples</th>
+                  <th rowspan="2" />
+                </tr>
+                <tr v-if="editForm.visits.length">
                   <th v-for="v in editForm.visits" :key="v.id">{{ v.label || '—' }}</th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -1143,10 +1154,11 @@ async function saveEdit() {
                   <td v-for="v in editForm.visits" :key="v.id">
                     <input v-model.number="g.samples[v.id]" type="number" min="0">
                   </td>
+                  <td class="em-matrix-rowtotal mono">{{ groupTotal(g, editForm.visits).toLocaleString() }}</td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
                 </tr>
                 <tr v-if="!editForm.collectionGroups.length">
-                  <td :colspan="editForm.visits.length + 3" class="em-srv-empty">No cohorts yet.</td>
+                  <td :colspan="editForm.visits.length + 4" class="em-srv-empty">No cohorts yet.</td>
                 </tr>
               </tbody>
             </table>
