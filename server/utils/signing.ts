@@ -94,3 +94,36 @@ export function verifyStatusToken(token: string, secret: string): StatusTokenPay
   if (sig !== expected) throw new Error('invalid signature')
   return JSON.parse(decode(body)) as StatusTokenPayload
 }
+
+export interface SampleDetailsTokenPayload {
+  studyId: string
+  piEmail: string
+  exp: number
+}
+
+export function createSampleDetailsToken(
+  studyId: string,
+  piEmail: string,
+  secret: string,
+  ttlSeconds = 2592000, // 30 days — mirrors the full-intake link; coordinating this answer takes real time
+): string {
+  const payload: SampleDetailsTokenPayload = {
+    studyId,
+    piEmail,
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+  }
+  const body = b64(JSON.stringify(payload))
+  const sig = createHmac('sha256', secret).update(`${HEADER}.${body}`).digest('base64url')
+  return `${HEADER}.${body}.${sig}`
+}
+
+export function verifySampleDetailsToken(token: string, secret: string): SampleDetailsTokenPayload {
+  const parts = token.split('.')
+  if (parts.length !== 3) throw new Error('malformed token')
+  const [header, body, sig] = parts
+  const expected = createHmac('sha256', secret).update(`${header}.${body}`).digest('base64url')
+  if (sig !== expected) throw new Error('invalid signature')
+  const payload = JSON.parse(decode(body)) as SampleDetailsTokenPayload
+  if (payload.exp < Math.floor(Date.now() / 1000)) throw new Error('token expired')
+  return payload
+}
