@@ -34,6 +34,7 @@ expected_cols(tbl, col) as (
     ('studies','department'),
     ('studies','lifecycle'),('studies','updated_relative'),
     ('studies','activity'),('studies','status_token_version'),
+    ('studies','sample_details'),('studies','sample_details_sent_date'),
     ('studies','intake_details'),('studies','additional_notes'),('studies','key_personnel'),
     ('studies','created_at'),('studies','updated_at'),
     -- agreements

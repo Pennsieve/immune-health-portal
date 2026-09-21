@@ -1,5 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { verifySampleDetailsToken } from '~/server/utils/signing'
+import { sampleDetailsRows, sampleDetailsContacts } from '~/utils/sampleDetailsFields'
 
 export default defineEventHandler(async (event) => {
   const studyId = getRouterParam(event, 'studyId')!
@@ -40,6 +41,14 @@ export default defineEventHandler(async (event) => {
   const pi = data.pi as { name: string; email: string }
   if (pi.email.toLowerCase() !== payload.piEmail.toLowerCase()) {
     throw createError({ statusCode: 403, statusMessage: 'Token does not match this study' })
+  }
+
+  // One-time link — once the PI has submitted answers, this link is spent.
+  // Corrections after that go through the admin edit modal instead.
+  const alreadySubmitted = sampleDetailsRows(data.sample_details).length > 0
+    || sampleDetailsContacts(data.sample_details).length > 0
+  if (alreadySubmitted) {
+    throw createError({ statusCode: 409, statusMessage: 'The Sample Details Form for this study has already been submitted' })
   }
 
   return {
