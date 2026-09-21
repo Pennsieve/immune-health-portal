@@ -1,6 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { verifySampleDetailsToken } from '~/server/utils/signing'
-import { cleanSampleDetails, sampleDetailsRows, type SampleDetailsContact } from '~/utils/sampleDetailsFields'
+import { cleanSampleDetails, sampleDetailsRows, sampleDetailsContacts, type SampleDetailsContact } from '~/utils/sampleDetailsFields'
 import { DEFAULT_TIMEZONE } from '~/server/utils/constants'
 
 export default defineEventHandler(async (event) => {
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const supabase = serverSupabaseServiceRole(event)
   const { data: study, error: fetchErr } = await supabase
     .from('studies')
-    .select('name, pi, study_lead, activity')
+    .select('name, pi, study_lead, activity, sample_details')
     .eq('id', studyId)
     .single()
 
@@ -38,6 +38,15 @@ export default defineEventHandler(async (event) => {
   const pi = study.pi as { name?: string; email?: string }
   if ((pi.email || '').toLowerCase() !== payload.piEmail.toLowerCase()) {
     throw createError({ statusCode: 403, statusMessage: 'Token does not match this study' })
+  }
+
+  // One-time link — reject a resubmission even if someone replays an old
+  // page load or the request directly. Corrections after this go through
+  // the admin edit modal instead.
+  const alreadySubmitted = sampleDetailsRows(study.sample_details).length > 0
+    || sampleDetailsContacts(study.sample_details).length > 0
+  if (alreadySubmitted) {
+    throw createError({ statusCode: 409, statusMessage: 'The Sample Details Form for this study has already been submitted' })
   }
 
   const clean = cleanSampleDetails((answers as Record<string, unknown>) || {})

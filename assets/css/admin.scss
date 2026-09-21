@@ -2241,7 +2241,6 @@ table.budget-table {
 .em-field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
 
   &.em-full { grid-column: 1 / -1; }
 }
@@ -2384,7 +2383,6 @@ table.budget-table {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 0.9rem;
 }
 .em-matrix-total {
   font-size: 0.82rem;

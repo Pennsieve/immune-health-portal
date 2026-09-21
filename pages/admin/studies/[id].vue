@@ -975,7 +975,7 @@ const affiliationClass = computed(() => {
         <!-- Sample Details Form (site initiation, post-activation) -->
         <div class="panel" style="margin-bottom:1.2rem;">
           <div class="panel-head">
-            <h3>Sample Details Form</h3>
+            <h3>Sample Details</h3>
             <span class="ctx">
               {{ hasSampleDetailsAnswers ? 'Submitted' : (study.sampleDetailsSentDate ? `Link sent ${study.sampleDetailsSentDate}` : 'Not yet sent') }}
             </span>
@@ -1017,14 +1017,15 @@ const affiliationClass = computed(() => {
               :title="hasSampleDetailsAnswers ? '' : 'Waiting on the PI to submit the form'"
               @click="openSampleDetailsEdit"
             >
-              Edit responses ✎
+              Edit ✎
             </button>
             <button
+              v-if="!hasSampleDetailsAnswers"
               class="btn btn-ghost btn-sm"
               :disabled="sendingSampleDetailsLink"
               @click="sendSampleDetailsLink(study.id)"
             >
-              {{ sentSampleDetailsLink ? 'Link sent ✓' : sendingSampleDetailsLink ? 'Sending…' : (study.sampleDetailsSentDate ? 'Resend sample details link' : 'Send sample details link') }}
+              {{ sentSampleDetailsLink ? 'Link sent ✓' : sendingSampleDetailsLink ? 'Sending…' : (study.sampleDetailsSentDate ? 'Resend sample details form' : 'Send sample details form') }}
             </button>
             <span v-if="!hasSampleDetailsAnswers" style="font-size:0.78rem; color:var(--muted);">
               Waiting on the PI to submit the form
@@ -1189,55 +1190,57 @@ const affiliationClass = computed(() => {
   <div v-if="sampleDetailsEditOpen" class="clerk-overlay" @click.self="sampleDetailsEditOpen = false">
     <div class="edit-modal edit-modal-wide">
       <div class="em-head">
-        <h3>Edit Sample Details Form responses</h3>
+        <h3>Edit Sample Details</h3>
       </div>
       <div class="em-body em-body-scroll">
-        <div class="em-field em-full">
-          <label class="em-label">Operational contacts &amp; roles</label>
-          <div style="overflow-x:auto;">
-            <table class="em-matrix">
-              <thead>
-                <tr>
-                  <th style="text-align:left;">Name</th>
-                  <th style="text-align:left;">Role</th>
-                  <th style="text-align:left;">Email</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(c, i) in sampleDetailsEditContacts" :key="i">
-                  <td><input v-model="c.name" type="text" placeholder="Full name"></td>
-                  <td><input v-model="c.role" type="text" placeholder="e.g. Study coordinator"></td>
-                  <td><input v-model="c.email" type="email" placeholder="name@example.edu"></td>
-                  <td><button class="em-srv-remove" type="button" @click="removeSampleDetailsContact(i)">✕</button></td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="em-grid">
+          <div class="em-field em-full">
+            <label class="em-label">Operational contacts &amp; roles</label>
+            <div style="overflow-x:auto;">
+              <table class="em-matrix">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Name</th>
+                    <th style="text-align:left;">Role</th>
+                    <th style="text-align:left;">Email</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(c, i) in sampleDetailsEditContacts" :key="i">
+                    <td><input v-model="c.name" type="text" placeholder="Full name"></td>
+                    <td><input v-model="c.role" type="text" placeholder="e.g. Study coordinator"></td>
+                    <td><input v-model="c.email" type="email" placeholder="name@example.edu"></td>
+                    <td><button class="em-srv-remove" type="button" @click="removeSampleDetailsContact(i)">✕</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="em-matrix-foot">
+              <button class="btn btn-ghost btn-sm" type="button" @click="addSampleDetailsContact">+ Add another contact</button>
+            </div>
           </div>
-          <div class="em-matrix-foot">
-            <button class="btn btn-ghost btn-sm" type="button" @click="addSampleDetailsContact">+ Add another contact</button>
-          </div>
-        </div>
 
-        <div v-for="field in SAMPLE_DETAILS_SCALAR_FIELDS" :key="field.key" class="em-field em-full">
-          <label class="em-label">{{ field.label }}</label>
-          <div class="em-hint">{{ field.question }}</div>
-          <select v-if="field.type === 'select'" v-model="sampleDetailsEditForm[field.key]">
-            <option value="">—</option>
-            <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </select>
-          <textarea
-            v-else-if="field.type === 'textarea'"
-            v-model="sampleDetailsEditForm[field.key]"
-            rows="3"
-            :placeholder="field.placeholder"
-          />
-          <input
-            v-else
-            v-model="sampleDetailsEditForm[field.key]"
-            type="text"
-            :placeholder="field.placeholder"
-          >
+          <div v-for="field in SAMPLE_DETAILS_SCALAR_FIELDS" :key="field.key" class="em-field em-full">
+            <label class="em-label">{{ field.label }}</label>
+            <div class="em-hint">{{ field.question }}</div>
+            <select v-if="field.type === 'select'" v-model="sampleDetailsEditForm[field.key]">
+              <option value="">—</option>
+              <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+            <textarea
+              v-else-if="field.type === 'textarea'"
+              v-model="sampleDetailsEditForm[field.key]"
+              rows="3"
+              :placeholder="field.placeholder"
+            />
+            <input
+              v-else
+              v-model="sampleDetailsEditForm[field.key]"
+              type="text"
+              :placeholder="field.placeholder"
+            >
+          </div>
         </div>
       </div>
       <div class="em-foot">
@@ -1479,7 +1482,7 @@ const affiliationClass = computed(() => {
           <select
             v-if="availableToAdd.length > 0"
             v-model="newServiceId"
-            style="width:50%; margin-top:0.9rem;"
+            style="width:50%;"
             @change="addServiceLine"
           >
             <option value="">+ Add service…</option>

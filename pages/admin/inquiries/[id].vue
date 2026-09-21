@@ -1189,7 +1189,7 @@ async function saveEdit() {
           <select
             v-if="availableToAdd.length > 0"
             v-model="newServiceId"
-            style="width:50%; margin-top:0.9rem;"
+            style="width:50%;"
             @change="addServiceLine"
           >
             <option value="">+ Add service…</option>
