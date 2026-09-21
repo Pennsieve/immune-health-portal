@@ -5,6 +5,13 @@ import { useServicesStore } from '~/stores/services'
 import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 import { diffStudyDetails, type StudyChange, type StudyDetailSnapshot } from '~/utils/studyChanges'
+import {
+  SAMPLE_DETAILS_SCALAR_FIELDS,
+  sampleDetailsRows as buildSampleDetailsRows,
+  sampleDetailsContacts as buildSampleDetailsContacts,
+  normalizeContacts,
+  type SampleDetailsContact,
+} from '~/utils/sampleDetailsFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -42,6 +49,11 @@ const bloodCollectionFields = [
 ]
 
 const keyPersonnel = computed(() => study.value?.keyPersonnel || [])
+
+// Sample Details Form (site initiation, post-activation) — read-only rows
+const sampleDetailsRows = computed(() => buildSampleDetailsRows(study.value?.sampleDetails))
+const sampleDetailsContacts = computed(() => buildSampleDetailsContacts(study.value?.sampleDetails))
+const hasSampleDetailsAnswers = computed(() => sampleDetailsRows.value.length > 0 || sampleDetailsContacts.value.length > 0)
 
 // Hero scope label: subjects · cohorts · samples
 const cohortScopeLabel = computed(() => {
@@ -89,6 +101,76 @@ async function sendSignLink(studyId: string, agreementId: string) {
   }
   finally {
     sendingLink.value = null
+  }
+}
+
+const sendingSampleDetailsLink = ref(false)
+const sentSampleDetailsLink = ref(false)
+
+async function sendSampleDetailsLink(studyId: string) {
+  sendingSampleDetailsLink.value = true
+  try {
+    const { sentDate } = await $fetch<{ success: boolean; sentDate: string }>('/api/admin/send-sample-details-link', {
+      method: 'POST',
+      body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    })
+    if (study.value) study.value.sampleDetailsSentDate = sentDate
+    sentSampleDetailsLink.value = true
+  }
+  catch {
+    alert('Failed to send Sample Details Form link. Please try again.')
+  }
+  finally {
+    sendingSampleDetailsLink.value = false
+  }
+}
+
+// Edit Sample Details Form responses — disabled until the PI has actually
+// submitted something (see hasSampleDetailsAnswers), since there's nothing
+// to correct before that.
+const sampleDetailsEditOpen = ref(false)
+const isSavingSampleDetails = ref(false)
+const sampleDetailsEditForm = reactive<Record<string, string>>({})
+const sampleDetailsEditContacts = reactive<SampleDetailsContact[]>([])
+
+function addSampleDetailsContact() {
+  sampleDetailsEditContacts.push({ name: '', email: '', role: '' })
+}
+function removeSampleDetailsContact(i: number) {
+  sampleDetailsEditContacts.splice(i, 1)
+}
+
+function openSampleDetailsEdit() {
+  if (!hasSampleDetailsAnswers.value) return
+  const details = study.value?.sampleDetails as Record<string, unknown> | undefined
+  for (const field of SAMPLE_DETAILS_SCALAR_FIELDS) {
+    sampleDetailsEditForm[field.key] = (details?.[field.key] as string) || ''
+  }
+  sampleDetailsEditContacts.splice(0, sampleDetailsEditContacts.length, ...sampleDetailsContacts.value.map(c => ({ ...c })))
+  if (!sampleDetailsEditContacts.length) sampleDetailsEditContacts.push({ name: '', email: '', role: '' })
+  sampleDetailsEditOpen.value = true
+}
+
+async function saveSampleDetailsEdit() {
+  if (!study.value) return
+  isSavingSampleDetails.value = true
+  try {
+    const { sampleDetails } = await $fetch<{ success: boolean; sampleDetails: typeof study.value.sampleDetails }>('/api/admin/update-sample-details', {
+      method: 'POST',
+      body: {
+        studyId: study.value.id,
+        answers: { ...sampleDetailsEditForm, operationalContacts: normalizeContacts(sampleDetailsEditContacts) },
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+    })
+    study.value.sampleDetails = sampleDetails
+    sampleDetailsEditOpen.value = false
+  }
+  catch {
+    alert('Failed to save Sample Details Form changes. Please try again.')
+  }
+  finally {
+    isSavingSampleDetails.value = false
   }
 }
 
@@ -889,46 +971,108 @@ const affiliationClass = computed(() => {
         </div>
       </div>
 
-      <div v-else class="panel">
-        <div class="panel-head">
-          <h3>Cohort progress</h3>
-          <span class="ctx">{{ study.cohort.processedSamples }} / {{ study.cohort.totalSamples }} samples processed</span>
-        </div>
-        <div class="study-info-grid" style="padding:1.2rem 1.4rem;">
-          <div class="info-lbl">Subjects</div>
-          <div>{{ study.cohort.subjects }}</div>
-          <div class="info-lbl">Cohorts</div>
-          <div>{{ cohortGroups.length }}</div>
-          <div class="info-lbl">Total samples</div>
-          <div>{{ study.cohort.totalSamples }}</div>
-          <div class="info-lbl">Processed</div>
-          <div>
-            <div v-if="!editingSamples" style="display:flex; align-items:center; gap:0.8rem;">
-              <span class="mono" style="font-size:1rem; font-weight:500;">{{ study.cohort.processedSamples }}</span>
-              <div class="prog-bar" style="width:160px; flex-shrink:0;">
-                <div :style="{ width: (study.cohort.processedSamples / study.cohort.totalSamples * 100) + '%' }" />
+      <template v-else>
+        <!-- Sample Details Form (site initiation, post-activation) -->
+        <div class="panel" style="margin-bottom:1.2rem;">
+          <div class="panel-head">
+            <h3>Sample Details Form</h3>
+            <span class="ctx">
+              {{ hasSampleDetailsAnswers ? 'Submitted' : (study.sampleDetailsSentDate ? `Link sent ${study.sampleDetailsSentDate}` : 'Not yet sent') }}
+            </span>
+          </div>
+          <div v-if="hasSampleDetailsAnswers" class="study-info-grid" style="padding:1.2rem 1.4rem;">
+            <template v-if="sampleDetailsContacts.length">
+              <div class="info-lbl">Operational contacts &amp; roles</div>
+              <div>
+                <table class="sched-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Email</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(p, i) in sampleDetailsContacts" :key="i">
+                      <td>{{ p.name || '—' }}</td>
+                      <td>{{ p.role || '—' }}</td>
+                      <td class="mono">{{ p.email || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <button class="btn btn-ghost btn-sm" @click="startEditSamples">Edit</button>
-            </div>
-            <div v-else style="display:flex; align-items:center; gap:0.6rem;">
-              <input
-                v-model.number="samplesInput"
-                type="number"
-                min="0"
-                :max="study.cohort.totalSamples"
-                style="width:90px;"
-                @keydown.enter="saveSamples"
-                @keydown.escape="editingSamples = false"
-              >
-              <span style="font-size:0.82rem; color:var(--muted)">of {{ study.cohort.totalSamples }}</span>
-              <button class="btn btn-primary btn-sm" :disabled="isSavingSamples" @click="saveSamples">
-                {{ isSavingSamples ? 'Saving…' : 'Save' }}
-              </button>
-              <button class="btn btn-ghost btn-sm" :disabled="isSavingSamples" @click="editingSamples = false">Cancel</button>
+            </template>
+            <template v-for="row in sampleDetailsRows" :key="row.label">
+              <div class="info-lbl">{{ row.label }}</div>
+              <div>{{ row.value }}</div>
+            </template>
+          </div>
+          <div v-else style="padding:1.2rem 1.4rem; color:var(--muted); font-size:0.85rem;">
+            No answers yet — {{ study.sampleDetailsSentDate ? `emailed to the PI on ${study.sampleDetailsSentDate}.` : 'the form is emailed automatically once all agreements are signed.' }}
+          </div>
+          <div style="padding:0 1.4rem 1.2rem; display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
+            <button
+              class="btn btn-secondary btn-sm"
+              :disabled="!hasSampleDetailsAnswers"
+              :title="hasSampleDetailsAnswers ? '' : 'Waiting on the PI to submit the form'"
+              @click="openSampleDetailsEdit"
+            >
+              Edit responses ✎
+            </button>
+            <button
+              class="btn btn-ghost btn-sm"
+              :disabled="sendingSampleDetailsLink"
+              @click="sendSampleDetailsLink(study.id)"
+            >
+              {{ sentSampleDetailsLink ? 'Link sent ✓' : sendingSampleDetailsLink ? 'Sending…' : (study.sampleDetailsSentDate ? 'Resend sample details link' : 'Send sample details link') }}
+            </button>
+            <span v-if="!hasSampleDetailsAnswers" style="font-size:0.78rem; color:var(--muted);">
+              Waiting on the PI to submit the form
+            </span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Cohort progress</h3>
+            <span class="ctx">{{ study.cohort.processedSamples }} / {{ study.cohort.totalSamples }} samples processed</span>
+          </div>
+          <div class="study-info-grid" style="padding:1.2rem 1.4rem;">
+            <div class="info-lbl">Subjects</div>
+            <div>{{ study.cohort.subjects }}</div>
+            <div class="info-lbl">Cohorts</div>
+            <div>{{ cohortGroups.length }}</div>
+            <div class="info-lbl">Total samples</div>
+            <div>{{ study.cohort.totalSamples }}</div>
+            <div class="info-lbl">Processed</div>
+            <div>
+              <div v-if="!editingSamples" style="display:flex; align-items:center; gap:0.8rem;">
+                <span class="mono" style="font-size:1rem; font-weight:500;">{{ study.cohort.processedSamples }}</span>
+                <div class="prog-bar" style="width:160px; flex-shrink:0;">
+                  <div :style="{ width: (study.cohort.processedSamples / study.cohort.totalSamples * 100) + '%' }" />
+                </div>
+                <button class="btn btn-ghost btn-sm" @click="startEditSamples">Edit</button>
+              </div>
+              <div v-else style="display:flex; align-items:center; gap:0.6rem;">
+                <input
+                  v-model.number="samplesInput"
+                  type="number"
+                  min="0"
+                  :max="study.cohort.totalSamples"
+                  style="width:90px;"
+                  @keydown.enter="saveSamples"
+                  @keydown.escape="editingSamples = false"
+                >
+                <span style="font-size:0.82rem; color:var(--muted)">of {{ study.cohort.totalSamples }}</span>
+                <button class="btn btn-primary btn-sm" :disabled="isSavingSamples" @click="saveSamples">
+                  {{ isSavingSamples ? 'Saving…' : 'Save' }}
+                </button>
+                <button class="btn btn-ghost btn-sm" :disabled="isSavingSamples" @click="editingSamples = false">Cancel</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
     </div>
 
     <!-- BUDGET -->
@@ -1036,6 +1180,70 @@ const affiliationClass = computed(() => {
         <button class="btn btn-ghost btn-sm" :disabled="isDeleting" @click="deleteOpen = false">Cancel</button>
         <button class="btn btn-danger btn-sm" :disabled="isDeleting" @click="confirmDelete">
           {{ isDeleting ? 'Deleting…' : 'Delete study' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Sample Details Form responses -->
+  <div v-if="sampleDetailsEditOpen" class="clerk-overlay" @click.self="sampleDetailsEditOpen = false">
+    <div class="edit-modal edit-modal-wide">
+      <div class="em-head">
+        <h3>Edit Sample Details Form responses</h3>
+      </div>
+      <div class="em-body em-body-scroll">
+        <div class="em-field em-full">
+          <label class="em-label">Operational contacts &amp; roles</label>
+          <div style="overflow-x:auto;">
+            <table class="em-matrix">
+              <thead>
+                <tr>
+                  <th style="text-align:left;">Name</th>
+                  <th style="text-align:left;">Role</th>
+                  <th style="text-align:left;">Email</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(c, i) in sampleDetailsEditContacts" :key="i">
+                  <td><input v-model="c.name" type="text" placeholder="Full name"></td>
+                  <td><input v-model="c.role" type="text" placeholder="e.g. Study coordinator"></td>
+                  <td><input v-model="c.email" type="email" placeholder="name@example.edu"></td>
+                  <td><button class="em-srv-remove" type="button" @click="removeSampleDetailsContact(i)">✕</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="em-matrix-foot">
+            <button class="btn btn-ghost btn-sm" type="button" @click="addSampleDetailsContact">+ Add another contact</button>
+          </div>
+        </div>
+
+        <div v-for="field in SAMPLE_DETAILS_SCALAR_FIELDS" :key="field.key" class="em-field em-full">
+          <label class="em-label">{{ field.label }}</label>
+          <div class="em-hint">{{ field.question }}</div>
+          <select v-if="field.type === 'select'" v-model="sampleDetailsEditForm[field.key]">
+            <option value="">—</option>
+            <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+          <textarea
+            v-else-if="field.type === 'textarea'"
+            v-model="sampleDetailsEditForm[field.key]"
+            rows="3"
+            :placeholder="field.placeholder"
+          />
+          <input
+            v-else
+            v-model="sampleDetailsEditForm[field.key]"
+            type="text"
+            :placeholder="field.placeholder"
+          >
+        </div>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isSavingSampleDetails" @click="sampleDetailsEditOpen = false">Cancel</button>
+        <button class="btn btn-primary btn-sm" :disabled="isSavingSampleDetails" @click="saveSampleDetailsEdit">
+          {{ isSavingSampleDetails ? 'Saving…' : 'Save changes' }}
         </button>
       </div>
     </div>

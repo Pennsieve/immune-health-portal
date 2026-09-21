@@ -71,6 +71,8 @@ create table studies (
   activity         jsonb default '[]'::jsonb,
   intake_details   jsonb default '{}'::jsonb,          -- expanded intake answers carried from the inquiry
   status_token_version integer not null default 1,
+  sample_details   jsonb default '{}'::jsonb,          -- Sample Details Form answers (site initiation, post-activation)
+  sample_details_sent_date text,                       -- when the Sample Details Form link was emailed
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );

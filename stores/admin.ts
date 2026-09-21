@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 import type { CollectionVisit } from '~/types/index'
+import type { SampleDetailsAnswers } from '~/utils/sampleDetailsFields'
 
 // Lifecycle: 'Lead' (simple lead form submitted) → 'Billing Sent' (billing
 // form link emailed) → 'New' (billing form received, awaiting review) → terminal.
@@ -110,6 +111,8 @@ export interface Study {
   updatedAt: string
   isLocked: boolean
   statusTokenVersion: number
+  sampleDetails?: SampleDetailsAnswers
+  sampleDetailsSentDate?: string
 }
 
 export function mapInquiry(row: Record<string, unknown>): Inquiry {
@@ -188,6 +191,8 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     activity: (row.activity as ActivityItem[]) || [],
     lifecycle: normalizeLifecycle((row.lifecycle as Study['lifecycle']) || []),
     updatedAt: row.updated_at as string,
+    sampleDetails: (row.sample_details as SampleDetailsAnswers) || {},
+    sampleDetailsSentDate: row.sample_details_sent_date as string | undefined,
   }
 }
 
