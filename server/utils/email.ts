@@ -18,6 +18,7 @@ export interface EmailRecipient {
 
 export interface EmailMessage {
   to: EmailRecipient[]
+  cc?: EmailRecipient[]
   subject: string
   html: string
 }
@@ -42,6 +43,34 @@ export function piRecipients(pi: EmailRecipient, studyLead?: StudyLeadContact | 
   return recipients
 }
 
+// Resolves the CC list for an admin-triggered, PI-facing email. `explicit` is
+// the reviewer-picked list from the confirmation modal — when the caller
+// passes a `cc` key at all (including `[]`, meaning every box was unchecked),
+// it wins outright. Only when `cc` is entirely absent (an older/not-yet-updated
+// caller, or a test that doesn't care) do we fall back to the previous
+// default of auto-CCing the study lead. Either way, entries are trimmed,
+// require a non-empty email, and are de-duplicated case-insensitively against
+// the PI's own address and against each other.
+export function resolveCc(
+  explicit: EmailRecipient[] | undefined,
+  studyLead: StudyLeadContact | null | undefined,
+  piEmail: string,
+): EmailRecipient[] {
+  const source = explicit !== undefined
+    ? explicit
+    : (studyLead?.email ? [{ email: studyLead.email, name: studyLead.name }] : [])
+
+  const seen = new Set([piEmail.trim().toLowerCase()])
+  const result: EmailRecipient[] = []
+  for (const r of source) {
+    const email = (r?.email || '').trim()
+    if (!email || seen.has(email.toLowerCase())) continue
+    seen.add(email.toLowerCase())
+    result.push({ email, name: r.name })
+  }
+  return result
+}
+
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const config = useRuntimeConfig()
 
@@ -64,6 +93,7 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
 
     console.log(
       `[emails disabled] Would send "${message.subject}" to ${message.to.map(r => r.email).join(', ')}`
+      + (message.cc?.length ? ` (cc: ${message.cc.map(r => r.email).join(', ')})` : '')
       + (links.length ? `\n  links:\n${links.map(l => `    ${l}`).join('\n')}` : '')
       + (previewPath ? `\n  preview: ${previewPath}` : ''),
     )
@@ -85,6 +115,7 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     body: {
       from: { email: config.mailersendFromEmail, name: config.mailersendFromName },
       to: message.to,
+      ...(message.cc?.length ? { cc: message.cc } : {}),
       subject: message.subject,
       html: message.html,
     },

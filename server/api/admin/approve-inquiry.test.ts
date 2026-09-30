@@ -199,11 +199,29 @@ describe('approve-inquiry — side effects & status gating', () => {
   it('CCs the study lead on the agreement email when one is on file', async () => {
     const { result } = invoke(baseInquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
     await result
-    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
-    expect(to).toEqual([
-      { email: 'lee@example.com', name: 'Dr. Lee' },
-      { email: 'coord@example.com', name: 'Coordinator' },
-    ])
+    const { to, cc } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }>; cc: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([{ email: 'lee@example.com', name: 'Dr. Lee' }])
+    expect(cc).toEqual([{ email: 'coord@example.com', name: 'Coordinator' }])
+  })
+
+  it('honors an explicit cc list from the request body, overriding the lead default', async () => {
+    const { result } = invoke(baseInquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }), {
+      inquiryId: 'inq-1',
+      cc: [{ email: 'personnel@example.com', name: 'Sam Personnel' }],
+    })
+    await result
+    const { cc } = sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }
+    expect(cc).toEqual([{ email: 'personnel@example.com', name: 'Sam Personnel' }])
+  })
+
+  it('sends no CC at all when every box is unchecked (cc: [])', async () => {
+    const { result } = invoke(baseInquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }), {
+      inquiryId: 'inq-1',
+      cc: [],
+    })
+    await result
+    const { cc } = sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }
+    expect(cc).toEqual([])
   })
 
   it('rejects a missing inquiryId with 400', async () => {

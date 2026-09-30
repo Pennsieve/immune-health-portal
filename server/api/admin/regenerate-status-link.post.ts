@@ -3,7 +3,7 @@ import { createStatusToken } from '~/server/utils/signing'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const { studyId } = await readBody(event)
+  const { studyId, cc } = await readBody(event)
 
   if (!studyId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId' })
@@ -41,7 +41,8 @@ export default defineEventHandler(async (event) => {
   const statusUrl = `${origin}/status/${studyId}?token=${token}`
 
   await sendEmail({
-    to: piRecipients(pi, studyLead),
+    to: [{ email: pi.email, name: pi.name }],
+    cc: resolveCc(cc, studyLead, pi.email),
     subject: `Your updated study status link — ${study.name as string}`,
     html: buildEmail(pi.name, study.name as string, statusUrl),
   })

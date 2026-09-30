@@ -5,7 +5,7 @@ import { DEFAULT_TIMEZONE } from '~/server/utils/constants'
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
-  const { studyId, timezone } = body
+  const { studyId, timezone, cc } = body
 
   if (!studyId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId' })
@@ -35,7 +35,8 @@ export default defineEventHandler(async (event) => {
   const formUrl = `${config.siteUrl}/sample-details/${studyId}?token=${token}`
 
   await sendEmail({
-    to: piRecipients({ email: pi.email, name: pi.name || 'Principal Investigator' }, studyLead),
+    to: [{ email: pi.email, name: pi.name || 'Principal Investigator' }],
+    cc: resolveCc(cc, studyLead, pi.email),
     subject: `Reminder: complete the Sample Details Form — ${study.name as string}`,
     html: buildReminderEmail(pi.name || '', study.name as string, formUrl),
   })

@@ -4,7 +4,7 @@ import { diffStudyDetails, type StudyChange, type StudyDetailSnapshot } from '~/
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, additionalNotes, cohort, budget, intakeDetails, keyPersonnel, changeNote } = await readBody(event)
+  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, additionalNotes, cohort, budget, intakeDetails, keyPersonnel, changeNote, cc } = await readBody(event)
 
   if (!studyId || !name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or name' })
@@ -129,10 +129,8 @@ export default defineEventHandler(async (event) => {
         const statusUrl = `${config.siteUrl}/status/${studyId}?token=${token}`
 
         await sendEmail({
-          to: piRecipients(
-            { email: piEmail, name: (pi as { name?: string }).name || 'Principal Investigator' },
-            studyLead as { name?: string; email?: string } | null,
-          ),
+          to: [{ email: piEmail, name: (pi as { name?: string }).name || 'Principal Investigator' }],
+          cc: resolveCc(cc, studyLead as { name?: string; email?: string } | null, piEmail),
           subject: `Study details updated — ${name.trim()}`,
           html: buildStudyUpdateEmail((pi as { name?: string }).name || '', name.trim(), changes, statusUrl),
         })

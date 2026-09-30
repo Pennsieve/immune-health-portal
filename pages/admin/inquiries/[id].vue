@@ -6,6 +6,7 @@ import type { CollectionVisit } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 import { leadDetailRows } from '~/utils/leadFields'
 import { buildAgreementFields, TBD, type AgreementFields, type StudyForAgreement } from '~/utils/agreementFields'
+import { ccCandidates } from '~/utils/emailRecipients'
 
 definePageMeta({ layout: 'admin' })
 
@@ -234,6 +235,33 @@ const isApproving = ref(false)
 const isDeclining = ref(false)
 const declineOpen = ref(false)
 const approveConfirmOpen = ref(false)
+const deleteOpen = ref(false)
+const isDeleting = ref(false)
+
+async function confirmDelete() {
+  if (!inquiry.value) return
+  isDeleting.value = true
+  try {
+    await adminStore.deleteInquiry(inquiry.value.id)
+    navigateTo('/admin/inquiries')
+  }
+  catch {
+    alert('Failed to delete inquiry. Please try again.')
+    isDeleting.value = false
+  }
+}
+
+// CC selection shared by every email-confirmation modal on this page (approve,
+// decline, send billing form) — all draw from the same inquiry's study lead +
+// key personnel, so one pending-selection ref suffices.
+const pendingCcEmails = ref<string[]>([])
+function resetPendingCc() {
+  pendingCcEmails.value = ccCandidates(inquiry.value?.studyLead, keyPersonnel.value).map(r => r.email)
+}
+function selectedCc() {
+  return ccCandidates(inquiry.value?.studyLead, keyPersonnel.value)
+    .filter(r => pendingCcEmails.value.includes(r.email))
+}
 
 const noteText = ref('')
 const isPostingNote = ref(false)
@@ -281,13 +309,12 @@ function toggleFeasibility(item: { label: string; checked: boolean }) {
   })
 }
 
+// Approving always emails the PI the agreement package, so it always goes
+// through the confirmation modal now — the blank-fields warning is just an
+// extra notice shown inside that same modal when it applies.
 function onApproveClick() {
-  if (blankAgreementFields.value.length > 0) {
-    approveConfirmOpen.value = true
-  }
-  else {
-    approveAndSend()
-  }
+  resetPendingCc()
+  approveConfirmOpen.value = true
 }
 
 async function approveAndSend() {
@@ -297,7 +324,7 @@ async function approveAndSend() {
   try {
     const { studyId } = await $fetch('/api/admin/approve-inquiry', {
       method: 'POST',
-      body: { inquiryId: inquiry.value.id, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      body: { inquiryId: inquiry.value.id, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, cc: selectedCc() },
     }) as { studyId: string }
     await adminStore.loadAll()
     navigateTo(`/admin/studies/${studyId}`)
@@ -312,13 +339,20 @@ async function approveAndSend() {
 
 const isSendingIntake = ref(false)
 const intakeSentMessage = ref('')
+const sendIntakeConfirmOpen = ref(false)
+
+function openSendIntakeConfirm() {
+  resetPendingCc()
+  sendIntakeConfirmOpen.value = true
+}
 
 async function sendIntakeForm() {
   if (!inquiry.value) return
+  sendIntakeConfirmOpen.value = false
   isSendingIntake.value = true
   intakeSentMessage.value = ''
   try {
-    const sentDate = await adminStore.sendIntakeLink(inquiry.value.id)
+    const sentDate = await adminStore.sendIntakeLink(inquiry.value.id, selectedCc())
     intakeSentMessage.value = `Intake form emailed to ${inquiry.value.pi.email} on ${sentDate}`
   }
   catch {
@@ -329,13 +363,18 @@ async function sendIntakeForm() {
   }
 }
 
+function openDecline() {
+  resetPendingCc()
+  declineOpen.value = true
+}
+
 async function confirmDecline() {
   if (!inquiry.value) return
   isDeclining.value = true
   try {
     await $fetch('/api/admin/decline-inquiry', {
       method: 'POST',
-      body: { inquiryId: inquiry.value.id },
+      body: { inquiryId: inquiry.value.id, cc: selectedCc() },
     })
     await adminStore.loadAll()
     navigateTo('/admin/inquiries')
@@ -700,7 +739,7 @@ async function saveEdit() {
               class="btn btn-primary"
               style="width:100%"
               :disabled="isSendingIntake || isDeclining || !canSendIntake"
-              @click="sendIntakeForm"
+              @click="openSendIntakeConfirm"
             >
               {{ isSendingIntake ? 'Sending…' : (inquiry.status === 'Billing Sent' ? 'Re-send billing form ✉' : 'Send billing form ✉') }}
             </button>
@@ -738,9 +777,19 @@ async function saveEdit() {
             class="btn btn-danger btn-sm"
             style="width:100%"
             :disabled="isApproving || isDeclining"
-            @click="declineOpen = true"
+            @click="openDecline"
           >
             {{ isDeclining ? 'Declining… ✕' : 'Decline ✕' }}
+          </button>
+        </template>
+        <template v-if="inquiry.status === 'Declined'">
+          <button
+            class="btn btn-danger btn-sm"
+            style="width:100%"
+            :disabled="isDeleting"
+            @click="deleteOpen = true"
+          >
+            {{ isDeleting ? 'Deleting…' : 'Delete inquiry ✕' }}
           </button>
         </template>
       </div>
@@ -1275,7 +1324,7 @@ async function saveEdit() {
 
   <!-- Decline confirmation modal -->
   <div v-if="declineOpen" class="clerk-overlay" @click.self="declineOpen = false">
-    <div class="edit-modal">
+    <div class="edit-modal edit-modal-cc">
       <div class="em-head">
         <h3>Decline inquiry</h3>
       </div>
@@ -1284,8 +1333,9 @@ async function saveEdit() {
           Are you sure you want to decline the inquiry from <strong>{{ inquiry?.pi.name }}</strong><template v-if="inquiry?.studyName"> for <strong>{{ inquiry?.studyName }}</strong></template>?
         </p>
         <p style="margin:0; font-size:0.82rem; color:var(--muted);">
-          A notification email will be sent to the submitter. This action cannot be undone.
+          A notification email will be sent to <strong>{{ inquiry?.pi.name }}</strong> ({{ inquiry?.pi.email }}). This action cannot be undone.
         </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="inquiry?.studyLead" :key-personnel="keyPersonnel" />
       </div>
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isDeclining" @click="declineOpen = false">Cancel</button>
@@ -1296,28 +1346,79 @@ async function saveEdit() {
     </div>
   </div>
 
-  <!-- Approve confirmation modal — only shown when the resulting User
-       Agreement would still have blank fields -->
+  <!-- Approve confirmation modal — always shown, since approving always emails
+       the PI the agreement package. The blank-fields warning is an extra
+       notice folded in when the User Agreement would still have gaps. -->
   <div v-if="approveConfirmOpen" class="clerk-overlay" @click.self="approveConfirmOpen = false">
-    <div class="edit-modal">
+    <div class="edit-modal edit-modal-cc">
       <div class="em-head">
-        <h3>Some fields are still blank</h3>
+        <h3>Approve inquiry &amp; send agreements?</h3>
       </div>
       <div class="em-body">
-        <p style="margin:0 0 0.6rem; font-size:0.88rem;">
-          The following will show up as <strong><em>&lt;to be finalized with the I3H team&gt;</em></strong> on the User Agreement:
+        <template v-if="blankAgreementFields.length > 0">
+          <p style="margin:0 0 0.6rem; font-size:0.88rem;">
+            The following will show up as <strong><em>&lt;to be finalized with the I3H team&gt;</em></strong> on the User Agreement:
+          </p>
+          <ul style="margin:0 0 0.6rem 1.2rem; font-size:0.85rem;">
+            <li v-for="label in blankAgreementFields" :key="label">{{ label }}</li>
+          </ul>
+          <p style="margin:0 0 0.6rem; font-size:0.82rem; color:var(--muted);">
+            You can go back and fill these in, or approve now and finalize them with the PI later.
+          </p>
+        </template>
+        <p style="margin:0; font-size:0.88rem;">
+          The agreement package will be emailed to <strong>{{ inquiry?.pi.name }}</strong> ({{ inquiry?.pi.email }}).
         </p>
-        <ul style="margin:0 0 0.6rem 1.2rem; font-size:0.85rem;">
-          <li v-for="label in blankAgreementFields" :key="label">{{ label }}</li>
-        </ul>
-        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
-          You can go back and fill these in, or approve now and finalize them with the PI later.
-        </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="inquiry?.studyLead" :key-personnel="keyPersonnel" />
       </div>
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isApproving" @click="approveConfirmOpen = false">Go back</button>
         <button class="btn btn-success btn-sm" :disabled="isApproving" @click="approveAndSend">
-          {{ isApproving ? 'Approving…' : 'Approve anyway' }}
+          {{ isApproving ? 'Approving…' : (blankAgreementFields.length > 0 ? 'Approve anyway' : 'Approve & send') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send/re-send billing form confirmation -->
+  <div v-if="sendIntakeConfirmOpen" class="clerk-overlay" @click.self="sendIntakeConfirmOpen = false">
+    <div class="edit-modal edit-modal-cc">
+      <div class="em-head">
+        <h3>{{ inquiry?.status === 'Billing Sent' ? 'Re-send billing form?' : 'Send billing form?' }}</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0; font-size:0.88rem;">
+          The billing form link will be emailed to <strong>{{ inquiry?.pi.name }}</strong> ({{ inquiry?.pi.email }}).
+        </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="inquiry?.studyLead" :key-personnel="keyPersonnel" />
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isSendingIntake" @click="sendIntakeConfirmOpen = false">Cancel</button>
+        <button class="btn btn-primary btn-sm" :disabled="isSendingIntake" @click="sendIntakeForm">
+          {{ isSendingIntake ? 'Sending…' : (inquiry?.status === 'Billing Sent' ? 'Re-send billing form' : 'Send billing form') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal — only reachable for a Declined inquiry -->
+  <div v-if="deleteOpen" class="clerk-overlay" @click.self="deleteOpen = false">
+    <div class="edit-modal">
+      <div class="em-head">
+        <h3>Delete inquiry</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0 0 0.4rem; font-size:0.88rem;">
+          Are you sure you want to permanently delete the declined inquiry from <strong>{{ inquiry?.pi.name }}</strong><template v-if="inquiry?.studyName"> for <strong>{{ inquiry?.studyName }}</strong></template>?
+        </p>
+        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+          This action cannot be undone.
+        </p>
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="isDeleting" @click="deleteOpen = false">Cancel</button>
+        <button class="btn btn-danger btn-sm" :disabled="isDeleting" @click="confirmDelete">
+          {{ isDeleting ? 'Deleting…' : 'Delete inquiry' }}
         </button>
       </div>
     </div>

@@ -2193,6 +2193,69 @@ table.budget-table {
   }
 }
 
+/* CC-selection checklist inside an email-confirmation modal (see
+   components/admin/CcSelector.vue) */
+.cc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0;
+}
+
+.cc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .cc-name {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .cc-role {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .cc-email {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+}
+
+.cc-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 0.1rem;
+}
+
+.cc-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.4rem 0 0;
+}
+
+/* Edit modal — medium variant, wide enough for a CC checklist row (name +
+   role + email) to sit on one line */
+.edit-modal-cc {
+  width: 520px;
+}
+
 /* Edit modal — wide variant with scrollable form body */
 .edit-modal-wide {
   width: 640px;

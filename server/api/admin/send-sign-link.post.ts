@@ -6,7 +6,7 @@ import { DEFAULT_TIMEZONE } from '~/server/utils/constants'
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
-  const { studyId, agreementId, timezone } = body
+  const { studyId, agreementId, timezone, cc } = body
 
   if (!studyId || !agreementId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or agreementId' })
@@ -38,7 +38,8 @@ export default defineEventHandler(async (event) => {
   const agreementName = AGREEMENT_NAMES[agreementId] ?? 'Agreement'
 
   await sendEmail({
-    to: piRecipients(pi, studyLead),
+    to: [{ email: pi.email, name: pi.name }],
+    cc: resolveCc(cc, studyLead, pi.email),
     subject: `Action required: Please sign the ${study.name} ${agreementName}`,
     html: buildEmail(pi.name, study.name, study.abbreviation as string, agreementName, signUrl),
   })

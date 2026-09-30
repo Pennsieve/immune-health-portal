@@ -94,8 +94,9 @@ describe('update-study — PI change notification', () => {
     expect(res.notified).toBe(true)
 
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
-    const msg = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string }>; subject: string; html: string }
+    const msg = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string }>; cc: Array<{ email: string }>; subject: string; html: string }
     expect(msg.to).toEqual([{ email: 'lee@example.com', name: 'Dr. Lee' }])
+    expect(msg.cc).toEqual([])
     expect(msg.subject).toContain('Immune Ageing')
     // Names the specific fields and their before → after values
     expect(msg.html).toContain('Study name')
@@ -142,14 +143,25 @@ describe('update-study — PI change notification', () => {
     expect(html).toContain('updated')
   })
 
-  it('also emails the study lead when one is set', async () => {
+  it('also CCs the study lead when one is set', async () => {
     const { result } = run(
       studyRow(),
       body({ irb: '2026-999', studyLead: { name: 'Sam Lead', email: 'sam@example.com' } }),
     )
     await result
-    const to = (sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string }> }).to
-    expect(to.map(r => r.email)).toEqual(['lee@example.com', 'sam@example.com'])
+    const msg = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string }>; cc: Array<{ email: string }> }
+    expect(msg.to.map(r => r.email)).toEqual(['lee@example.com'])
+    expect(msg.cc.map(r => r.email)).toEqual(['sam@example.com'])
+  })
+
+  it('honors an explicit cc list from the request body', async () => {
+    const { result } = run(
+      studyRow(),
+      body({ irb: '2026-999', cc: [{ email: 'personnel@example.com', name: 'Sam Personnel' }] }),
+    )
+    await result
+    const cc = (sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }).cc
+    expect(cc).toEqual([{ email: 'personnel@example.com', name: 'Sam Personnel' }])
   })
 
   it('does not fail the update when the notification email throws', async () => {

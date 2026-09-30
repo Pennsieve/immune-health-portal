@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 import type { CollectionVisit } from '~/types/index'
 import type { SampleDetailsAnswers } from '~/utils/sampleDetailsFields'
+import type { CcCandidate } from '~/utils/emailRecipients'
 
 // Lifecycle: 'Lead' (simple lead form submitted) → 'Billing Sent' (billing
 // form link emailed) → 'New' (billing form received, awaiting review) → terminal.
@@ -405,10 +406,10 @@ export const useAdminStore = defineStore('admin', {
       budget: Study['budget']
       intakeDetails?: Record<string, unknown>
       keyPersonnel?: Array<{ name: string; email: string; role: string }>
-    }, changeNote?: string) {
+    }, changeNote?: string, cc?: CcCandidate[]) {
       const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle']; notified: boolean }>('/api/admin/update-study', {
         method: 'POST',
-        body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, ...fields },
+        body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, cc, ...fields },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
@@ -449,6 +450,29 @@ export const useAdminStore = defineStore('admin', {
       this.sessionEvents.unshift({
         dotClass: 'w',
         title: `Study deleted — ${studyName}`,
+        date: dateStr,
+        ts: Date.now(),
+      })
+    },
+
+    async deleteInquiry(inquiryId: string) {
+      const inquiry = this.inquiries.find(i => i.id === inquiryId)
+      const inquiryName = inquiry?.studyName || inquiry?.pi.name || inquiryId
+
+      await $fetch('/api/admin/delete-inquiry', {
+        method: 'POST',
+        body: { inquiryId },
+      })
+
+      this.inquiries = this.inquiries.filter(i => i.id !== inquiryId)
+
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' · ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+
+      this.sessionEvents.unshift({
+        dotClass: 'w',
+        title: `Declined inquiry deleted — ${inquiryName}`,
         date: dateStr,
         ts: Date.now(),
       })
@@ -508,10 +532,10 @@ export const useAdminStore = defineStore('admin', {
     },
 
     // Email the tokenized full-intake link to a lead (or re-send it)
-    async sendIntakeLink(inquiryId: string) {
+    async sendIntakeLink(inquiryId: string, cc?: CcCandidate[]) {
       const { sentDate, activityItem } = await $fetch<{ success: boolean; sentDate: string; activityItem: ActivityItem }>('/api/admin/send-intake-link', {
         method: 'POST',
-        body: { inquiryId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        body: { inquiryId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, cc },
       })
       const inquiry = this.inquiries.find(i => i.id === inquiryId)
       if (inquiry) {

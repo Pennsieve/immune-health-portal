@@ -2,7 +2,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const { inquiryId } = await readBody(event)
+  const { inquiryId, cc } = await readBody(event)
 
   if (!inquiryId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId' })
@@ -81,7 +81,8 @@ export default defineEventHandler(async (event) => {
     `
 
     await sendEmail({
-      to: piRecipients(pi, studyLead),
+      to: [{ email: pi.email, name: pi.name }],
+      cc: resolveCc(cc, studyLead, pi.email),
       subject: subjectLine,
       html: declinedHtml,
     })
