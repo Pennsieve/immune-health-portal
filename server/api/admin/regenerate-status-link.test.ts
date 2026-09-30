@@ -70,11 +70,19 @@ describe('regenerate-status-link', () => {
   it('CCs the study lead when one is on file', async () => {
     const { result } = run(study({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
     await result
-    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
-    expect(to).toEqual([
-      { email: 'lee@example.com', name: 'Dr. Lee' },
-      { email: 'coord@example.com', name: 'Coordinator' },
-    ])
+    const { to, cc } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }>; cc: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([{ email: 'lee@example.com', name: 'Dr. Lee' }])
+    expect(cc).toEqual([{ email: 'coord@example.com', name: 'Coordinator' }])
+  })
+
+  it('honors an explicit cc list from the request body', async () => {
+    const { result } = run(study({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }), {
+      studyId: 'ima-abcd',
+      cc: [{ email: 'personnel@example.com', name: 'Sam Personnel' }],
+    })
+    await result
+    const { cc } = sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }
+    expect(cc).toEqual([{ email: 'personnel@example.com', name: 'Sam Personnel' }])
   })
 
   it('rejects a missing studyId with 400', async () => {

@@ -76,18 +76,27 @@ describe('send-intake-link — happy path & status transition', () => {
   it('CCs the study lead when one is on file with a different email', async () => {
     const { result } = run(inquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }))
     await result
-    const { to } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }> }
-    expect(to).toEqual([
-      { email: 'lee@example.com', name: 'Dr. Lee' },
-      { email: 'coord@example.com', name: 'Coordinator' },
-    ])
+    const { to, cc } = sendEmailMock.mock.calls[0][0] as { to: Array<{ email: string; name?: string }>; cc: Array<{ email: string; name?: string }> }
+    expect(to).toEqual([{ email: 'lee@example.com', name: 'Dr. Lee' }])
+    expect(cc).toEqual([{ email: 'coord@example.com', name: 'Coordinator' }])
   })
 
   it('does not duplicate the recipient when the study lead shares the PI email', async () => {
     const { result } = run(inquiry({ study_lead: { name: 'Dr. Lee', email: 'lee@example.com' } }))
     await result
-    const { to } = sendEmailMock.mock.calls[0][0] as { to: unknown[] }
+    const { to, cc } = sendEmailMock.mock.calls[0][0] as { to: unknown[]; cc: unknown[] }
     expect(to).toHaveLength(1)
+    expect(cc).toHaveLength(0)
+  })
+
+  it('honors an explicit cc list from the request body', async () => {
+    const { result } = run(inquiry({ study_lead: { name: 'Coordinator', email: 'coord@example.com' } }), {
+      inquiryId: 'inq-1',
+      cc: [{ email: 'personnel@example.com', name: 'Sam Personnel' }],
+    })
+    await result
+    const { cc } = sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }
+    expect(cc).toEqual([{ email: 'personnel@example.com', name: 'Sam Personnel' }])
   })
 })
 

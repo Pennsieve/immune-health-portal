@@ -12,6 +12,7 @@ import {
   normalizeContacts,
   type SampleDetailsContact,
 } from '~/utils/sampleDetailsFields'
+import { ccCandidates } from '~/utils/emailRecipients'
 
 definePageMeta({ layout: 'admin' })
 
@@ -50,6 +51,18 @@ const bloodCollectionFields = [
 
 const keyPersonnel = computed(() => study.value?.keyPersonnel || [])
 
+// CC selection shared by every email-confirmation modal on this page
+// (regenerate status link, resend signing link, send Sample Details link,
+// save & notify) — all draw from the same study's lead + key personnel.
+const pendingCcEmails = ref<string[]>([])
+function resetPendingCc() {
+  pendingCcEmails.value = ccCandidates(study.value?.studyLead, keyPersonnel.value).map(r => r.email)
+}
+function selectedCc() {
+  return ccCandidates(study.value?.studyLead, keyPersonnel.value)
+    .filter(r => pendingCcEmails.value.includes(r.email))
+}
+
 // Sample Details Form (site initiation, post-activation) — read-only rows
 const sampleDetailsRows = computed(() => buildSampleDetailsRows(study.value?.sampleDetails))
 const sampleDetailsContacts = computed(() => buildSampleDetailsContacts(study.value?.sampleDetails))
@@ -86,13 +99,23 @@ function openAgreementsTab() {
 const sendingLink = ref<string | null>(null)
 const sentLink = ref<Set<string>>(new Set())
 
-async function sendSignLink(studyId: string, agreementId: string) {
+const signLinkConfirm = ref<{ studyId: string; agreementId: string; agreementName: string } | null>(null)
+
+function openSignLinkConfirm(studyId: string, agreementId: string, agreementName: string) {
+  resetPendingCc()
+  signLinkConfirm.value = { studyId, agreementId, agreementName }
+}
+
+async function sendSignLink() {
+  if (!signLinkConfirm.value) return
+  const { studyId, agreementId } = signLinkConfirm.value
   const key = `${studyId}-${agreementId}`
+  signLinkConfirm.value = null
   sendingLink.value = key
   try {
     await $fetch('/api/admin/send-sign-link', {
       method: 'POST',
-      body: { studyId, agreementId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      body: { studyId, agreementId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, cc: selectedCc() },
     })
     sentLink.value = new Set([...sentLink.value, key])
   }
@@ -106,13 +129,20 @@ async function sendSignLink(studyId: string, agreementId: string) {
 
 const sendingSampleDetailsLink = ref(false)
 const sentSampleDetailsLink = ref(false)
+const sampleDetailsLinkConfirmOpen = ref(false)
+
+function openSampleDetailsLinkConfirm() {
+  resetPendingCc()
+  sampleDetailsLinkConfirmOpen.value = true
+}
 
 async function sendSampleDetailsLink(studyId: string) {
+  sampleDetailsLinkConfirmOpen.value = false
   sendingSampleDetailsLink.value = true
   try {
     const { sentDate } = await $fetch<{ success: boolean; sentDate: string }>('/api/admin/send-sample-details-link', {
       method: 'POST',
-      body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, cc: selectedCc() },
     })
     if (study.value) study.value.sampleDetailsSentDate = sentDate
     sentSampleDetailsLink.value = true
@@ -395,13 +425,18 @@ const regenerateOpen = ref(false)
 const isRegenerating = ref(false)
 const regenerateCopied = ref(false)
 
+function openRegenerate() {
+  resetPendingCc()
+  regenerateOpen.value = true
+}
+
 async function regenerateStatusLink() {
   if (!study.value) return
   isRegenerating.value = true
   try {
     const { statusUrl } = await $fetch<{ statusUrl: string }>('/api/admin/regenerate-status-link', {
       method: 'POST',
-      body: { studyId: study.value.id },
+      body: { studyId: study.value.id, cc: selectedCc() },
     })
     study.value.statusTokenVersion++
     regenerateOpen.value = false
@@ -522,11 +557,9 @@ function editChangeNote(): string | undefined {
 const saveConfirmOpen = ref(false)
 const pendingChanges = ref<StudyChange[]>([])
 
-const notifyRecipients = computed(() => {
-  const names = [editForm.piName.trim() || study.value?.pi.name || 'the PI']
-  if (editForm.studyLeadName.trim()) names.push(editForm.studyLeadName.trim())
-  return names.join(' and ')
-})
+// Who this gets emailed to is now decided by the CC checklist below, so this
+// only names the primary (To:) recipient.
+const notifyRecipients = computed(() => editForm.piName.trim() || study.value?.pi.name || 'the PI')
 
 function previewStudyChanges(): StudyChange[] {
   if (!study.value) return []
@@ -553,9 +586,20 @@ function previewStudyChanges(): StudyChange[] {
   return diffStudyDetails(before, after)
 }
 
+// The save flow's CC candidates come from the *edited* form values (the admin
+// may be changing the lead/personnel in this same save), not from the study's
+// current on-file values — unlike every other modal on this page.
+function editFormCcCandidates() {
+  const lead = editForm.studyLeadName.trim()
+    ? { name: editForm.studyLeadName.trim(), email: editForm.studyLeadEmail.trim() }
+    : null
+  return ccCandidates(lead, editForm.keyPersonnel)
+}
+
 function promptSave() {
   if (!study.value || !editForm.name.trim() || !hasChanges.value) return
   pendingChanges.value = previewStudyChanges()
+  pendingCcEmails.value = editFormCcCandidates().map(r => r.email)
   saveConfirmOpen.value = true
 }
 
@@ -568,12 +612,15 @@ async function saveEdit() {
   isSaving.value = true
   try {
     const changeCount = pendingChanges.value.length
-    const { notified } = await adminStore.updateStudy(study.value.id, editedStudyFields(), editChangeNote())
+    const cc = changeCount > 0
+      ? editFormCcCandidates().filter(r => pendingCcEmails.value.includes(r.email))
+      : undefined
+    const { notified } = await adminStore.updateStudy(study.value.id, editedStudyFields(), editChangeNote(), cc)
     saveConfirmOpen.value = false
     editOpen.value = false
     showToast(
       notified
-        ? `Study updated — ${notifyRecipients.value} emailed about the ${changeCount === 1 ? 'change' : `${changeCount} changes`}.`
+        ? `Study updated — ${notifyRecipients.value}${cc?.length ? ` and ${cc.length} cc'd` : ''} emailed about the ${changeCount === 1 ? 'change' : `${changeCount} changes`}.`
         : 'Study updated.',
     )
   }
@@ -670,7 +717,7 @@ const affiliationClass = computed(() => {
         </template>
         <button class="btn btn-secondary btn-sm" style="width:100%" @click="openEdit">Edit ✎</button>
         <button class="btn btn-danger btn-sm" style="width:100%" @click="deleteOpen = true">Delete ✕</button>
-        <button class="btn btn-ghost btn-sm" style="width:100%;font-size:0.78rem;" @click="regenerateOpen = true">
+        <button class="btn btn-ghost btn-sm" style="width:100%;font-size:0.78rem;" @click="openRegenerate">
           {{ regenerateCopied ? 'Link copied ✓' : 'Regenerate PI status link' }}
         </button>
       </div>
@@ -908,7 +955,7 @@ const affiliationClass = computed(() => {
               <button
                 class="btn btn-ghost btn-sm"
                 :disabled="sendingLink === study.id + '-' + agreement.id"
-                @click="sendSignLink(study.id, agreement.id)"
+                @click="openSignLinkConfirm(study.id, agreement.id, agreement.name)"
               >
                 {{ sentLink.has(study.id + '-' + agreement.id) ? '✓ Link sent' : sendingLink === study.id + '-' + agreement.id ? 'Sending…' : 'Resend secure link' }}
               </button>
@@ -1023,7 +1070,7 @@ const affiliationClass = computed(() => {
               v-if="!hasSampleDetailsAnswers"
               class="btn btn-ghost btn-sm"
               :disabled="sendingSampleDetailsLink"
-              @click="sendSampleDetailsLink(study.id)"
+              @click="openSampleDetailsLinkConfirm"
             >
               {{ sentSampleDetailsLink ? 'Link sent ✓' : sendingSampleDetailsLink ? 'Sending…' : (study.sampleDetailsSentDate ? 'Resend sample details form' : 'Send sample details form') }}
             </button>
@@ -1142,7 +1189,7 @@ const affiliationClass = computed(() => {
 
   <!-- Regenerate PI status link modal -->
   <div v-if="regenerateOpen" class="clerk-overlay" @click.self="regenerateOpen = false">
-    <div class="edit-modal">
+    <div class="edit-modal edit-modal-cc">
       <div class="em-head">
         <h3>Regenerate PI status link</h3>
       </div>
@@ -1150,14 +1197,61 @@ const affiliationClass = computed(() => {
         <p style="margin:0 0 0.75rem; font-size:0.88rem;">
           This will invalidate the PI's current status link, generate a new one, email it to the PI, and copy it to your clipboard.
         </p>
-        <p style="margin:0; font-size:0.82rem; color:var(--muted);">
+        <p style="margin:0 0 0.75rem; font-size:0.82rem; color:var(--muted);">
           Use this if the PI's email address changed, or if the link was accidentally shared with someone it shouldn't have been.
         </p>
+        <p style="margin:0; font-size:0.88rem;">
+          The new link will be emailed to <strong>{{ study?.pi.name }}</strong> ({{ study?.pi.email }}).
+        </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="study?.studyLead" :key-personnel="keyPersonnel" />
       </div>
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isRegenerating" @click="regenerateOpen = false">Cancel</button>
         <button class="btn btn-secondary btn-sm" :disabled="isRegenerating" @click="regenerateStatusLink">
           {{ isRegenerating ? 'Regenerating…' : 'Regenerate & copy link' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resend agreement signing link confirmation -->
+  <div v-if="signLinkConfirm" class="clerk-overlay" @click.self="signLinkConfirm = null">
+    <div class="edit-modal edit-modal-cc">
+      <div class="em-head">
+        <h3>Resend signing link?</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0; font-size:0.88rem;">
+          A new secure link for the <strong>{{ signLinkConfirm.agreementName }}</strong> will be emailed to
+          <strong>{{ study?.pi.name }}</strong> ({{ study?.pi.email }}).
+        </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="study?.studyLead" :key-personnel="keyPersonnel" />
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="!!sendingLink" @click="signLinkConfirm = null">Cancel</button>
+        <button class="btn btn-secondary btn-sm" :disabled="!!sendingLink" @click="sendSignLink">
+          {{ sendingLink ? 'Sending…' : 'Resend link' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send/resend Sample Details Form link confirmation -->
+  <div v-if="sampleDetailsLinkConfirmOpen" class="clerk-overlay" @click.self="sampleDetailsLinkConfirmOpen = false">
+    <div class="edit-modal edit-modal-cc">
+      <div class="em-head">
+        <h3>{{ study?.sampleDetailsSentDate ? 'Resend Sample Details Form?' : 'Send Sample Details Form?' }}</h3>
+      </div>
+      <div class="em-body">
+        <p style="margin:0; font-size:0.88rem;">
+          The Sample Details Form link will be emailed to <strong>{{ study?.pi.name }}</strong> ({{ study?.pi.email }}).
+        </p>
+        <AdminCcSelector v-model="pendingCcEmails" :lead="study?.studyLead" :key-personnel="keyPersonnel" />
+      </div>
+      <div class="em-foot">
+        <button class="btn btn-ghost btn-sm" :disabled="sendingSampleDetailsLink" @click="sampleDetailsLinkConfirmOpen = false">Cancel</button>
+        <button class="btn btn-secondary btn-sm" :disabled="sendingSampleDetailsLink" @click="study && sendSampleDetailsLink(study.id)">
+          {{ sendingSampleDetailsLink ? 'Sending…' : 'Send' }}
         </button>
       </div>
     </div>
@@ -1569,7 +1663,7 @@ const affiliationClass = computed(() => {
   <!-- Save confirmation — the PI already has the agreement package, so any
        study-record change emails them the specifics. -->
   <div v-if="saveConfirmOpen" class="clerk-overlay" @click.self="saveConfirmOpen = false">
-    <div class="edit-modal">
+    <div class="edit-modal edit-modal-cc">
       <div class="em-head">
         <h3>Save changes &amp; notify the PI?</h3>
       </div>
@@ -1586,6 +1680,7 @@ const affiliationClass = computed(() => {
               <span class="scl-detail">{{ changeText(c) }}</span>
             </li>
           </ul>
+          <AdminCcSelector v-model="pendingCcEmails" :lead="editForm.studyLeadName.trim() ? { name: editForm.studyLeadName, email: editForm.studyLeadEmail } : null" :key-personnel="editForm.keyPersonnel" />
         </template>
         <p v-else style="margin:0; font-size:0.88rem;">
           No PI-facing values changed, so no notification email will be sent. Save anyway?

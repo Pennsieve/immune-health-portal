@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 import { ONBOARDING_CHECKLIST } from '../server/utils/onboarding'
-import { piRecipients } from '../server/utils/email'
+import { piRecipients, resolveCc } from '../server/utils/email'
 
 // Nuxt/Nitro auto-import a handful of helpers into server handlers (they appear
 // as bare globals in the source, not explicit imports). To unit-test a handler
@@ -58,6 +58,11 @@ g.DEFAULT_TIMEZONE = 'America/New_York'
 // piRecipients is pure logic (PI + study-lead CC) — auto-imported from
 // server/utils/email.ts. Use the real implementation so tests exercise it.
 g.piRecipients = piRecipients
+
+// resolveCc is pure logic (explicit cc list, or a lead-only fallback) —
+// auto-imported from server/utils/email.ts. Use the real implementation so
+// tests exercise it.
+g.resolveCc = resolveCc
 
 // ONBOARDING_CHECKLIST is auto-imported from server/utils/onboarding.ts.
 g.ONBOARDING_CHECKLIST = ONBOARDING_CHECKLIST

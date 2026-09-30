@@ -11,7 +11,7 @@ function parseRate(rateVal: string | number): number {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const { inquiryId, timezone } = await readBody(event)
+  const { inquiryId, timezone, cc } = await readBody(event)
 
   if (!inquiryId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId' })
@@ -187,7 +187,8 @@ export default defineEventHandler(async (event) => {
 
   // 4. Email the PI (and study lead, if one is on file)
   await sendEmail({
-    to: piRecipients(pi, studyLead),
+    to: [{ email: pi.email, name: pi.name }],
+    cc: resolveCc(cc, studyLead, pi.email),
     subject: `Action required: Agreement package for ${studyName}`,
     html: buildApprovalEmail(pi.name, studyName, abbreviation, links, statusUrl),
   })

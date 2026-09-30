@@ -6,7 +6,7 @@ import { createIntakeToken } from '~/server/utils/signing'
 // fresh 30-day token).
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const { inquiryId, timezone } = await readBody(event)
+  const { inquiryId, timezone, cc } = await readBody(event)
 
   if (!inquiryId) {
     throw createError({ statusCode: 400, statusMessage: 'Missing inquiryId' })
@@ -76,7 +76,8 @@ export default defineEventHandler(async (event) => {
 </div>`
 
   await sendEmail({
-    to: piRecipients(lead, studyLead),
+    to: [{ email: lead.email, name: lead.name }],
+    cc: resolveCc(cc, studyLead, lead.email),
     subject: 'Next step: your I3H billing form',
     html,
   })
