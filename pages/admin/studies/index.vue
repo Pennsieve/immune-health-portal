@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAdminStore } from '~/stores/admin'
 import type { StudyStage, Affiliation } from '~/stores/admin'
+import { toCsv, downloadCsv } from '~/utils/csv'
 
 definePageMeta({ layout: 'admin' })
 
@@ -86,6 +87,74 @@ const signedCount = (study: typeof adminStore.studies[0]) =>
 // since there's no real invoicing system behind this app.
 const estimatedBudget = (study: typeof adminStore.studies[0]) =>
   study.budget.lines.reduce((sum, l) => sum + l.rate * l.planned, 0)
+
+// Bulk billing export — selection is independent of the current filters, so
+// a study picked before narrowing the list stays selected.
+const selectedIds = ref<Set<string>>(new Set())
+
+const allDisplayedSelected = computed(() =>
+  displayedStudies.value.length > 0 && displayedStudies.value.every(s => selectedIds.value.has(s.id)),
+)
+const someDisplayedSelected = computed(() =>
+  displayedStudies.value.some(s => selectedIds.value.has(s.id)),
+)
+
+function toggleRow(id: string) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+function toggleSelectAllDisplayed() {
+  const next = new Set(selectedIds.value)
+  if (allDisplayedSelected.value) {
+    displayedStudies.value.forEach(s => next.delete(s.id))
+  }
+  else {
+    displayedStudies.value.forEach(s => next.add(s.id))
+  }
+  selectedIds.value = next
+}
+
+// v-bind can't set the indeterminate DOM property directly, so it's applied
+// via a ref callback whenever the header checkbox (re)renders.
+function setHeaderCheckboxState(el: unknown) {
+  if (el instanceof HTMLInputElement) {
+    el.indeterminate = someDisplayedSelected.value && !allDisplayedSelected.value
+  }
+}
+
+const CSV_HEADERS = [
+  'Study', 'Abbreviation', 'PI Name', 'PI Email', 'IRB', 'Affiliation', 'Stage',
+  'Account Code', 'Funding Source', 'BA Name', 'BA Email', 'Contracting Contact', 'Estimated Total',
+]
+
+function exportSelectedCsv() {
+  const selected = adminStore.studies
+    .filter(s => selectedIds.value.has(s.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const rows = selected.map(s => [
+    s.name,
+    s.abbreviation,
+    s.pi.name,
+    s.pi.email,
+    s.irb,
+    s.affiliation,
+    s.stage,
+    s.budget.accountCode ?? '',
+    s.budget.fundingName ?? '',
+    s.budget.baName ?? '',
+    s.budget.baEmail ?? '',
+    s.budget.contractingContact ?? '',
+    estimatedBudget(s).toFixed(2),
+  ])
+
+  const csv = toCsv(CSV_HEADERS, rows)
+  const today = new Date().toISOString().slice(0, 10)
+  downloadCsv(`billing-export-${today}.csv`, csv)
+}
 </script>
 
 <template>
@@ -124,6 +193,14 @@ const estimatedBudget = (study: typeof adminStore.studies[0]) =>
         <input v-model="searchQuery" type="search" placeholder="Search study, PI, IRB…">
       </div>
       <div class="toolbar-spacer" />
+      <button
+        class="btn btn-secondary btn-sm"
+        :disabled="selectedIds.size === 0"
+        :title="selectedIds.size === 0 ? 'Select one or more studies to export' : ''"
+        @click="exportSelectedCsv"
+      >
+        Export billing CSV{{ selectedIds.size > 0 ? ` (${selectedIds.size})` : '' }}
+      </button>
       <button class="btn btn-ghost btn-sm" @click="cycleSort">Sort: {{ sortLabels[sortBy] }}</button>
     </div>
 
@@ -131,6 +208,15 @@ const estimatedBudget = (study: typeof adminStore.studies[0]) =>
       <table class="data-table">
         <thead>
           <tr>
+            <th class="col-check">
+              <input
+                :ref="setHeaderCheckboxState"
+                type="checkbox"
+                :checked="allDisplayedSelected"
+                :disabled="displayedStudies.length === 0"
+                @click.stop="toggleSelectAllDisplayed"
+              >
+            </th>
             <th>Study</th>
             <th>PI</th>
             <th>Affil.</th>
@@ -148,6 +234,13 @@ const estimatedBudget = (study: typeof adminStore.studies[0]) =>
             :key="study.id"
             @click="navigateTo('/admin/studies/' + study.id)"
           >
+            <td class="col-check" @click.stop>
+              <input
+                type="checkbox"
+                :checked="selectedIds.has(study.id)"
+                @click.stop="toggleRow(study.id)"
+              >
+            </td>
             <td>
               <div class="study-name">{{ study.name }}</div>
               <div class="study-pi">{{ study.abbreviation }} · IRB {{ study.irb }}</div>

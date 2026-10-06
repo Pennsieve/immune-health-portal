@@ -720,6 +720,18 @@ table.data-table {
   }
 }
 
+table.data-table .col-check {
+  width: 2.2rem;
+  padding-left: 1.1rem;
+  padding-right: 0;
+
+  input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    cursor: pointer;
+  }
+}
+
 .study-name { font-weight: 600; color: var(--ink); }
 .study-pi { font-size: 0.76rem; color: var(--muted); margin-top: 0.1rem; }
 
