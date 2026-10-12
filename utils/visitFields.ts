@@ -61,9 +61,15 @@ export function cohortLabel(group: CollectionGroup, index: number): string {
 // otherwise (pre-redesign visits, or bulk-imported data that doesn't fit the
 // structured shape).
 export function visitDescription(visit: CollectionVisit): string {
-  if (visit.amount && visit.unit && visit.timing && visit.event) {
-    const unitWord = visit.amount === 1 ? UNIT_SINGULAR[visit.unit] : visit.unit
-    return `${visit.amount} ${unitWord} ${visit.timing} ${visit.event}`
+  // timing + event are the minimum for a valid structured visit; amount +
+  // unit are an optional upgrade to the full sentence. Missing either one
+  // just drops the leading "N unit" clause rather than hiding everything.
+  if (visit.timing && visit.event) {
+    if (visit.amount && visit.unit) {
+      const unitWord = visit.amount === 1 ? UNIT_SINGULAR[visit.unit] : visit.unit
+      return `${visit.amount} ${unitWord} ${visit.timing} ${visit.event}`
+    }
+    return `${visit.timing} ${visit.event}`
   }
   return visit.description || ''
 }
