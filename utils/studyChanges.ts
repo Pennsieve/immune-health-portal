@@ -105,7 +105,15 @@ function leftoverText(v: unknown): string {
 }
 
 type LooseCohort = NonNullable<StudyDetailSnapshot['cohort']>
-type LooseVisit = { id?: string; label?: string; description?: string }
+type LooseVisit = {
+  id?: string
+  amount?: unknown
+  unit?: string
+  timing?: string
+  event?: string
+  label?: string
+  description?: string
+}
 type LooseGroup = { name?: string; description?: string; subjects?: unknown; samples?: Record<string, unknown> }
 
 // A shape-independent fingerprint of the cohort sample matrix. Stored rows,
@@ -119,6 +127,10 @@ function canonicalMatrix(cohort: LooseCohort): string {
   return JSON.stringify({
     visits: visits.map(v => ({
       id: v?.id ?? '',
+      amount: Number(v?.amount) || 0,
+      unit: v?.unit ?? '',
+      timing: v?.timing ?? '',
+      event: (v?.event ?? '').trim(),
       label: (v?.label ?? '').trim(),
       description: (v?.description ?? '').trim(),
     })),
@@ -127,7 +139,7 @@ function canonicalMatrix(cohort: LooseCohort): string {
       description: (g?.description ?? '').trim(),
       subjects: Number(g?.subjects) || 0,
       // positional, keyed to the visit order above — tolerates missing keys
-      samples: visitIds.map(id => Number(g?.samples?.[id]) || 0),
+      samples: visitIds.map(id => Boolean(g?.samples?.[id])),
     })),
   })
 }

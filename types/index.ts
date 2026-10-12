@@ -91,23 +91,39 @@ export interface ServiceRequest {
 
 // Intake Form Types
 
+export type VisitTimeUnit = 'days' | 'weeks' | 'months' | 'years'
+export type VisitTiming = 'before' | 'after'
+
 // A study-defined visit/timepoint column in the cohort sample matrix. Admins
 // define these per study (see "Defining Visits" in the admin edit modals) —
 // there's no longer a fixed set of timepoints shared across every study.
+// New visits are fully structured ("2 days after vaccine is given" ==
+// amount/unit/timing/event); `label`/`description` are a legacy/freeform
+// fallback for visits created before this shape existed (or bulk-imported
+// historical data whose visit names don't decompose into that structure,
+// e.g. "D(+177) CIB") — see utils/visitFields.ts for how the two are
+// reconciled for display.
 export interface CollectionVisit {
   id: string
-  label: string
+  amount?: number
+  unit?: VisitTimeUnit
+  timing?: VisitTiming
+  event?: string
+  label?: string
   description?: string
 }
 
-// One cohort/group row in the sample matrix. `samples` holds the tubes/parent
-// samples collected per subject at each visit (0 = not collected), keyed by
-// the visit's `id`.
+// One cohort/group row in the sample matrix. `samples` records whether a
+// sample is collected per subject at each visit, keyed by the visit's `id`.
+// Cohorts are auto-labeled ("Cohort A", "Cohort B", ...) by position — `name`
+// is only set on legacy/bulk-imported cohorts that already had a real name
+// (e.g. "SLE", "Treatment arm") before this shape existed; see
+// utils/visitFields.ts's `cohortLabel()`.
 export interface CollectionGroup {
-  name: string
+  name?: string
   description?: string
   subjects: number
-  samples: Record<string, number>
+  samples: Record<string, boolean>
 }
 
 // Simple public lead form — first contact, before I3H has met the lead. The

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
-import type { CollectionVisit } from '~/types/index'
+import type { CollectionVisit, CollectionGroup } from '~/types/index'
 import type { SampleDetailsAnswers } from '~/utils/sampleDetailsFields'
 import type { CcCandidate } from '~/utils/emailRecipients'
 
@@ -45,7 +45,7 @@ export interface Inquiry {
   // 'hold' parks the lead ('On Hold') until holdUntil. Undefined = undecided.
   leadDecision?: 'proceed' | 'hold'
   holdUntil?: string
-  collectionGroups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+  collectionGroups?: CollectionGroup[]
   collectionVisits?: CollectionVisit[]
   keyPersonnel?: Array<{ name: string; email: string; role: string }>
   notes: Array<{ author: string; date: string; text: string; ts?: number }>
@@ -89,7 +89,7 @@ export interface Study {
     subjects: number
     totalSamples: number
     processedSamples: number
-    groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+    groups?: CollectionGroup[]
     visits?: CollectionVisit[]
   }
   budget: {
@@ -145,7 +145,7 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     intakeSentDate: row.intake_sent_date as string | undefined,
     leadDecision: row.lead_decision as 'proceed' | 'hold' | undefined,
     holdUntil: row.hold_until as string | undefined,
-    collectionGroups: (row.sample_schedule as Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>) || [],
+    collectionGroups: (row.sample_schedule as CollectionGroup[]) || [],
     collectionVisits: (row.collection_visits as CollectionVisit[]) || [],
     keyPersonnel: (row.key_personnel as Array<{ name: string; email: string; role: string }>) || [],
     notes: (row.notes as Array<{ author: string; date: string; text: string; ts?: number }>) || [],
@@ -496,7 +496,7 @@ export const useAdminStore = defineStore('admin', {
       estimate?: number
       additionalNotes?: string
       intakeDetails?: Record<string, unknown>
-      collectionGroups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+      collectionGroups?: CollectionGroup[]
       collectionVisits?: CollectionVisit[]
       keyPersonnel?: Array<{ name: string; email: string; role: string }>
     }, changeNote?: string) {

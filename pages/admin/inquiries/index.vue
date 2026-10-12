@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAdminStore, type Inquiry } from '~/stores/admin'
+import { matrixGrandTotal } from '~/utils/visitFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -8,11 +9,7 @@ definePageMeta({ layout: 'admin' })
 const scopeDisplay = (inquiry: Inquiry) => {
   const groups = inquiry.collectionGroups || []
   if (!groups.length && !inquiry.cohortSubjects) return '—'
-  const total = groups.reduce(
-    (sum, g) => sum + (Number(g.subjects) || 0)
-      * Object.values(g.samples || {}).reduce((a, b) => a + (Number(b) || 0), 0),
-    0,
-  )
+  const total = matrixGrandTotal(groups, inquiry.collectionVisits || [])
   return `${inquiry.cohortSubjects} subj · ${total.toLocaleString()} samples`
 }
 

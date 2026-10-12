@@ -13,6 +13,7 @@
 //     other reason).
 // ============================================================
 import { intakeDisplayValue } from '~/utils/intakeFields'
+import type { CollectionVisit } from '~/types/index'
 
 // Exported so the sign page can detect an unfilled field and render the
 // bold "< to be finalized with the I3H team >" placeholder instead of plain text.
@@ -89,7 +90,7 @@ export interface StudyForAgreement {
     subjects?: number
     totalSamples?: number
     groups?: Array<Record<string, unknown>>
-    visits?: Array<{ id: string; label: string; description?: string }>
+    visits?: CollectionVisit[]
   } | null
   budget?: {
     accountCode?: string | null

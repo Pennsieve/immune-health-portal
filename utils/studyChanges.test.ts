@@ -106,11 +106,11 @@ describe('diffStudyDetails', () => {
     expect(diffStudyDetails(before, after)).toEqual([])
   })
 
-  it('still flags a real matrix change (a sample count moved)', () => {
+  it('still flags a real matrix change (a visit toggled off)', () => {
     const before = clone(base)
-    before.cohort = { subjects: 15, totalSamples: 45, visits: [{ id: 'v1', label: 'B', description: '' }], groups: [{ name: 'A', description: '', subjects: 10, samples: { v1: 2 } }] }
+    before.cohort = { subjects: 15, totalSamples: 45, visits: [{ id: 'v1', label: 'B', description: '' }], groups: [{ name: 'A', description: '', subjects: 10, samples: { v1: true } }] }
     const after = clone(base)
-    after.cohort = { subjects: 15, totalSamples: 45, visits: [{ id: 'v1', label: 'B', description: '' }], groups: [{ name: 'A', description: '', subjects: 10, samples: { v1: 5 } }] }
+    after.cohort = { subjects: 15, totalSamples: 45, visits: [{ id: 'v1', label: 'B', description: '' }], groups: [{ name: 'A', description: '', subjects: 10, samples: { v1: false } }] }
     expect(diffStudyDetails(before, after).map(c => c.label)).toEqual(['Cohort sample matrix'])
   })
 

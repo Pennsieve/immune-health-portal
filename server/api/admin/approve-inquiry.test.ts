@@ -75,8 +75,8 @@ function baseInquiry(overrides: Record<string, unknown> = {}) {
       { id: 'v3', label: 'V3', description: '21-28 days after treatment' },
     ],
     sample_schedule: [
-      { name: 'Cohort A', subjects: 10, samples: { v1: 2, v2: 1, v3: 0 } },
-      { name: 'Cohort B', subjects: 5, samples: { v1: 1, v2: 1, v3: 1 } },
+      { name: 'Cohort A', subjects: 10, samples: { v1: true, v2: true, v3: false } },
+      { name: 'Cohort B', subjects: 5, samples: { v1: true, v2: true, v3: true } },
     ],
     cohort_subjects: 15,
     intake_details: {},
@@ -130,22 +130,22 @@ describe('approve-inquiry — budget math', () => {
 })
 
 describe('approve-inquiry — sample matrix total', () => {
-  it('totals subjects x sum(visit samples) across cohort groups', async () => {
+  it('totals subjects x count(visits collected) across cohort groups', async () => {
     const { db, result } = invoke(baseInquiry())
     await result
-    // Cohort A: 10 x (2+1+0) = 30; Cohort B: 5 x (1+1+1) = 15 → 45
-    expect(db.inserts.studies[0].cohort.totalSamples).toBe(45)
+    // Cohort A: 10 x 2 collected visits (v1, v2) = 20; Cohort B: 5 x 3 collected visits = 15 → 35
+    expect(db.inserts.studies[0].cohort.totalSamples).toBe(35)
   })
 
-  it('ignores unknown visit ids and defaults missing ones to 0', async () => {
+  it('ignores unknown visit ids and defaults missing ones to not-collected', async () => {
     const { db, result } = invoke(baseInquiry({
       collection_visits: [{ id: 'v1', label: 'V1' }],
-      sample_schedule: [{ name: 'X', subjects: 4, samples: { v1: 2, junk: 99 } }],
+      sample_schedule: [{ name: 'X', subjects: 4, samples: { v1: true, junk: true } }],
     }))
     await result
-    // Only `v1` counts (junk ignored, not a defined visit): 4 x 2 = 8
-    expect(db.inserts.studies[0].cohort.totalSamples).toBe(8)
-    expect(db.inserts.studies[0].cohort.groups[0].samples).toEqual({ v1: 2 })
+    // Only `v1` counts (junk ignored, not a defined visit): 4 x 1 collected visit = 4
+    expect(db.inserts.studies[0].cohort.totalSamples).toBe(4)
+    expect(db.inserts.studies[0].cohort.groups[0].samples).toEqual({ v1: true })
   })
 
   it('freezes the inquiry\'s visit schedule onto the new study', async () => {
