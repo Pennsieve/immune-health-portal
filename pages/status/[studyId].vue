@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import type { CollectionVisit } from '~/types/index'
+import type { CollectionVisit, CollectionGroup } from '~/types/index'
 import { INTAKE_FIELDS, intakeDisplayValue } from '~/utils/intakeFields'
+import {
+  visitLabel,
+  visitDescription,
+  cohortLabel,
+  groupTotal,
+  matrixSubjectsTotal as computeMatrixSubjectsTotal,
+  isVisitCollected,
+} from '~/utils/visitFields'
 
 definePageMeta({ layout: false })
 
@@ -21,7 +29,7 @@ interface Cohort {
   subjects: number
   totalSamples: number
   processedSamples: number
-  groups?: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>
+  groups?: CollectionGroup[]
   visits?: CollectionVisit[]
 }
 
@@ -111,13 +119,9 @@ const ilabsId = computed(() => (study.value?.intakeDetails?.ilabsId as string) |
 // Study-defined visit columns for the cohort sample matrix
 const visits = computed(() => study.value?.cohort.visits ?? [])
 const cohortGroups = computed(() => study.value?.cohort.groups ?? [])
-const groupTotal = (g: { subjects: number; samples: Record<string, number> }, visitList: CollectionVisit[]) =>
-  (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
-const matrixSubjectsTotal = computed(() =>
-  cohortGroups.value.reduce((s, g) => s + (Number(g.subjects) || 0), 0),
-)
+const matrixSubjectsTotal = computed(() => computeMatrixSubjectsTotal(cohortGroups.value))
 const visitTotal = (visitId: string) =>
-  cohortGroups.value.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[visitId]) || 0), 0)
+  cohortGroups.value.reduce((s, g) => s + (isVisitCollected(g, visitId) ? (Number(g.subjects) || 0) : 0), 0)
 
 const keyPersonnel = computed(() => study.value?.keyPersonnel ?? [])
 
@@ -349,17 +353,19 @@ const currency = (n: number) => `$${(n || 0).toLocaleString()}`
             <table class="status-matrix">
               <thead>
                 <tr>
-                  <th style="text-align:left;">Cohort / Group</th>
+                  <th style="text-align:left;">Cohort</th>
                   <th>Subjects</th>
-                  <th v-for="v in visits" :key="v.id">{{ v.label }}</th>
+                  <th v-for="(v, i) in visits" :key="v.id">
+                    <span :title="visitDescription(v) || undefined">{{ visitLabel(v, i) }}</span>
+                  </th>
                   <th>Samples</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(g, i) in cohortGroups" :key="i">
-                  <td style="text-align:left;">{{ g.name || `Cohort ${i + 1}` }}</td>
+                  <td style="text-align:left;"><span :title="g.description || undefined">{{ cohortLabel(g, i) }}</span></td>
                   <td>{{ g.subjects }}</td>
-                  <td v-for="v in visits" :key="v.id">{{ g.samples?.[v.id] || 0 }}</td>
+                  <td v-for="v in visits" :key="v.id">{{ g.samples?.[v.id] ? '✓' : '—' }}</td>
                   <td class="status-matrix-total">{{ groupTotal(g, visits).toLocaleString() }}</td>
                 </tr>
               </tbody>

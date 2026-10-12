@@ -2423,26 +2423,48 @@ table.budget-table {
     vertical-align: middle;
     text-align: center;
 
-    input {
+    input, select {
       width: 100%;
+      height: 2.1rem;
       padding: 0.4rem 0.5rem;
+      font-size: 0.82rem;
+      box-sizing: border-box;
+    }
+
+    // Reserve room for the native/custom dropdown arrow so option text
+    // (e.g. "Months") doesn't run into or clip behind it.
+    select {
+      min-width: 92px;
+      padding-right: 1.7rem;
+      background-position: right 8px center;
+    }
+
+    // Applied while the select is showing its disabled/hidden placeholder
+    // option ("Unit", "Before/after") — reads like an <input placeholder>
+    // instead of a real selected value. The muted color is just for the
+    // select's own closed-state text; reset it on the <option>s so the real,
+    // selectable choices still render at normal contrast once opened.
+    select.select-placeholder {
+      color: var(--muted);
+
+      option {
+        color: var(--ink);
+      }
     }
 
     input[type="number"] {
       width: 58px;
       text-align: center;
     }
+
+    input[type="checkbox"] {
+      width: auto;
+      height: auto;
+    }
   }
 
   td:first-child input {
     min-width: 120px;
-  }
-
-  /* Spanning header over the per-visit sample columns */
-  th.em-matrix-grouphdr {
-    border-bottom: 1px solid var(--line);
-    color: var(--ink);
-    padding-bottom: 0.3rem;
   }
 
   /* Live per-row sample total (subjects × per-visit counts) */

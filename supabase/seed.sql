@@ -3,6 +3,13 @@
 -- Populates mock inquiries (across every lifecycle state), studies,
 -- and agreements so the admin console can be demoed end to end.
 --
+-- Visit shape: most visits below use the structured amount/unit/timing/
+-- event shape ("24 weeks after treatment begins"). `prince-val` and
+-- `vector-chop` are deliberately left in the old label/description shape
+-- (their visits — "Cycle 3", etc. — don't decompose into that structure
+-- anyway) to keep a permanent, realistic demonstration that legacy visit
+-- data still renders correctly. See utils/visitFields.ts.
+--
 -- Inquiry lifecycle covered:
 --   Lead         → simple lead-form submission, awaiting introductory contact
 --   Billing Sent → billing form link emailed, awaiting the detailed form
@@ -78,8 +85,8 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'Please loop in Rachel Thompson on all scheduling emails — she coordinates sample logistics on our end.',
   null, null,
   '{"studySynopsis":"Evaluating peripheral immune correlates of response to an investigational immuno-oncology therapy, comparing responders and non-responders across a 24-week treatment course.","collectionSites":["Remote / off-site"],"collectionSiteOther":"Merck multi-center trial sites","irbStatus":"pending","irbTimeline":"Merck IRB approval expected Q3 2026","bloodVolumePerVisit":"24 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":12,"firstSampleDate":"2026-08","sampleArrivalCadence":"estimated 5 subjects per week for 12 weeks","tubeTypes":["Sodium heparin","EDTA"],"tubeCountHeparin10ml":2,"tubeCountEdta3ml":1}',
-  '[{"name":"Responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}},{"name":"Non-responders","subjects":30,"samples":{"base":1,"w24":1,"w52":0,"w104":0}}]',
-  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
+  '[{"name":"Responders","subjects":30,"samples":{"base":true,"w24":true,"w52":false,"w104":false}},{"name":"Non-responders","subjects":30,"samples":{"base":true,"w24":true,"w52":false,"w104":false}}]',
+  '[{"id":"base","label":"Baseline","description":"Day 0, prior to treatment"},{"id":"w24","amount":24,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w52","amount":52,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w104","amount":104,"unit":"weeks","timing":"after","event":"treatment begins"}]'::jsonb,
   '[{"name":"Rachel Thompson","role":"CRC / Project Coordinator","email":"rthompson@merck.com"},{"name":"Dr. Amara Singh","role":"Co-Investigator","email":"singh@merck.com"}]'::jsonb,
   '[{"author":"Lori Guercio","date":"May 12 · 11:08 AM","text":"CyTOF capacity check w/ Hannah — can absorb in early Q3 batch. Need MSA before agreement package goes out. Routing to legal."}]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":false},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":false},{"label":"iLabs service request ID# received","checked":false},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":false},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":false},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":false},{"label":"Investigator team member added to crc-ihpu slack channel","checked":false},{"label":"Investigator team member has REDcap access","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"User agreement signed","checked":false}]'
@@ -98,8 +105,8 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'Flexible on start date — happy to align with core batch scheduling.',
   null, null,
   '{"studySynopsis":"Investigating immunometabolic profiles associated with cardiovascular risk in an ongoing cardiology pilot cohort.","collectionSites":["HUP"],"irbStatus":"approved","bloodVolumePerVisit":"16 mL","bloodVolumeConfirmed":"yes","enrollmentPeriod":18,"firstSampleDate":"2026-07","sampleArrivalCadence":"estimated 2 subjects per week, ongoing","tubeTypes":["Sodium heparin"],"tubeCountHeparin10ml":1,"ilabsId":"IL-224417"}',
-  '[{"name":"CARDIA","subjects":24,"samples":{"base":1,"w24":1,"w52":1,"w104":0}}]',
-  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
+  '[{"name":"CARDIA","subjects":24,"samples":{"base":true,"w24":true,"w52":true,"w104":false}}]',
+  '[{"id":"base","label":"Baseline","description":"Day 0, prior to treatment"},{"id":"w24","amount":24,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w52","amount":52,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w104","amount":104,"unit":"weeks","timing":"after","event":"treatment begins"}]'::jsonb,
   '[{"name":"Priya Anand","role":"CRC","email":"panand@pennmedicine.upenn.edu"}]'::jsonb,
   '[]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":true},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":false},{"label":"iLabs service request ID# received","checked":false},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":false},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":false},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":false},{"label":"Investigator team member added to crc-ihpu slack channel","checked":false},{"label":"Investigator team member has REDcap access","checked":false},{"label":"Metadata collection plan obtained","checked":false},{"label":"User agreement signed","checked":false}]'
@@ -118,8 +125,8 @@ insert into inquiries (id, study_name, abbreviation, status, submitted_date, sub
   'Two subjects have single-timepoint archival samples only — flagged in cohort matrix as Active disease baseline draws.',
   null, null,
   '{"studySynopsis":"Characterizing peripheral immune signatures that distinguish remission from active disease in a longitudinal IBD cohort followed across four visits over two years.","collectionSites":["HUP","PAH"],"irbStatus":"approved","enrollmentPeriod":24,"firstSampleDate":"2026-06","sampleArrivalCadence":"batched monthly shipments of 8-10 cryovials from referring GI sites","ilabsId":"IL-231180"}',
-  '[{"name":"Remission","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}},{"name":"Active disease","subjects":20,"samples":{"base":1,"w24":1,"w52":1,"w104":1}}]',
-  '[{"id":"base","label":"Base","description":"Day 0"},{"id":"w24","label":"Week 24","description":"Week 24"},{"id":"w52","label":"Week 52","description":"Week 52"},{"id":"w104","label":"Week 104","description":"Week 104"}]'::jsonb,
+  '[{"name":"Remission","subjects":20,"samples":{"base":true,"w24":true,"w52":true,"w104":true}},{"name":"Active disease","subjects":20,"samples":{"base":true,"w24":true,"w52":true,"w104":true}}]',
+  '[{"id":"base","label":"Baseline","description":"Day 0, prior to treatment"},{"id":"w24","amount":24,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w52","amount":52,"unit":"weeks","timing":"after","event":"treatment begins"},{"id":"w104","amount":104,"unit":"weeks","timing":"after","event":"treatment begins"}]'::jsonb,
   '[{"name":"Grace Liu","role":"CRC","email":"gliu@pennmedicine.upenn.edu"},{"name":"Dr. Owen Farrell","role":"Co-Investigator","email":"farrell@pennmedicine.upenn.edu"}]'::jsonb,
   '[{"author":"Lori Guercio","date":"May 14 · 9:40 AM","text":"Feasibility cleared. Approved and agreement package sent to Dr. Lakshmi."}]',
   '[{"label":"Completed intake form received","checked":true},{"label":"IRB is approved and IRB# has been provided (if applicable)","checked":true},{"label":"Contract or active budget account number is executed in CAMS; IH core approved to spend","checked":true},{"label":"iLabs service request ID# received","checked":true},{"label":"Investigator team member responsible for entering visits and delivering samples has account access and completed training","checked":true},{"label":"Sample chain-of-custody plan from blood draw to lab drop off established and approved by Immune Health and investigator’s team","checked":true},{"label":"Sample drop off SOP & 1 pager sent to investigator’s team","checked":true},{"label":"Investigator team member added to crc-ihpu slack channel","checked":true},{"label":"Investigator team member has REDcap access","checked":true},{"label":"Metadata collection plan obtained","checked":true},{"label":"User agreement signed","checked":true}]'
@@ -160,7 +167,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   '{"name":"John Smith","email":"jsmith@pennmedicine.upenn.edu"}',
   'Internal', 'Gastroenterology, Perelman School of Medicine', '850567',
   'Processing', false,
-  '{"subjects":20,"totalSamples":40,"processedSamples":0,"groups":[{"name":"BHB supplementation","subjects":20,"samples":{"base":1,"w12":1}}],"visits":[{"id":"base","label":"Baseline","description":"Day 0, pre-supplementation"},{"id":"w12","label":"Week 12","description":"End of supplementation period"}]}',
+  '{"subjects":20,"totalSamples":40,"processedSamples":0,"groups":[{"name":"BHB supplementation","subjects":20,"samples":{"base":true,"w12":true}}],"visits":[{"id":"base","label":"Baseline","description":"Day 0, pre-supplementation"},{"id":"w12","amount":12,"unit":"weeks","timing":"after","event":"supplementation begins"}]}',
   '{"accountCode":"400-4661-1-605016-xxxx-2459-0000","fundingName":"GI Chemoprevention Program (K Award)","baName":"Karen Liu","baEmail":"kliu@pennmedicine.upenn.edu","billingContact":"khas@pennmedicine.upenn.edu","lines":[{"service":"Project Consultation","rate":250,"planned":1},{"service":"Blood Draw","rate":120,"planned":40},{"service":"Blood Processing","rate":400,"planned":40},{"service":"CyTOF Immune Profiling (MDIPA)","rate":325,"planned":40},{"service":"Tier 1 CyTOF Analysis","rate":50,"planned":40}]}',
   '{"redcap":"23-bhb-pcc","labvantage":"STU-2026-014","pennsieve":"N:dataset:7a44…0c18"}',
   'Jan 15, 2026', 'Division of Gastroenterology · Perelman School of Medicine',
@@ -194,7 +201,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   null,
   'Internal', 'Perelman School of Medicine', '850991',
   'Awaiting Signature', true,
-  '{"subjects":30,"totalSamples":60,"processedSamples":0,"groups":[{"name":"Surgical response cohort","subjects":30,"samples":{"preop":1,"postop":1}}],"visits":[{"id":"preop","label":"Pre-operative","description":"Within 7 days prior to resection"},{"id":"postop","label":"Post-operative","description":"Tissue and blood collected at time of resection"}]}',
+  '{"subjects":30,"totalSamples":60,"processedSamples":0,"groups":[{"name":"Surgical response cohort","subjects":30,"samples":{"preop":true,"postop":true}}],"visits":[{"id":"preop","amount":7,"unit":"days","timing":"before","event":"surgical resection"},{"id":"postop","label":"Post-operative","description":"Tissue and blood collected at time of resection"}]}',
   '{"accountCode":"400-4702-1-607745-xxxx-2460-0000","fundingName":"Division of Oncology Surgical Immunology Fund","baName":"Renee Castillo","baEmail":"castillor@pennmedicine.upenn.edu","billingContact":"billing@pennmedicine.upenn.edu","lines":[{"service":"Project Consultation","rate":250,"planned":1},{"service":"Blood Processing","rate":400,"planned":60},{"service":"CyTOF Immune Profiling (MDIPA)","rate":325,"planned":60},{"service":"Tier 1 CyTOF Analysis","rate":50,"planned":60}]}',
   '{"redcap":"26-surge"}',
   'Mar 28, 2026', 'Division of Oncology',
@@ -211,7 +218,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   null,
   'Internal', 'Division of Rheumatology, Perelman School of Medicine', '22-100482',
   'Processing', false,
-  '{"subjects":50,"totalSamples":200,"processedSamples":124,"groups":[{"name":"SLE","subjects":18,"samples":{"base":1,"m3":1,"m6":1,"m12":1}},{"name":"RA","subjects":16,"samples":{"base":1,"m3":1,"m6":1,"m12":1}},{"name":"MS","subjects":16,"samples":{"base":1,"m3":1,"m6":1,"m12":1}}],"visits":[{"id":"base","label":"Baseline","description":"Day 0"},{"id":"m3","label":"Month 3","description":"3-month follow-up"},{"id":"m6","label":"Month 6","description":"6-month follow-up"},{"id":"m12","label":"Month 12","description":"12-month follow-up"}]}',
+  '{"subjects":50,"totalSamples":200,"processedSamples":124,"groups":[{"name":"SLE","subjects":18,"samples":{"base":true,"m3":true,"m6":true,"m12":true}},{"name":"RA","subjects":16,"samples":{"base":true,"m3":true,"m6":true,"m12":true}},{"name":"MS","subjects":16,"samples":{"base":true,"m3":true,"m6":true,"m12":true}}],"visits":[{"id":"base","label":"Baseline","description":"Day 0"},{"id":"m3","amount":3,"unit":"months","timing":"after","event":"baseline"},{"id":"m6","amount":6,"unit":"months","timing":"after","event":"baseline"},{"id":"m12","amount":12,"unit":"months","timing":"after","event":"baseline"}]}',
   '{"accountCode":"400-4788-1-610317-xxxx-2465-0000","fundingName":"Rheumatology Immune Profiling Pilot Award","baName":"Elena Vasquez","baEmail":"vasqueze@pennmedicine.upenn.edu","billingContact":"billing@pennmedicine.upenn.edu","lines":[{"service":"Project Consultation","rate":250,"planned":1},{"service":"Blood Draw","rate":120,"planned":200},{"service":"Blood Processing","rate":400,"planned":200},{"service":"CyTOF Immune Profiling (MDIPA)","rate":325,"planned":200},{"service":"Tier 1 CyTOF Analysis","rate":50,"planned":200}]}',
   '{"redcap":"22-titan-hms","labvantage":"STU-2025-022","pennsieve":"N:dataset:0a83…cc11"}',
   'Nov 15, 2025', 'Division of Rheumatology · Perelman School of Medicine',
@@ -228,7 +235,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   null,
   'Internal', 'Division of Allergy and Immunology, Perelman School of Medicine', '53294',
   'Complete', false,
-  '{"subjects":35,"totalSamples":105,"processedSamples":105,"groups":[{"name":"SLE longitudinal cohort","subjects":35,"samples":{"dx":1,"m6":1,"m12":1}}],"visits":[{"id":"dx","label":"Diagnosis","description":"At time of SLE diagnosis"},{"id":"m6","label":"6 Months","description":"6 months post-treatment"},{"id":"m12","label":"12 Months","description":"12 months post-treatment"}]}',
+  '{"subjects":35,"totalSamples":105,"processedSamples":105,"groups":[{"name":"SLE longitudinal cohort","subjects":35,"samples":{"dx":true,"m6":true,"m12":true}}],"visits":[{"id":"dx","label":"Diagnosis","description":"At time of SLE diagnosis"},{"id":"m6","amount":6,"unit":"months","timing":"after","event":"diagnosis"},{"id":"m12","amount":12,"unit":"months","timing":"after","event":"diagnosis"}]}',
   '{"accountCode":"400-4791-1-610588-xxxx-2467-0000","fundingName":"Allergy & Immunology SLE Monitoring Award","baName":"Derek Palmer","baEmail":"palmerd@pennmedicine.upenn.edu","billingContact":"billing@pennmedicine.upenn.edu","lines":[{"service":"Project Consultation","rate":250,"planned":1},{"service":"Blood Processing","rate":400,"planned":105},{"service":"CyTOF Immune Profiling (MDIPA)","rate":325,"planned":105},{"service":"Tier 1 CyTOF Analysis","rate":50,"planned":105}]}',
   '{"redcap":"25-immune-su","labvantage":"STU-2025-011","pennsieve":"N:dataset:8c41…dd90"}',
   'Mar 20, 2025', 'Division of Allergy and Immunology · Perelman School of Medicine',
@@ -245,7 +252,7 @@ insert into studies (id, name, abbreviation, pi, study_lead, affiliation, affili
   null,
   'Industry', 'Biogen', '24-CT-008',
   'Processing', false,
-  '{"subjects":50,"totalSamples":150,"processedSamples":50,"groups":[{"name":"Treatment","subjects":25,"samples":{"base":1,"m3":1,"m6":1}},{"name":"Placebo","subjects":25,"samples":{"base":1,"m3":1,"m6":1}}],"visits":[{"id":"base","label":"Baseline","description":"Prior to first dose"},{"id":"m3","label":"Month 3","description":"3-month follow-up"},{"id":"m6","label":"Month 6","description":"6-month follow-up"}]}',
+  '{"subjects":50,"totalSamples":150,"processedSamples":50,"groups":[{"name":"Treatment","subjects":25,"samples":{"base":true,"m3":true,"m6":true}},{"name":"Placebo","subjects":25,"samples":{"base":true,"m3":true,"m6":true}}],"visits":[{"id":"base","label":"Baseline","description":"Prior to first dose"},{"id":"m3","amount":3,"unit":"months","timing":"after","event":"first dose"},{"id":"m6","amount":6,"unit":"months","timing":"after","event":"first dose"}]}',
   '{"contractingContact":"contracts@biogen.com","billingContact":"researchops@biogen.com","lines":[{"service":"Project Consultation","rate":250,"planned":1},{"service":"Blood Draw","rate":180,"planned":150},{"service":"Blood Processing","rate":600,"planned":150},{"service":"CyTOF Immune Profiling (MDIPA)","rate":450,"planned":150},{"service":"Tier 1 CyTOF Analysis","rate":0,"planned":150}]}',
   '{"redcap":"24-nova-bg","labvantage":"STU-2026-008","pennsieve":"N:dataset:1b72…ef33"}',
   'Jan 20, 2026', 'Biogen Research',

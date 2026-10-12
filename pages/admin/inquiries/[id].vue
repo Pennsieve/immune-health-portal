@@ -2,11 +2,22 @@
 import { useAdminStore } from '~/stores/admin'
 import type { Affiliation } from '~/stores/admin'
 import { useServicesStore } from '~/stores/services'
-import type { CollectionVisit } from '~/types/index'
+import type { CollectionVisit, CollectionGroup } from '~/types/index'
 import { INTAKE_FIELDS, INTAKE_SECTIONS, intakeDetailRows, cleanIntakeDetails } from '~/utils/intakeFields'
 import { leadDetailRows } from '~/utils/leadFields'
 import { buildAgreementFields, TBD, type AgreementFields, type StudyForAgreement } from '~/utils/agreementFields'
 import { ccCandidates } from '~/utils/emailRecipients'
+import {
+  VISIT_UNIT_OPTIONS,
+  VISIT_TIMING_OPTIONS,
+  newVisitId,
+  visitLabel,
+  visitDescription,
+  cohortLabel,
+  groupTotal,
+  matrixGrandTotal as computeMatrixGrandTotal,
+  matrixSubjectsTotal,
+} from '~/utils/visitFields'
 
 definePageMeta({ layout: 'admin' })
 
@@ -144,11 +155,7 @@ const bloodCollectionFields = [
 const visits = computed(() => inquiry.value?.collectionVisits || [])
 const collectionGroups = computed(() => inquiry.value?.collectionGroups || [])
 const keyPersonnel = computed(() => inquiry.value?.keyPersonnel || [])
-const groupTotal = (g: { subjects: number; samples: Record<string, number> }, visitList: CollectionVisit[]) =>
-  (Number(g.subjects) || 0) * visitList.reduce((s, v) => s + (Number(g.samples?.[v.id]) || 0), 0)
-const matrixGrandTotal = computed(() =>
-  collectionGroups.value.reduce((s, g) => s + groupTotal(g, visits.value), 0),
-)
+const matrixGrandTotal = computed(() => computeMatrixGrandTotal(collectionGroups.value, visits.value))
 
 // Mirrors approve-inquiry.post.ts's rate parsing — good enough for a
 // pre-approval preview; the real snapshot is computed authoritatively
@@ -223,13 +230,6 @@ const blankAgreementFields = computed(() => {
   }
   return labels
 })
-
-// Generate a stable id for a new visit column (used as the key in every
-// group's `samples` map)
-function newVisitId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
-  return `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
 
 const isApproving = ref(false)
 const isDeclining = ref(false)
@@ -431,31 +431,27 @@ const editForm = reactive({
   additionalNotes: '',
   servicesDetail: [] as ServiceLine[],
   intakeDetails: {} as Record<string, unknown>,
-  collectionGroups: [] as Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>,
+  collectionGroups: [] as CollectionGroup[],
   visits: [] as CollectionVisit[],
   keyPersonnel: [] as Array<{ name: string; email: string; role: string }>,
 })
 
-// Normalise a cohort matrix to numeric cells, keyed by the given visit list,
+// Normalise a cohort matrix to boolean cells, keyed by the given visit list,
 // for comparison / saving
-function normalizeGroups(
-  groups: Array<{ name: string; description?: string; subjects: number; samples: Record<string, number> }>,
-  visitList: CollectionVisit[],
-) {
+function normalizeGroups(groups: CollectionGroup[], visitList: CollectionVisit[]): CollectionGroup[] {
   return groups.map(g => ({
     name: g.name || '',
     description: g.description || '',
     subjects: Number(g.subjects) || 0,
-    samples: Object.fromEntries(visitList.map(v => [v.id, Number(g.samples?.[v.id]) || 0])),
+    samples: Object.fromEntries(visitList.map(v => [v.id, Boolean(g.samples?.[v.id])])),
   }))
 }
 
 function addEditGroup() {
   editForm.collectionGroups.push({
-    name: '',
     description: '',
     subjects: 0,
-    samples: Object.fromEntries(editForm.visits.map(v => [v.id, 0])),
+    samples: Object.fromEntries(editForm.visits.map(v => [v.id, false])),
   })
 }
 function removeEditGroup(i: number) {
@@ -463,15 +459,15 @@ function removeEditGroup(i: number) {
 }
 
 function addEditVisit() {
-  const visit: CollectionVisit = { id: newVisitId(), label: '', description: '' }
+  const visit: CollectionVisit = { id: newVisitId(), event: '' }
   editForm.visits.push(visit)
-  editForm.collectionGroups.forEach((g) => { g.samples[visit.id] = 0 })
+  editForm.collectionGroups.forEach((g) => { g.samples[visit.id] = false })
 }
 function removeEditVisit(i: number) {
   const visit = editForm.visits[i]
   if (!visit) return
-  const hasData = editForm.collectionGroups.some(g => Number(g.samples?.[visit.id]) > 0)
-  if (hasData && !confirm(`Remove "${visit.label || 'this visit'}"? This will discard the sample counts already entered for it across every cohort.`)) return
+  const hasData = editForm.collectionGroups.some(g => g.samples?.[visit.id])
+  if (hasData && !confirm(`Remove "${visitLabel(visit, i)}"? This will discard the sample collection marked for it across every cohort.`)) return
   editForm.visits.splice(i, 1)
   editForm.collectionGroups.forEach((g) => {
     const { [visit.id]: _removed, ...rest } = g.samples
@@ -495,16 +491,8 @@ function removeEditPerson(i: number) {
 }
 
 // Cohort scope is derived from the edited matrix, not entered by hand.
-const editMatrixSubjects = computed(() =>
-  editForm.collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0),
-)
-const editMatrixTotal = computed(() =>
-  editForm.collectionGroups.reduce(
-    (s, g) => s + (Number(g.subjects) || 0)
-      * editForm.visits.reduce((a, v) => a + (Number(g.samples?.[v.id]) || 0), 0),
-    0,
-  ),
-)
+const editMatrixSubjects = computed(() => matrixSubjectsTotal(editForm.collectionGroups))
+const editMatrixTotal = computed(() => computeMatrixGrandTotal(editForm.collectionGroups, editForm.visits))
 const availableToAdd = computed(() =>
   servicesStore.activeServices.filter(
     svc => !editForm.servicesDetail.some(l => l.name === svc.name),
@@ -915,9 +903,9 @@ async function saveEdit() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="v in visits" :key="v.id">
-                    <td>{{ v.label || '—' }}</td>
-                    <td>{{ v.description || '—' }}</td>
+                  <tr v-for="(v, i) in visits" :key="v.id">
+                    <td>{{ visitLabel(v, i) }}</td>
+                    <td>{{ visitDescription(v) || '—' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -932,24 +920,26 @@ async function saveEdit() {
                   <tr>
                     <th>Cohort</th>
                     <th>Subs</th>
-                    <th v-for="v in visits" :key="v.id">{{ v.label }}</th>
+                    <th v-for="(v, i) in visits" :key="v.id">
+                      <span :title="visitDescription(v) || undefined">{{ visitLabel(v, i) }}</span>
+                    </th>
                     <th>Samples</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(g, i) in collectionGroups" :key="i">
-                    <td>{{ g.name || '—' }}<template v-if="g.description"> — {{ g.description }}</template></td>
+                    <td><span :title="g.description || undefined">{{ cohortLabel(g, i) }}</span></td>
                     <td class="mono">{{ g.subjects }}</td>
-                    <td v-for="v in visits" :key="v.id" class="mono">{{ g.samples?.[v.id] || 0 }}</td>
+                    <td v-for="v in visits" :key="v.id" class="mono">{{ g.samples?.[v.id] ? '✓' : '—' }}</td>
                     <td class="mono">{{ groupTotal(g, visits).toLocaleString() }}</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr>
                     <td>Total</td>
-                    <td class="mono">{{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0), 0).toLocaleString() }}</td>
+                    <td class="mono">{{ matrixSubjectsTotal(collectionGroups).toLocaleString() }}</td>
                     <td v-for="v in visits" :key="v.id" class="mono">
-                      {{ collectionGroups.reduce((s, g) => s + (Number(g.subjects) || 0) * (Number(g.samples?.[v.id]) || 0), 0).toLocaleString() }}
+                      {{ collectionGroups.reduce((s, g) => s + (g.samples?.[v.id] ? (Number(g.subjects) || 0) : 0), 0).toLocaleString() }}
                     </td>
                     <td class="mono">{{ matrixGrandTotal.toLocaleString() }}</td>
                   </tr>
@@ -1112,57 +1102,76 @@ async function saveEdit() {
           </div>
         </div>
 
-        <!-- Defining Groups -->
+        <!-- Defining Cohorts -->
         <div class="em-section">
-          <div class="em-section-title">Defining Groups</div>
-          <div class="em-section-hint">The cohorts/groups being studied — these drive the rows in the cohort sample matrix below</div>
+          <div class="em-section-title">Defining Cohorts</div>
+          <div class="em-section-hint">The cohorts being studied — auto-labeled Cohort A, B, C… — these drive the rows in the cohort sample matrix below</div>
           <div style="overflow-x:auto;">
             <table class="em-matrix">
               <thead>
                 <tr>
-                  <th style="text-align:left;">Group</th>
+                  <th style="text-align:left;">Cohort</th>
                   <th style="text-align:left;">Description</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
-                  <td><input v-model="g.name" type="text" placeholder="Cohort name"></td>
+                  <td style="text-align:left; white-space:nowrap;">{{ cohortLabel(g, i) }}</td>
                   <td><input v-model="g.description" type="text" placeholder="e.g. MS patients receiving anti-CD20"></td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>
                 </tr>
                 <tr v-if="!editForm.collectionGroups.length">
-                  <td colspan="3" class="em-srv-empty">No groups defined yet.</td>
+                  <td colspan="3" class="em-srv-empty">No cohorts defined yet.</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <div class="em-matrix-foot">
-            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add another group</button>
+            <button class="btn btn-ghost btn-sm" type="button" @click="addEditGroup">+ Add another cohort</button>
           </div>
         </div>
 
         <!-- Defining Visits -->
         <div class="em-section">
           <div class="em-section-title">Defining Visits</div>
-          <div class="em-section-hint">The timepoints/visits at which samples are collected — these drive the columns in the cohort sample matrix below</div>
+          <div class="em-section-hint">The timepoints/visits at which samples are collected — these drive the columns in the cohort sample matrix below. e.g. "Visit 1: 2 days after vaccine is given".</div>
           <div style="overflow-x:auto;">
             <table class="em-matrix">
               <thead>
                 <tr>
                   <th style="text-align:left;">Visit</th>
-                  <th style="text-align:left;">Description</th>
+                  <th>#</th>
+                  <th>Unit</th>
+                  <th>Timing</th>
+                  <th style="text-align:left;">Event</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(v, i) in editForm.visits" :key="v.id">
-                  <td><input v-model="v.label" type="text" placeholder="e.g. V1"></td>
-                  <td><input v-model="v.description" type="text" placeholder="e.g. before treatment"></td>
+                  <td style="text-align:left; white-space:nowrap;">
+                    {{ visitLabel(v, i) }}
+                    <div v-if="v.description && !(v.amount && v.unit && v.timing && v.event)" class="em-hint">{{ v.description }}</div>
+                  </td>
+                  <td><input v-model.number="v.amount" type="number" min="0" style="width:60px;"></td>
+                  <td>
+                    <select v-model="v.unit" :class="{ 'select-placeholder': !v.unit }">
+                      <option :value="undefined" disabled hidden>Unit</option>
+                      <option v-for="opt in VISIT_UNIT_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select v-model="v.timing" :class="{ 'select-placeholder': !v.timing }">
+                      <option :value="undefined" disabled hidden>Before/after</option>
+                      <option v-for="opt in VISIT_TIMING_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                    </select>
+                  </td>
+                  <td><input v-model="v.event" type="text" placeholder="e.g. vaccine is given"></td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditVisit(i)">✕</button></td>
                 </tr>
                 <tr v-if="!editForm.visits.length">
-                  <td colspan="3" class="em-srv-empty">No visits defined yet.</td>
+                  <td colspan="6" class="em-srv-empty">No visits defined yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -1176,32 +1185,29 @@ async function saveEdit() {
         <div class="em-section">
           <div class="em-section-title">Cohort sample matrix</div>
           <div class="em-section-hint">
-            One row per cohort. Enter the number of <strong>subjects</strong>, then the samples collected
-            <strong>per subject at each visit</strong> (leave a visit at 0 if that cohort isn't sampled then).
-            Row samples = subjects × the per-visit numbers added up.
+            One row per cohort. Enter the number of <strong>subjects</strong>, then check off which visits
+            that cohort has a <strong>sample collected</strong> at.
+            Row samples = subjects × the number of visits checked.
           </div>
           <div style="overflow-x:auto;">
             <table class="em-matrix">
               <thead>
                 <tr>
-                  <th rowspan="2" style="text-align:left;">Cohort / Group</th>
-                  <th rowspan="2">Subjects</th>
-                  <th v-if="editForm.visits.length" :colspan="editForm.visits.length" class="em-matrix-grouphdr">
-                    Samples per subject, by visit
+                  <th style="text-align:left;">Cohort</th>
+                  <th>Subjects</th>
+                  <th v-for="(v, vi) in editForm.visits" :key="v.id">
+                    <span :title="visitDescription(v) || undefined">{{ visitLabel(v, vi) }}</span>
                   </th>
-                  <th rowspan="2">Row samples</th>
-                  <th rowspan="2" />
-                </tr>
-                <tr v-if="editForm.visits.length">
-                  <th v-for="v in editForm.visits" :key="v.id">{{ v.label || '—' }}</th>
+                  <th>Row samples</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(g, i) in editForm.collectionGroups" :key="i">
-                  <td style="text-align:left;">{{ g.name || 'Untitled group' }}</td>
+                  <td style="text-align:left;"><span :title="g.description || undefined">{{ cohortLabel(g, i) }}</span></td>
                   <td><input v-model.number="g.subjects" type="number" min="0"></td>
                   <td v-for="v in editForm.visits" :key="v.id">
-                    <input v-model.number="g.samples[v.id]" type="number" min="0">
+                    <input v-model="g.samples[v.id]" type="checkbox">
                   </td>
                   <td class="em-matrix-rowtotal mono">{{ groupTotal(g, editForm.visits).toLocaleString() }}</td>
                   <td><button class="em-srv-remove" type="button" @click="removeEditGroup(i)">✕</button></td>

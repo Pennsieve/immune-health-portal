@@ -2,6 +2,8 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createSignToken, createStatusToken } from '~/server/utils/signing'
 import { AGREEMENTS } from '~/utils/agreements'
 import { buildAgreementFields } from '~/utils/agreementFields'
+import { matrixGrandTotal } from '~/utils/visitFields'
+import type { CollectionVisit } from '~/types/index'
 
 function parseRate(rateVal: string | number): number {
   if (typeof rateVal === 'number') return rateVal
@@ -72,20 +74,16 @@ export default defineEventHandler(async (event) => {
   // True projected sample total from the cohort matrix (sample_schedule),
   // keyed by the study-defined visit schedule (collection_visits) rather
   // than a fixed set of timepoints.
-  const visits = (inquiry.collection_visits as Array<{ id: string; label: string; description?: string }>) || []
+  const visits = (inquiry.collection_visits as CollectionVisit[]) || []
   const visitIds = visits.map(v => v.id)
-  const sampleSchedule = (inquiry.sample_schedule as Array<{ name?: string; description?: string; subjects?: number; samples?: Record<string, number> }>) || []
+  const sampleSchedule = (inquiry.sample_schedule as Array<{ name?: string; description?: string; subjects?: number; samples?: Record<string, boolean> }>) || []
   const cohortGroups = sampleSchedule.map(g => ({
     name: g.name || '',
     description: g.description || '',
     subjects: Number(g.subjects) || 0,
-    samples: Object.fromEntries(visitIds.map(id => [id, Number(g.samples?.[id]) || 0])),
+    samples: Object.fromEntries(visitIds.map(id => [id, Boolean(g.samples?.[id])])),
   }))
-  const matrixTotal = cohortGroups.reduce(
-    (sum, g) => sum + g.subjects * Object.values(g.samples).reduce((a, b) => a + b, 0),
-    0,
-  )
-  const totalSamples = matrixTotal
+  const totalSamples = matrixGrandTotal(cohortGroups, visits)
 
   const cohort = {
     subjects: inquiry.cohort_subjects,
