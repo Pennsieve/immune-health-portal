@@ -370,7 +370,7 @@ export const useAdminStore = defineStore('admin', {
     async updateProcessedSamples(studyId: string, processedSamples: number) {
       const result = await $fetch<{ success: boolean; cohort: Study['cohort']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
         method: 'POST',
-        body: { studyId, processedSamples, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        body: { studyId, processedSamples, author: this.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
@@ -382,7 +382,7 @@ export const useAdminStore = defineStore('admin', {
     async updateStudyStage(studyId: string, stage: 'Processing' | 'Complete') {
       const result = await $fetch<{ success: boolean; stage: StudyStage; lifecycle: Study['lifecycle']; activityItem: ActivityItem }>('/api/admin/update-study-stage', {
         method: 'POST',
-        body: { studyId, stage, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        body: { studyId, stage, author: this.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
@@ -406,10 +406,10 @@ export const useAdminStore = defineStore('admin', {
       budget: Study['budget']
       intakeDetails?: Record<string, unknown>
       keyPersonnel?: Array<{ name: string; email: string; role: string }>
-    }, changeNote?: string, cc?: CcCandidate[]) {
+    }, changeNote?: string, cc?: CcCandidate[], notifyPi = true) {
       const result = await $fetch<{ success: boolean; activityItem: ActivityItem; lifecycle: Study['lifecycle']; notified: boolean }>('/api/admin/update-study', {
         method: 'POST',
-        body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, cc, ...fields },
+        body: { studyId, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, changeNote, cc, notifyPi, author: this.user.name, ...fields },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {

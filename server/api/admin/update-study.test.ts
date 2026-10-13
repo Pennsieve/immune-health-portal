@@ -113,6 +113,19 @@ describe('update-study — PI change notification', () => {
     expect(payload).toMatchObject({ studyId: 'ima-abcd', piEmail: 'lee@example.com', ver: 3 })
   })
 
+  it('attaches the acting admin as the activity item\'s author when provided', async () => {
+    const { result } = run(studyRow(), body({ irb: '2026-003', author: 'Jane Admin' }))
+    const res = await result as { activityItem: { title: string; author?: string } }
+    expect(res.activityItem.title).toBe('Study record updated')
+    expect(res.activityItem.author).toBe('Jane Admin')
+  })
+
+  it('omits author from the activity item when none is provided', async () => {
+    const { result } = run(studyRow(), body({ irb: '2026-003' }))
+    const res = await result as { activityItem: { author?: string } }
+    expect(res.activityItem.author).toBeUndefined()
+  })
+
   it('does not email when no PI-facing value changed', async () => {
     const { result } = run(studyRow(), body({ stage: 'Processing' }))
     const res = await result as { notified: boolean }
@@ -162,6 +175,14 @@ describe('update-study — PI change notification', () => {
     await result
     const cc = (sendEmailMock.mock.calls[0][0] as { cc: Array<{ email: string; name?: string }> }).cc
     expect(cc).toEqual([{ email: 'personnel@example.com', name: 'Sam Personnel' }])
+  })
+
+  it('skips notifying anyone when notifyPi is false, even with PI-facing changes', async () => {
+    const { result } = run(studyRow(), body({ irb: '2026-999', notifyPi: false }))
+    const res = await result as { success: boolean; notified: boolean }
+    expect(res.success).toBe(true)
+    expect(res.notified).toBe(false)
+    expect(sendEmailMock).not.toHaveBeenCalled()
   })
 
   it('does not fail the update when the notification email throws', async () => {

@@ -4,7 +4,7 @@ import { diffStudyDetails, type StudyChange, type StudyDetailSnapshot } from '~/
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, additionalNotes, cohort, budget, intakeDetails, keyPersonnel, changeNote, cc } = await readBody(event)
+  const { studyId, timezone, name, abbreviation, pi, studyLead, affiliation, affiliationOrg, irb, stage, additionalNotes, cohort, budget, intakeDetails, keyPersonnel, changeNote, cc, notifyPi, author } = await readBody(event)
 
   if (!studyId || !name?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing studyId or name' })
@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
     date: dateStr,
     ts: Date.now(),
     ...(changeNote ? { note: changeNote } : {}),
+    ...(author ? { author } : {}),
   }
 
   const updatedActivity = [newItem, ...((study.activity as unknown[]) || [])]
@@ -100,7 +101,10 @@ export default defineEventHandler(async (event) => {
   // status page. A failure here must not fail the (already committed) update.
   let notified = false
   const piEmail = ((pi as { email?: string } | null)?.email || '').trim()
-  if (piEmail) {
+  // notifyPi lets the admin opt out of notifying anyone for this save
+  // (defaults to true so older callers/tests that don't pass it keep the
+  // original always-notify behavior).
+  if (piEmail && notifyPi !== false) {
     const before: StudyDetailSnapshot = {
       name: study.name as string,
       abbreviation: study.abbreviation as string,

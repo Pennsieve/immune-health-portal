@@ -3,7 +3,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 const VALID_STAGES = ['Processing', 'Complete']
 
 export default defineEventHandler(async (event) => {
-  const { studyId, stage, timezone } = await readBody(event)
+  const { studyId, stage, timezone, author } = await readBody(event)
 
   if (!studyId || !VALID_STAGES.includes(stage)) {
     throw createError({ statusCode: 400, statusMessage: 'Missing or invalid fields' })
@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
     title: stage === 'Complete' ? 'Study marked Complete' : 'Study reopened — back to Processing',
     date: dateStr,
     ts: Date.now(),
+    ...(author ? { author } : {}),
   }
   const updatedActivity = [activityItem, ...((study.activity as unknown[]) || [])]
 

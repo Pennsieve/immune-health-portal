@@ -548,6 +548,11 @@ function editChangeNote(): string | undefined {
 // before the write.
 const saveConfirmOpen = ref(false)
 const pendingChanges = ref<StudyChange[]>([])
+// Lets the admin save without notifying anyone — unlike every other
+// email-sending modal on this page, the PI themselves is an optional
+// recipient here, not a fixed one, since a save is sometimes just an
+// internal correction with nothing worth emailing the PI about.
+const notifyPi = ref(true)
 
 // Who this gets emailed to is now decided by the CC checklist below, so this
 // only names the primary (To:) recipient.
@@ -592,6 +597,7 @@ function promptSave() {
   if (!study.value || !editForm.name.trim() || !hasChanges.value) return
   pendingChanges.value = previewStudyChanges()
   pendingCcEmails.value = editFormCcCandidates().map(r => r.email)
+  notifyPi.value = true
   saveConfirmOpen.value = true
 }
 
@@ -604,10 +610,11 @@ async function saveEdit() {
   isSaving.value = true
   try {
     const changeCount = pendingChanges.value.length
-    const cc = changeCount > 0
+    const willNotify = changeCount > 0 && notifyPi.value
+    const cc = willNotify
       ? editFormCcCandidates().filter(r => pendingCcEmails.value.includes(r.email))
       : undefined
-    const { notified } = await adminStore.updateStudy(study.value.id, editedStudyFields(), editChangeNote(), cc)
+    const { notified } = await adminStore.updateStudy(study.value.id, editedStudyFields(), editChangeNote(), cc, notifyPi.value)
     saveConfirmOpen.value = false
     editOpen.value = false
     showToast(
@@ -967,7 +974,7 @@ const affiliationClass = computed(() => {
             <div class="t-dot" :class="item.dotClass" />
             <div class="t-body">
               <div class="t-title">{{ item.title }}</div>
-              <div class="t-meta">{{ item.date }}</div>
+              <div class="t-meta">{{ [item.author, item.date].filter(Boolean).join(' · ') }}</div>
             </div>
           </div>
         </div>
@@ -1163,7 +1170,7 @@ const affiliationClass = computed(() => {
             <div class="t-dot" :class="item.dotClass" />
             <div class="t-body">
               <div class="t-title">{{ item.title }}</div>
-              <div class="t-meta">{{ item.date }}</div>
+              <div class="t-meta">{{ [item.author, item.date].filter(Boolean).join(' · ') }}</div>
               <div v-if="item.note" class="t-note">{{ item.note }}</div>
             </div>
           </div>
@@ -1675,14 +1682,12 @@ const affiliationClass = computed(() => {
   <div v-if="saveConfirmOpen" class="clerk-overlay" @click.self="saveConfirmOpen = false">
     <div class="edit-modal edit-modal-cc">
       <div class="em-head">
-        <h3>Save changes &amp; notify the PI?</h3>
+        <h3>Save changes?</h3>
       </div>
       <div class="em-body">
         <template v-if="pendingChanges.length">
           <p style="margin:0 0 0.75rem; font-size:0.88rem;">
-            {{ notifyRecipients }} will be emailed that the following
-            {{ pendingChanges.length === 1 ? 'value has' : 'values have' }} changed,
-            with a link to the study status page:
+            The following {{ pendingChanges.length === 1 ? 'value has' : 'values have' }} changed:
           </p>
           <ul class="save-confirm-list">
             <li v-for="c in pendingChanges" :key="c.label">
@@ -1690,7 +1695,19 @@ const affiliationClass = computed(() => {
               <span class="scl-detail">{{ changeText(c) }}</span>
             </li>
           </ul>
-          <AdminCcSelector v-model="pendingCcEmails" :lead="editForm.studyLeadName.trim() ? { name: editForm.studyLeadName, email: editForm.studyLeadEmail } : null" :key-personnel="editForm.keyPersonnel" />
+          <div class="cc-list">
+            <p class="cc-label">Select who to notify, or uncheck everyone to save without emailing anyone:</p>
+            <label class="cc-row">
+              <input v-model="notifyPi" type="checkbox">
+              <span class="cc-name">{{ notifyRecipients }}</span>
+              <span class="cc-role">PI</span>
+              <span class="cc-email">{{ editForm.piEmail }}</span>
+            </label>
+          </div>
+          <AdminCcSelector v-if="notifyPi" v-model="pendingCcEmails" :lead="editForm.studyLeadName.trim() ? { name: editForm.studyLeadName, email: editForm.studyLeadEmail } : null" :key-personnel="editForm.keyPersonnel" />
+          <p v-else style="margin:0.6rem 0 0; font-size:0.82rem; color:var(--muted);">
+            No one will be emailed — the change will still be saved.
+          </p>
         </template>
         <p v-else style="margin:0; font-size:0.88rem;">
           No PI-facing values changed, so no notification email will be sent. Save anyway?
@@ -1699,7 +1716,7 @@ const affiliationClass = computed(() => {
       <div class="em-foot">
         <button class="btn btn-ghost btn-sm" :disabled="isSaving" @click="saveConfirmOpen = false">Go back</button>
         <button class="btn btn-primary btn-sm" :disabled="isSaving" @click="saveEdit">
-          {{ isSaving ? 'Saving…' : (pendingChanges.length ? 'Save & send email' : 'Save') }}
+          {{ isSaving ? 'Saving…' : (pendingChanges.length && notifyPi ? 'Save & send email' : 'Save') }}
         </button>
       </div>
     </div>
