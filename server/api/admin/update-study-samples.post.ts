@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  const { studyId, processedSamples, timezone } = await readBody(event)
+  const { studyId, processedSamples, timezone, author } = await readBody(event)
 
   if (!studyId || typeof processedSamples !== 'number' || isNaN(processedSamples) || processedSamples < 0) {
     throw createError({ statusCode: 400, statusMessage: 'Missing or invalid fields' })
@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
     title: `Processed samples updated — ${clamped} / ${cohort.totalSamples}`,
     date: dateStr,
     ts: Date.now(),
+    ...(author ? { author } : {}),
   }
 
   const updatedActivity = [activityItem, ...((study.activity as unknown[]) || [])]
