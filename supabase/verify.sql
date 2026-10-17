@@ -24,7 +24,7 @@ expected_cols(tbl, col) as (
     ('inquiries','notes'),('inquiries','feasibility'),('inquiries','intake_details'),
     ('inquiries','sample_schedule'),('inquiries','collection_visits'),('inquiries','lead_details'),
     ('inquiries','key_personnel'),('inquiries','intake_sent_date'),('inquiries','lead_decision'),
-    ('inquiries','hold_until'),('inquiries','activity'),
+    ('inquiries','hold_until'),('inquiries','activity'),('inquiries','is_seed'),
     ('inquiries','created_at'),('inquiries','updated_at'),
     -- studies
     ('studies','id'),('studies','name'),('studies','abbreviation'),('studies','pi'),
@@ -36,6 +36,7 @@ expected_cols(tbl, col) as (
     ('studies','activity'),('studies','status_token_version'),
     ('studies','sample_details'),('studies','sample_details_sent_date'),
     ('studies','intake_details'),('studies','additional_notes'),('studies','key_personnel'),
+    ('studies','is_seed'),
     ('studies','created_at'),('studies','updated_at'),
     -- agreements
     ('agreements','id'),('agreements','study_id'),('agreements','name'),

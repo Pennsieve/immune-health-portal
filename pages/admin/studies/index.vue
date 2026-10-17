@@ -242,7 +242,10 @@ function exportSelectedCsv() {
               >
             </td>
             <td>
-              <div class="study-name">{{ study.name }}</div>
+              <div class="study-name">
+                {{ study.name }}
+                <span v-if="study.isSeed" class="adm-badge b-seed" title="Demo data from the seed script">Seed</span>
+              </div>
               <div class="study-pi">{{ study.abbreviation }} · IRB {{ study.irb }}</div>
             </td>
             <td>

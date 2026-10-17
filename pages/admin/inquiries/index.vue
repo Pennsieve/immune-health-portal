@@ -173,7 +173,10 @@ const displayedInquiries = computed(() => {
               </div>
             </td>
             <td>
-              <div class="study-name">{{ rowTitle(inquiry) }}</div>
+              <div class="study-name">
+                {{ rowTitle(inquiry) }}
+                <span v-if="inquiry.isSeed" class="adm-badge b-seed" title="Demo data from the seed script">Seed</span>
+              </div>
               <div class="study-pi">{{ rowSubtitle(inquiry) }}</div>
             </td>
             <td>

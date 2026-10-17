@@ -40,3 +40,6 @@ logs
 
 # Claude
 .claude
+
+# Generated import SQL — contains real PI/contact names and emails
+scripts/output/

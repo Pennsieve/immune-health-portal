@@ -684,6 +684,7 @@ async function saveEdit() {
           <span v-else class="adm-badge b-review">
             <span class="dot" /> In review
           </span>
+          <span v-if="inquiry.isSeed" class="adm-badge b-seed" title="Demo data from the seed script">Seed</span>
         </h2>
         <div class="pi-line">
           <strong>{{ inquiry.pi.name }}</strong> · {{ inquiry.affiliationOrg }} ·

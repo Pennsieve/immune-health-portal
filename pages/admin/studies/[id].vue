@@ -717,6 +717,7 @@ const affiliationClass = computed(() => {
           <span class="adm-badge" :class="stageClass">
             <span class="dot" /> {{ study.stage }}
           </span>
+          <span v-if="study.isSeed" class="adm-badge b-seed" title="Demo data from the seed script">Seed</span>
         </h2>
         <div class="pi-line">
           <strong>{{ study.pi.name }}</strong> · {{ study.affiliationOrg }} ·

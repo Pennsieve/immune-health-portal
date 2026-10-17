@@ -280,3 +280,9 @@ insert into agreements (study_id, id, name, description, status, signed_by, sign
 ('immune-stanford','ua','User Agreement','Master scope of work','Signed','Anjali Patel','Mar 14, 2025','patel@stanford.edu',null,null),
 -- NOVA-BioGen (signed)
 ('nova-biogen','ua','User Agreement','Master scope of work','Signed','Elena Martinez','Jan 05, 2026','martinez@biogen.com',null,null);
+
+-- Flag every row this script just inserted as demo/seed data, so it can be
+-- told apart from real inquiries/studies (e.g. once legacy studies are
+-- backfilled) and cleared out before go-live.
+update inquiries set is_seed = true;
+update studies set is_seed = true;
