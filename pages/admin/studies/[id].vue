@@ -495,14 +495,14 @@ async function confirmDelete() {
 function openEdit() {
   if (!study.value) return
   editForm.name = study.value.name
-  editForm.abbreviation = study.value.abbreviation
+  editForm.abbreviation = study.value.abbreviation ?? ''
   editForm.piName = study.value.pi.name
   editForm.piEmail = study.value.pi.email
   editForm.studyLeadName = study.value.studyLead?.name ?? ''
   editForm.studyLeadEmail = study.value.studyLead?.email ?? ''
   editForm.affiliation = study.value.affiliation
-  editForm.affiliationOrg = study.value.affiliationOrg
-  editForm.irb = study.value.irb
+  editForm.affiliationOrg = study.value.affiliationOrg ?? ''
+  editForm.irb = study.value.irb ?? ''
   editForm.stage = study.value.stage
   editForm.accountCode = study.value.budget.accountCode ?? ''
   editForm.fundingName = study.value.budget.fundingName ?? ''
