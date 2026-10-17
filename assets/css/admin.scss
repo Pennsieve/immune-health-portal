@@ -2637,6 +2637,28 @@ table.budget-table {
   }
 }
 
+/* Cohort progress matrix (studies/[id] "Cohort" tab) — same shape as
+   .sched-table's read-only cohort sample matrix, but wider to fit a numeric
+   input per cell while editing actual-processed counts. */
+.prog-matrix {
+  max-width: none;
+
+  // Fixed so a cell's width doesn't change between its read-only "4 / 10"
+  // text and its editing "[input] / 10" form — otherwise toggling Update
+  // resizes the whole table.
+  td.prog-cell {
+    min-width: 72px;
+    white-space: nowrap;
+  }
+
+  td input[type="number"] {
+    width: 46px;
+    text-align: center;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.8rem;
+  }
+}
+
 /* =========================================================
    Reports / QC page
    ========================================================= */

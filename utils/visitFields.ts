@@ -93,3 +93,29 @@ export function matrixGrandTotal(groups: CollectionGroup[], visits: CollectionVi
 export function matrixSubjectsTotal(groups: CollectionGroup[]): number {
   return groups.reduce((sum, g) => sum + (Number(g.subjects) || 0), 0)
 }
+
+// ── Actual samples processed, per cohort/visit cell ──────────────────────
+// Kept as its own `cohort.sampleProgress` map (groupIndex -> visitId -> count)
+// rather than a field on CollectionGroup so that re-saving the cohort design
+// via the edit-study form (which rebuilds `groups` from scratch via
+// normalizeGroups) doesn't wipe out recorded progress.
+export type SampleProgress = Record<string, Record<string, number>>
+
+// How many samples are expected for a given cohort/visit cell — the ceiling
+// a recorded "actual" count is clamped to. Zero (and no input) when that
+// visit isn't checked off for the cohort in the sample matrix.
+export function expectedCellCount(group: CollectionGroup, visitId: string): number {
+  return isVisitCollected(group, visitId) ? (Number(group.subjects) || 0) : 0
+}
+
+export function getProcessedCount(progress: SampleProgress | undefined, groupIndex: number, visitId: string): number {
+  return Number(progress?.[String(groupIndex)]?.[visitId]) || 0
+}
+
+export function groupProcessedTotal(progress: SampleProgress | undefined, groupIndex: number, visits: CollectionVisit[]): number {
+  return visits.reduce((sum, v) => sum + getProcessedCount(progress, groupIndex, v.id), 0)
+}
+
+export function matrixProcessedGrandTotal(progress: SampleProgress | undefined, groups: CollectionGroup[], visits: CollectionVisit[]): number {
+  return groups.reduce((sum, _g, i) => sum + groupProcessedTotal(progress, i, visits), 0)
+}

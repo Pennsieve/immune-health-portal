@@ -23,6 +23,11 @@ import {
   groupTotal,
   matrixGrandTotal as computeMatrixGrandTotal,
   matrixSubjectsTotal,
+  expectedCellCount,
+  getProcessedCount,
+  groupProcessedTotal,
+  matrixProcessedGrandTotal,
+  type SampleProgress,
 } from '~/utils/visitFields'
 
 definePageMeta({ layout: 'admin' })
@@ -205,20 +210,34 @@ async function saveSampleDetailsEdit() {
 }
 
 const editingSamples = ref(false)
-const samplesInput = ref(0)
+const samplesProgressInput = ref<SampleProgress>({})
 const isSavingSamples = ref(false)
 
+// Processed-samples total for the read-only (non-editing) summary — derived
+// from the saved matrix, not a separately-stored field.
+const processedGrandTotal = computed(() =>
+  matrixProcessedGrandTotal(study.value?.cohort.sampleProgress, cohortGroups.value, visits.value))
+
 function startEditSamples() {
-  samplesInput.value = study.value?.cohort.processedSamples ?? 0
+  if (!study.value) return
+  const progress = study.value.cohort.sampleProgress
+  const next: SampleProgress = {}
+  cohortGroups.value.forEach((g, i) => {
+    const row: Record<string, number> = {}
+    visits.value.forEach((v) => {
+      if (expectedCellCount(g, v.id) > 0) row[v.id] = getProcessedCount(progress, i, v.id)
+    })
+    next[String(i)] = row
+  })
+  samplesProgressInput.value = next
   editingSamples.value = true
 }
 
 async function saveSamples() {
   if (!study.value) return
-  const val = Math.max(0, Math.min(Number(samplesInput.value) || 0, study.value.cohort.totalSamples))
   isSavingSamples.value = true
   try {
-    await adminStore.updateProcessedSamples(study.value.id, val)
+    await adminStore.updateSampleProgress(study.value.id, samplesProgressInput.value)
     editingSamples.value = false
   }
   catch {
@@ -227,6 +246,21 @@ async function saveSamples() {
   finally {
     isSavingSamples.value = false
   }
+}
+
+// Live totals while editing — read straight from the in-progress input
+// matrix rather than the saved `cohort.sampleProgress`.
+function editingRowProcessed(groupIndex: number): number {
+  return Object.values(samplesProgressInput.value[String(groupIndex)] || {}).reduce((s, n) => s + (Number(n) || 0), 0)
+}
+function editingVisitProcessed(visitId: string): number {
+  return cohortGroups.value.reduce((s, _g, i) => s + (Number(samplesProgressInput.value[String(i)]?.[visitId]) || 0), 0)
+}
+const editingGrandTotal = computed(() =>
+  cohortGroups.value.reduce((s, _g, i) => s + editingRowProcessed(i), 0))
+function savedVisitProcessed(visitId: string): number {
+  const progress = study.value?.cohort.sampleProgress
+  return cohortGroups.value.reduce((s, _g, i) => s + getProcessedCount(progress, i, visitId), 0)
 }
 
 const isSavingStage = ref(false)
@@ -552,7 +586,7 @@ const pendingChanges = ref<StudyChange[]>([])
 // email-sending modal on this page, the PI themselves is an optional
 // recipient here, not a fixed one, since a save is sometimes just an
 // internal correction with nothing worth emailing the PI about.
-const notifyPi = ref(true)
+const notifyPi = ref(false)
 
 // Who this gets emailed to is now decided by the CC checklist below, so this
 // only names the primary (To:) recipient.
@@ -597,7 +631,7 @@ function promptSave() {
   if (!study.value || !editForm.name.trim() || !hasChanges.value) return
   pendingChanges.value = previewStudyChanges()
   pendingCcEmails.value = editFormCcCandidates().map(r => r.email)
-  notifyPi.value = true
+  notifyPi.value = false
   saveConfirmOpen.value = true
 }
 
@@ -1084,40 +1118,73 @@ const affiliationClass = computed(() => {
         <div class="panel">
           <div class="panel-head">
             <h3>Cohort progress</h3>
-            <span class="ctx">{{ study.cohort.processedSamples }} / {{ study.cohort.totalSamples }} samples processed</span>
+            <span class="ctx">{{ editingSamples ? editingGrandTotal : processedGrandTotal }} / {{ study.cohort.totalSamples }} samples processed</span>
           </div>
-          <div class="study-info-grid" style="padding:1.2rem 1.4rem;">
-            <div class="info-lbl">Subjects</div>
-            <div>{{ study.cohort.subjects }}</div>
-            <div class="info-lbl">Cohorts</div>
-            <div>{{ cohortGroups.length }}</div>
-            <div class="info-lbl">Total samples</div>
-            <div>{{ study.cohort.totalSamples }}</div>
-            <div class="info-lbl">Processed</div>
-            <div>
-              <div v-if="!editingSamples" style="display:flex; align-items:center; gap:0.8rem;">
-                <span class="mono" style="font-size:1rem; font-weight:500;">{{ study.cohort.processedSamples }}</span>
-                <div class="prog-bar" style="width:160px; flex-shrink:0;">
-                  <div :style="{ width: (study.cohort.processedSamples / study.cohort.totalSamples * 100) + '%' }" />
-                </div>
-                <button class="btn btn-ghost btn-sm" @click="startEditSamples">Edit</button>
+          <div style="padding:1.2rem 1.4rem;">
+            <div class="prog-bar" style="margin-bottom:1.1rem;">
+              <div :style="{ width: ((editingSamples ? editingGrandTotal : processedGrandTotal) / study.cohort.totalSamples * 100) + '%' }" />
+            </div>
+
+            <template v-if="cohortGroups.length">
+              <div style="overflow-x:auto;">
+                <table class="sched-table prog-matrix">
+                  <thead>
+                    <tr>
+                      <th>Cohort</th>
+                      <th>Subs</th>
+                      <th v-for="(v, i) in visits" :key="v.id">
+                        <span :title="visitDescription(v) || undefined">{{ visitLabel(v, i) }}</span>
+                      </th>
+                      <th>Processed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(g, i) in cohortGroups" :key="i">
+                      <td><span :title="g.description || undefined">{{ cohortLabel(g, i) }}</span></td>
+                      <td class="mono">{{ g.subjects }}</td>
+                      <td v-for="v in visits" :key="v.id" class="mono prog-cell">
+                        <template v-if="expectedCellCount(g, v.id) > 0">
+                          <template v-if="editingSamples">
+                            <input
+                              v-model.number="samplesProgressInput[String(i)][v.id]"
+                              type="number"
+                              min="0"
+                              :max="expectedCellCount(g, v.id)"
+                            > / {{ expectedCellCount(g, v.id) }}
+                          </template>
+                          <template v-else>{{ getProcessedCount(study.cohort.sampleProgress, i, v.id) }} / {{ expectedCellCount(g, v.id) }}</template>
+                        </template>
+                        <template v-else>—</template>
+                      </td>
+                      <td class="mono prog-cell">
+                        {{ editingSamples ? editingRowProcessed(i) : groupProcessedTotal(study.cohort.sampleProgress, i, visits) }}
+                        / {{ groupTotal(g, visits) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td class="mono">{{ matrixSubjectsTotal(cohortGroups) }}</td>
+                      <td v-for="v in visits" :key="v.id" class="mono prog-cell">
+                        {{ editingSamples ? editingVisitProcessed(v.id) : savedVisitProcessed(v.id) }}
+                      </td>
+                      <td class="mono prog-cell">{{ editingSamples ? editingGrandTotal : processedGrandTotal }} / {{ study.cohort.totalSamples }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-              <div v-else style="display:flex; align-items:center; gap:0.6rem;">
-                <input
-                  v-model.number="samplesInput"
-                  type="number"
-                  min="0"
-                  :max="study.cohort.totalSamples"
-                  style="width:90px;"
-                  @keydown.enter="saveSamples"
-                  @keydown.escape="editingSamples = false"
-                >
-                <span style="font-size:0.82rem; color:var(--muted)">of {{ study.cohort.totalSamples }}</span>
+            </template>
+            <p v-else style="color:var(--muted); font-size:0.85rem;">No cohort groups defined yet.</p>
+
+            <div style="margin-top:1rem; display:flex; gap:0.6rem;">
+              <button v-if="!editingSamples" class="btn btn-secondary btn-sm" :disabled="!cohortGroups.length" @click="startEditSamples">Update ✎</button>
+              <template v-else>
                 <button class="btn btn-primary btn-sm" :disabled="isSavingSamples" @click="saveSamples">
                   {{ isSavingSamples ? 'Saving…' : 'Save' }}
                 </button>
                 <button class="btn btn-ghost btn-sm" :disabled="isSavingSamples" @click="editingSamples = false">Cancel</button>
-              </div>
+              </template>
             </div>
           </div>
         </div>
