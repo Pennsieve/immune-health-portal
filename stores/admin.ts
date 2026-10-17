@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { AGREEMENT_IDS } from '~/utils/agreements'
 import type { CollectionVisit, CollectionGroup } from '~/types/index'
+import type { SampleProgress } from '~/utils/visitFields'
 import type { SampleDetailsAnswers } from '~/utils/sampleDetailsFields'
 import type { CcCandidate } from '~/utils/emailRecipients'
 
@@ -91,6 +92,7 @@ export interface Study {
     processedSamples: number
     groups?: CollectionGroup[]
     visits?: CollectionVisit[]
+    sampleProgress?: SampleProgress
   }
   budget: {
     accountCode?: string | null
@@ -367,10 +369,10 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    async updateProcessedSamples(studyId: string, processedSamples: number) {
+    async updateSampleProgress(studyId: string, sampleProgress: SampleProgress) {
       const result = await $fetch<{ success: boolean; cohort: Study['cohort']; activityItem: ActivityItem }>('/api/admin/update-study-samples', {
         method: 'POST',
-        body: { studyId, processedSamples, author: this.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        body: { studyId, sampleProgress, author: this.user.name, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
       })
       const study = this.studies.find(s => s.id === studyId)
       if (study) {
