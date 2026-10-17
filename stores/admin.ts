@@ -52,6 +52,7 @@ export interface Inquiry {
   notes: Array<{ author: string; date: string; text: string; ts?: number }>
   activity: ActivityItem[]
   feasibility: Array<{ label: string; checked: boolean }>
+  isSeed: boolean
 }
 
 export interface Agreement {
@@ -116,6 +117,7 @@ export interface Study {
   statusTokenVersion: number
   sampleDetails?: SampleDetailsAnswers
   sampleDetailsSentDate?: string
+  isSeed: boolean
 }
 
 export function mapInquiry(row: Record<string, unknown>): Inquiry {
@@ -153,6 +155,7 @@ export function mapInquiry(row: Record<string, unknown>): Inquiry {
     notes: (row.notes as Array<{ author: string; date: string; text: string; ts?: number }>) || [],
     activity: (row.activity as ActivityItem[]) || [],
     feasibility: (row.feasibility as Array<{ label: string; checked: boolean }>) || [],
+    isSeed: (row.is_seed as boolean) || false,
   }
 }
 
@@ -183,8 +186,8 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     isLocked: row.is_locked as boolean,
     statusTokenVersion: (row.status_token_version as number) ?? 1,
     agreements,
-    cohort: row.cohort as Study['cohort'],
-    budget: row.budget as Study['budget'],
+    cohort: (row.cohort as Study['cohort']) || { subjects: 0, totalSamples: 0, processedSamples: 0, groups: [], visits: [] },
+    budget: (row.budget as Study['budget']) || { lines: [] },
     integrations: (row.integrations as Study['integrations']) || {},
     intakeDetails: (row.intake_details as Record<string, unknown>) || {},
     startedDate: row.started_date as string | undefined,
@@ -196,6 +199,7 @@ export function mapStudy(row: Record<string, unknown>, agreements: Agreement[]):
     updatedAt: row.updated_at as string,
     sampleDetails: (row.sample_details as SampleDetailsAnswers) || {},
     sampleDetailsSentDate: row.sample_details_sent_date as string | undefined,
+    isSeed: (row.is_seed as boolean) || false,
   }
 }
 

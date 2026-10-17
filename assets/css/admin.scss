@@ -42,6 +42,7 @@
 .b-industry   { background: rgba(108,52,131,0.10);  color: #6c3483; }
 .b-external   { background: rgba(41,128,185,0.10);  color: #1f6391; }
 .b-internal   { background: rgba(1,31,91,0.08);     color: var(--accent); }
+.b-seed       { background: transparent; color: var(--muted); border: 1px dashed rgba(127,140,141,0.5); }
 
 /* =========================================================
    Admin button overrides

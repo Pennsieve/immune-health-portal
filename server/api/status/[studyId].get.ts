@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
     affiliation: data.affiliation,
     affiliationOrg: data.affiliation_org,
     stage: data.stage,
-    cohort: data.cohort,
+    cohort: (data.cohort as Record<string, unknown>) || { subjects: 0, totalSamples: 0, processedSamples: 0, groups: [], visits: [] },
     budget: budgetSummary,
     lifecycle: normalizeLifecycle((data.lifecycle as LifecycleStep[]) || []),
     additionalNotes: data.additional_notes,

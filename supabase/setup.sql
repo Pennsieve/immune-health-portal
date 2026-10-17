@@ -43,6 +43,7 @@ create table inquiries (
   lead_decision      text,                        -- 'proceed' | 'hold' | null: go/no-go after the intro meeting
   hold_until         text,                        -- follow-up date (YYYY-MM-DD) while status = 'On Hold'
   activity           jsonb default '[]'::jsonb,   -- audit log: field edits, status changes, …
+  is_seed            boolean not null default false, -- true for rows inserted by seed.sql (demo data)
   created_at         timestamptz default now(),
   updated_at         timestamptz default now()
 );
@@ -73,6 +74,7 @@ create table studies (
   status_token_version integer not null default 1,
   sample_details   jsonb default '{}'::jsonb,          -- Sample Details Form answers (site initiation, post-activation)
   sample_details_sent_date text,                       -- when the Sample Details Form link was emailed
+  is_seed          boolean not null default false,     -- true for rows inserted by seed.sql (demo data)
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );
